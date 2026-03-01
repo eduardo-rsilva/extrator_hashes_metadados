@@ -1,0 +1,31 @@
+# Arquivos Python compilados
+__pycache__/
+*.py[cod]
+
+# Ambiente virtual
+venv/
+.env
+.venv/
+
+# Configurações do PyCharm
+.idea/
+.idea/workspace.xml
+.idea/modules.xml
+.idea/misc.xml
+.idea/vcs.xml
+.idea/inspectionProfiles/
+*.iml
+
+# Arquivos de log
+*.log
+
+extrator_hashes_metadados.build/
+extrator_hashes_metadados.dist/
+exiftool-13.51_32/
+exiftool-13.51_64/
+*.spec
+
+# Sistema operacional
+Thumbs.db
+.DS_Store
+
