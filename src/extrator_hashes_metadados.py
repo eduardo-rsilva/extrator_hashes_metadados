@@ -63,8 +63,12 @@ NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
 VERSAO_APP = "4.0.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
-LINK_GITHUB = "https://github.com/seu-usuario/seu-repositorio"
+USUARIO = "eduardo-rsilva"
+REPOSITORIO = "extrator_hashes_metadados"
+LINK_GITHUB = f"https://github.com/{USUARIO}/{REPOSITORIO}"
 # -------------------------------
+
+DEBUG_MESSAGES = False # USADO APENAS NA FASE DE DESENVOLVIMENTO
 
 # --- VALIDAÇÃO DE ARQUITETURA ---
 if sys.maxsize <= 2**32:
@@ -108,7 +112,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
                                QTabWidget, QFrame, QWidget)
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import QTimer, QEvent
+from PySide6.QtCore import QTimer, QEvent, Signal
 
 # imports para hash bit a bit
 import argparse
@@ -1062,6 +1066,8 @@ def obter_info_volume(caminho):
 
 
 class JanelaHashes(QWidget):
+    sinal_atualizacao = Signal(str, str)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{NOME_APP} - v.{VERSAO_APP}")
@@ -1085,6 +1091,11 @@ class JanelaHashes(QWidget):
         self.bytes_processados_total = 0
         self.total_bytes_processar = 0
         self.tempo_inicio_total = 0
+
+        # Conecta o sinal emitido pela thread à função que altera a interface
+        self.sinal_atualizacao.connect(self._exibir_alerta_atualizacao)
+        # --- CHAMA A ROTINA DE CHECAGEM DE NOVA ATUALIZAÇÃO DE VERSÃO ---
+        self.checar_atualizacoes()
 
     def setup_ui(self):
         layout_principal = QVBoxLayout()
@@ -1221,6 +1232,12 @@ class JanelaHashes(QWidget):
 
         layout_principal.addLayout(layout_hashes)
 
+        # --- ALERTA DE ATUALIZAÇÃO (Invisível por padrão) ---
+        self.lbl_alerta_versao = QLabel()
+        self.lbl_alerta_versao.setOpenExternalLinks(True)  # Para o link funcionar
+        self.lbl_alerta_versao.hide()  # Esconde ao iniciar
+        layout_principal.addWidget(self.lbl_alerta_versao)
+
         # --- Área de Texto Principal ---
         self.texto_saida = QTextEdit()
         self.texto_saida.setReadOnly(True)
@@ -1333,6 +1350,81 @@ class JanelaHashes(QWidget):
             hash_states = config.get('hashes', {})
             for algo, chk in self.chk_hashes.items():
                 chk.setChecked(hash_states.get(algo, algo in ["SHA-256", "SHA-512"]))
+
+    def checar_atualizacoes(self):
+        """Checa na API do GitHub se há uma nova Release publicada"""
+        url = f"https://api.github.com/repos/{USUARIO}/{REPOSITORIO}/releases/latest"
+
+        def _worker():
+            try:
+                import urllib.request
+                import json
+                import re
+
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG Atualização] Conectando na API do GitHub: {url}")
+
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    dados = json.loads(response.read().decode('utf-8'))
+
+                versao_github_bruta = dados.get("tag_name", "")
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG Atualização] Versão encontrada no GitHub: {versao_github_bruta}")
+                    print(f"[DEBUG Atualização] Versão local atual: {VERSAO_APP}")
+
+                # Usa Regex para extrair APENAS os números e pontos (ignora "v", "ERS", espaços, etc)
+                # Ex: "v3.5.0-beta" vira "3.5.0"
+                match_gh = re.search(r'(\d+\.\d+\.\d+)', versao_github_bruta)
+                match_local = re.search(r'(\d+\.\d+\.\d+)', VERSAO_APP)
+
+                if match_gh and match_local:
+                    str_gh = match_gh.group(1)
+                    str_local = match_local.group(1)
+
+                    # Converte "3.5.0" para (3, 5, 0)
+                    tup_gh = tuple(map(int, str_gh.split('.')))
+                    tup_local = tuple(map(int, str_local.split('.')))
+
+                    if DEBUG_MESSAGES:
+                        print(f"[DEBUG Atualização] Tuplas comparadas -> GH: {tup_gh} | Local: {tup_local}")
+
+                    if tup_gh > tup_local:
+                        if DEBUG_MESSAGES:
+                            print("[DEBUG Atualização] Atualização é maior! Agendando renderização na GUI...")
+                        url_download = dados.get("html_url", LINK_GITHUB)
+
+                        # Emite o sinal de forma segura para a thread principal da GUI
+                        self.sinal_atualizacao.emit(versao_github_bruta, url_download)
+                    else:
+                        if DEBUG_MESSAGES:
+                            print("[DEBUG Atualização] Versão local já é igual ou superior. Nenhuma ação necessária.")
+                else:
+                    if DEBUG_MESSAGES:
+                        print("[DEBUG Atualização] Falha ao extrair os números das versões via Regex.")
+
+            except Exception as e:
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG Atualização] ERRO FATAL na checagem: {repr(e)}")
+
+        import threading
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
+
+    def _exibir_alerta_atualizacao(self, nova_versao, link):
+        """Exibe o banner amarelo de atualização acima da área de texto"""
+        alerta_html = (
+            f"<div style='background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 5px; margin-bottom: 5px;'>"
+            f"<span style='color: #856404; font-size: 11pt;'>"
+            f"<b>⚠️ Nova atualização disponível:</b> A versão <b>{nova_versao}</b> foi lançada "
+            f"(Você está usando a v.{VERSAO_APP}). "
+            f"<a href='{link}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>[BAIXAR NOVA VERSÃO]</a>"
+            f"</span>"
+            f"</div>"
+        )
+
+        self.lbl_alerta_versao.setText(alerta_html)
+        self.lbl_alerta_versao.show()  # Torna o aviso visível na tela
 
     def atualizar_tempo_total(self):
         if not self.processando or self.total_bytes_processar == 0:
@@ -1957,9 +2049,11 @@ class JanelaHashes(QWidget):
                 diretorio_temp = os.path.dirname(self._raw_out_json)
                 if os.path.exists(diretorio_temp):
                     shutil.rmtree(diretorio_temp, ignore_errors=True)
-                    print(f"[DEBUG] Diretório temporário apagado: {diretorio_temp}")
+                    if DEBUG_MESSAGES:
+                        print(f"[DEBUG] Diretório temporário apagado: {diretorio_temp}")
             except Exception as e:
-                print(f"[DEBUG] Falha ao tentar apagar diretório temporário: {e}")
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG] Falha ao tentar apagar diretório temporário: {e}")
             # ---------------------------------------------
 
     def acao_cancelar(self):
@@ -1971,7 +2065,8 @@ class JanelaHashes(QWidget):
         # Verifica se está em um processo de RAW Hash
         caminho_flag = getattr(self, "_raw_cancel_flag", None)
         if caminho_flag:
-            print(f"[DEBUG] Tentando cancelar o RAW Hash. Caminho da flag: {caminho_flag}")
+            if DEBUG_MESSAGES:
+                print(f"[DEBUG] Tentando cancelar o RAW Hash. Caminho da flag: {caminho_flag}")
 
             try:
                 # 1. Garante que o diretório exista
@@ -1983,13 +2078,15 @@ class JanelaHashes(QWidget):
                     f.flush()
                     os.fsync(f.fileno())  # Força sincronização de disco
 
-                print(f"[DEBUG] Arquivo flag criado fisicamente em: {caminho_flag}")
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG] Arquivo flag criado fisicamente em: {caminho_flag}")
             except Exception as e:
                 print(f"[ERRO CRÍTICO] Falha ao escrever flag de cancelamento: {e}")
                 import traceback
                 traceback.print_exc()
         else:
-            print("[DEBUG] Nenhuma operação RAW em andamento para cancelar.")
+            if DEBUG_MESSAGES:
+                print("[DEBUG] Nenhuma operação RAW em andamento para cancelar.")
 
     def closeEvent(self, event):
         """Salva as configurações atuais e limpa rastros ao fechar a janela."""
@@ -2032,7 +2129,8 @@ class JanelaHashes(QWidget):
                 if (agora - mtime_dir) > limite:
                     shutil.rmtree(caminho_completo, ignore_errors=True)
         except Exception as e:
-            print(f"[DEBUG] Erro ao executar limpeza global de temporários: {e}")
+            if DEBUG_MESSAGES:
+                print(f"[DEBUG] Erro ao executar limpeza global de temporários: {e}")
 
 
     def eventFilter(self, obj, event):
