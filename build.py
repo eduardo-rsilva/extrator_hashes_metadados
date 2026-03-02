@@ -4,6 +4,8 @@ import os
 import sys
 import hashlib
 
+from src.extrator_hashes_metadados import VERSAO_APP
+
 # ===== ANTES DE COMPILAR O EXECUTÁVEL =====
 # 1) descompactar exiftool-13.51_64.zip dentro de src/
 
@@ -90,3 +92,50 @@ with open(manifesto_path, "w", encoding="utf-8") as f_out:
 
 print(f"Manifesto de integridade gerado em: {manifesto_path}")
 print("Forneça este arquivo junto com a pasta .dist para auditoria.")
+
+# ===== EMPACOTAMENTO FINAL (RAR) =====
+print("\nEmpacotando arquivos de lançamento...")
+
+# Cria o diretório 'exe' se não existir (no mesmo nível de 'src')
+exe_dir = "exe"
+os.makedirs(exe_dir, exist_ok=True)
+
+# Define o nome e o caminho do arquivo .rar
+nome_rar = f"Extrator_ERS-IC-NIC_v{VERSAO_APP}.rar"
+caminho_rar = os.path.join(exe_dir, nome_rar)
+
+# Remove o pacote antigo se ele já existir para evitar arquivos duplicados internos
+if os.path.exists(caminho_rar):
+    os.remove(caminho_rar)
+
+# Caminho padrão do executável do WinRAR no Windows
+winrar_exe = r"C:\Program Files\WinRAR\WinRAR.exe"
+
+# Se não estiver no caminho padrão, tenta invocar pelo nome (caso esteja no PATH do sistema)
+if not os.path.exists(winrar_exe):
+    winrar_exe = "WinRAR"
+
+# Argumentos do WinRAR:
+# 'a'    -> Adicionar ao arquivo
+# '-ep1' -> Exclui o diretório base ('src') para que o RAR não fique com a pasta 'src' dentro dele
+# '-r'   -> Recursivo (inclui todos os subdiretórios)
+comando_rar = [
+    winrar_exe,
+    "a",
+    "-ep1",
+    "-r",
+    caminho_rar,
+    dist_dir,          # Pasta .dist gerada pelo Nuitka
+    manifesto_path     # Arquivo de Hashes
+]
+
+try:
+    subprocess.run(comando_rar, check=True)
+    print(f"\n[SUCESSO] Pacote final gerado em: {caminho_rar}")
+except FileNotFoundError:
+    print("\n[AVISO] WinRAR não foi encontrado no sistema ou não está nas variáveis de ambiente.")
+    print("Como o Python não cria arquivos .rar nativamente, a etapa de compactação automática falhou.")
+    print(f"Instale o WinRAR ou compacte a pasta '{dist_dir}' e o arquivo '{manifesto_path}' manualmente.")
+    print("Dica: Se quiser que o script funcione em qualquer máquina sem dependências, considere usar .zip nativo do Python (módulo 'zipfile' ou 'shutil.make_archive').")
+except subprocess.CalledProcessError as e:
+    print(f"\n[ERRO] Ocorreu um problema ao compactar com o WinRAR. Código de erro: {e.returncode}")

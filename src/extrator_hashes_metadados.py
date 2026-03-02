@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados Forenses (ERS-IC-NIC)
-Versão: 3.5.0
+Versão: 3.5.1
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC-NIC)"
-VERSAO_APP = "3.5.0"
+VERSAO_APP = "3.5.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 # -------------------------------
@@ -1015,7 +1015,7 @@ class JanelaHashes(QWidget):
         self.btn_unidade_raw = QPushButton("Selecionar Unidade (RAW)")
         self.btn_unidade_raw.clicked.connect(self.selecionar_unidade_raw)
         # Estilo distinto para diferenciar o RAW dos arquivos comuns
-        self.btn_unidade_raw.setStyleSheet("font-weight: bold; color: #800000;")
+        self.btn_unidade_raw.setStyleSheet("font-weight: bold; color: #800000; background-color: #e6e6e6;")
         layout_controles.addWidget(self.btn_unidade_raw)
 
         # --- Checkbox de Metadados Extras à direita de Subdiretórios ---
@@ -1118,7 +1118,7 @@ class JanelaHashes(QWidget):
         # --- Área de Texto Principal ---
         self.texto_saida = QTextEdit()
         self.texto_saida.setReadOnly(True)
-        self.texto_saida.setStyleSheet("background-color: #f4f4f4; font-family: Consolas; font-size: 10pt;")
+        self.texto_saida.setStyleSheet("background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
         self.texto_saida.append(MENSAGEM_INICIAL + "\n")
         layout_principal.addWidget(self.texto_saida)
 
@@ -3363,6 +3363,7 @@ if __name__ == "__main__":
 
     # Inicialização normal da interface
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
 
     if os.path.exists(ICON_PATH):
         app.setWindowIcon(QIcon(ICON_PATH))
