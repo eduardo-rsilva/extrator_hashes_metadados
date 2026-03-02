@@ -966,10 +966,15 @@ def detectar_ads_windows(caminho_arquivo):
                             # O caminho do stream é a junção do arquivo base + o nome do stream
                             caminho_stream = f"{caminho_arquivo}{nome_stream}"
 
-                            # Abre em modo texto, ignorando erros se for um arquivo binário (como um .exe oculto)
+                            # Abre em modo texto, ignorando erros se for um arquivo binário
                             with open(caminho_stream, 'r', encoding='utf-8', errors='ignore') as f:
-                                # Lê apenas os primeiros 500 caracteres para não poluir a tela
-                                conteudo = f.read(500).strip()
+                                # Lê o limite definido (500)
+                                texto_lido = f.read(500)
+
+                                # Verifica se o corte REALMENTE ocorreu LOGO APÓS ler (antes de qualquer tradução ou strip)
+                                foi_cortado = (len(texto_lido) == 500)
+
+                                conteudo = texto_lido.strip()
 
                                 if conteudo:
                                     # --- TRADUÇÃO DOS CÓDIGOS DE ZONA DO WINDOWS ---
@@ -989,12 +994,34 @@ def detectar_ads_windows(caminho_arquivo):
                                     # Formata a saída para ficar indentada no relatório
                                     conteudo_formatado = conteudo.replace('\n', '\n       ')
                                     texto_atual += f"\n   ↳ Conteúdo extraído:\n       {conteudo_formatado}"
+
+                                    # --- AVISO DE CORTE E COMANDO POWERSHELL ---
+                                    if foi_cortado:
+                                        # Divide a string ":Zone.Identifier:$DATA" pelos ":" e pega apenas o nome real
+                                        partes_nome = nome_stream.split(":")
+                                        nome_limpo_ps = partes_nome[1] if len(partes_nome) > 1 else nome_stream
+                                        nome_arquivo_isolado = os.path.basename(caminho_arquivo)
+
+                                        texto_atual += f"\n\n   ↳ [AVISO: O conteúdo excedeu o limite de leitura e foi truncado.]"
+                                        texto_atual += f"\n   ↳ Para extrair e ver o conteúdo completo no PowerShell, navegue até a pasta do arquivo e use o comando:"
+                                        texto_atual += f"\n       Get-Content -Path \"{nome_arquivo_isolado}\" -Stream \"{nome_limpo_ps}\""
+                                    # -----------------------------------------------
+
                                 else:
                                     texto_atual += "\n   ↳ [Conteúdo vazio ou formato binário não legível]"
                         except Exception as e:
                             texto_atual += f"\n   ↳ [Erro ao tentar ler conteúdo: {e}]"
+
                     elif tamanho >= 51200:
+                        # Repete a lógica de limpeza do nome do fluxo para o PowerShell
+                        partes_nome = nome_stream.split(":")
+                        nome_limpo_ps = partes_nome[1] if len(partes_nome) > 1 else nome_stream
+                        nome_arquivo_isolado = os.path.basename(caminho_arquivo)
+
                         texto_atual += "\n   ↳ [Conteúdo muito grande para exibição em texto. Recomenda-se extração manual.]"
+                        texto_atual += f"\n   ↳ Para extrair e ver o conteúdo completo no PowerShell, navegue até a pasta do arquivo e use o comando:"
+                        texto_atual += f"\n       Get-Content -Path \"{nome_arquivo_isolado}\" -Stream \"{nome_limpo_ps}\""
+                        texto_atual += f"\n   ↳ (Dica: Adicione `> arquivo_extraido.bin` no final do comando para salvá-lo em disco)"
 
                     # Adiciona esse ADS na lista temporária
                     textos_ads.append(texto_atual)
