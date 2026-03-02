@@ -38,7 +38,7 @@
 # ====================================================================
 
 """
-Extrator de Hashes e Metadados Forenses (ERS-IC-NIC)
+Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
 Versão: 4.0.0
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
@@ -59,10 +59,11 @@ import sys
 import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
-NOME_APP = "Extrator de Hashes e Metadados (ERS-IC-NIC)"
+NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
 VERSAO_APP = "4.0.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
+LINK_GITHUB = "https://github.com/seu-usuario/seu-repositorio"
 # -------------------------------
 
 # --- VALIDAÇÃO DE ARQUITETURA ---
@@ -2094,7 +2095,8 @@ class JanelaHashes(QWidget):
             f"<h2 style='margin-bottom: 2px;'>{NOME_APP}</h2>"
             f"<b>Versão:</b> {VERSAO_APP}<br>"
             f"<b>Desenvolvedor:</b> {DESENVOLVEDOR}<br>"
-            f"<b>Contato / Reportar Bugs:</b> <a href='mailto:{EMAIL_CONTATO}'>{EMAIL_CONTATO}</a>"
+            f"<b>Contato / Reportar Bugs:</b> <a href='mailto:{EMAIL_CONTATO}'>{EMAIL_CONTATO}</a><br>"
+            f"<b>Projeto e Atualizaçõe:</b> <a href='{LINK_GITHUB}'>Repositório no GitHub</a>"
             f"</div>"
         )
         lbl_infos_topo.setOpenExternalLinks(True)
@@ -3500,7 +3502,7 @@ if __name__ == "__main__":
 
         # 4. Monta o texto amigável e instrutivo do log
         texto_log = (
-            f"=== RELATÓRIO DE ERRO CRÍTICO (ERS-IC-NIC) ===\n"
+            f"=== RELATÓRIO DE ERRO CRÍTICO ({NOME_APP}) ===\n"
             f"Data e Hora: {str_data_hora}\n"
             f"Versão do Programa: {VERSAO_APP}\n"
             f"--------------------------------------------------\n"
