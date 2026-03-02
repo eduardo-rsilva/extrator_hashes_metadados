@@ -1,4 +1,4 @@
-# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.0.0
+# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.0.1
 
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.

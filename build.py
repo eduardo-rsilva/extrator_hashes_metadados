@@ -101,7 +101,7 @@ exe_dir = "exe"
 os.makedirs(exe_dir, exist_ok=True)
 
 # Define o nome e o caminho do arquivo .rar
-nome_rar = f"Extrator_ERS-IC-NIC_v{VERSAO_APP}.rar"
+nome_rar = f"Extrator_ERS-IC-SP-NIC_v{VERSAO_APP}.rar"
 caminho_rar = os.path.join(exe_dir, nome_rar)
 
 # Remove o pacote antigo se ele já existir para evitar arquivos duplicados internos
