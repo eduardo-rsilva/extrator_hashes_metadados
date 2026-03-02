@@ -2096,7 +2096,7 @@ class JanelaHashes(QWidget):
             f"<b>Versão:</b> {VERSAO_APP}<br>"
             f"<b>Desenvolvedor:</b> {DESENVOLVEDOR}<br>"
             f"<b>Contato / Reportar Bugs:</b> <a href='mailto:{EMAIL_CONTATO}'>{EMAIL_CONTATO}</a><br>"
-            f"<b>Projeto e Atualizaçõe:</b> <a href='{LINK_GITHUB}'>Repositório no GitHub</a>"
+            f"<b>Projeto e Atualizações:</b> <a href='{LINK_GITHUB}'>Repositório no GitHub</a>"
             f"</div>"
         )
         lbl_infos_topo.setOpenExternalLinks(True)
