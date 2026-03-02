@@ -527,7 +527,7 @@ def raw_hash_device(
         buf = ctypes.create_string_buffer(chunk_size)
 
         last_progress_write = 0.0
-        last_cancel_check = 0.0  # <--- Nova variável para controle de tempo
+        last_cancel_check = 0.0  # <--- variável para controle de tempo
 
         while bytes_read_total < total:
             now = time.time()
@@ -2285,7 +2285,7 @@ class JanelaHashes(QWidget):
         abas.addTab(aba_sobre, "Funcionalidades Forenses")
 
         # ==============================================================
-        # ABA 2: TERMOS DE USO E LICENÇA (A NOVA ABA)
+        # ABA 2: TERMOS DE USO E LICENÇA
         # ==============================================================
         aba_licenca = QWidget()
         layout_licenca = QVBoxLayout(aba_licenca)
@@ -3543,7 +3543,7 @@ class JanelaHashes(QWidget):
         self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
         self.texto_saida.append("-" * 60)
 
-        # --- NOVO BLOCO DE FINALIZAÇÃO DO TEMPO (FORMATO AMIGÁVEL) ---
+        # --- BLOCO DE FINALIZAÇÃO DO TEMPO (FORMATO AMIGÁVEL) ---
         self.timer_tempo.stop()  # Para o cronômetro
 
         if not self.cancelar_operacao:

@@ -1,4 +1,4 @@
-# Extrator de Hashes e Metadados (ERS-IC-NIC)
+# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.0.0
 
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.
@@ -19,7 +19,8 @@ Além disso:
 ## 🌐 Isolamento de Nuvem e Triagem de Unidades e Aquisição RAW
 Um diferencial crítico é o **bloqueio automático de arquivos "Apenas Online"** (OneDrive, Google Drive, etc.). A ferramenta detecta o atributo *Recall on Data Access* e impede a leitura desses arquivos para evitar downloads indesejados que alterariam a evidência local e o tráfego de rede. 
 
-* **Triagem de Unidades:** Caso o usuário selecione a raiz de uma unidade (Pendrive ou HD), o programa extrai automaticamente o Rótulo (Label), o Serial do Volume e o Sistema de Arquivos (FS). 
+* **Triagem de Unidades:** Caso o usuário selecione a raiz de uma unidade (Pendrive ou HD), o programa extrai automaticamente o Rótulo (Label), o Serial do Volume e o Sistema de Arquivos (FS).
+* **Proteção Anti-Thrashing (Hardware Lock):** O sistema mapeia em baixo nível a relação entre Volumes Lógicos e Discos Físicos reais. Impede ativamente que duas instâncias do programa realizem aquisições simultâneas no mesmo disco magnético ou SSD, prevenindo saturação severa de I/O e protegendo a vida útil da evidência física.
 * **Aquisição RAW:** Funcionalidade de **Aquisição Bit-a-bit**, exigindo elevação de privilégios (UAC). É possível escolher entre a extração do **Disco Físico Inteiro** (MBR/GPT, espaço não alocado e partições ocultas) ou apenas do Volume Lógico.
 * **Cópia Forense:** Durante essa extração, o sistema permite a geração simultânea de uma imagem **.dd**.
 
@@ -49,11 +50,18 @@ Se um arquivo estiver corrompido ou lavado, o programa avisa o motivo no relató
 
 ---
 
+## ⏱️ Previsibilidade e UI Otimizada
+Para lidar com extrações massivas (Terabytes de dados), a ferramenta foi redesenhada focando em eficiência operacional:
+* **Cronômetro e ETA Dinâmico:** Calcula com alta precisão o tempo restante e a taxa de leitura em bytes/s durante processos longos. Ao final, o tempo exato decorrido é formatado e registrado nativamente no Log de Auditoria.
+* **Tolerância a Temas do S.O.:** A interface utiliza padrões universais com suporte total para rodar corretamente, seja no Modo Claro ou Escuro nativo do Windows 11.
+
+---
+
 ## 💾 Persistência e Confiabilidade
 * **Configurações:** Salva preferências do usuário de forma **criptografada**. 
 * **Estabilidade:** Possui manipulador de exceções global que gera logs detalhados (**Crash Logs**). 
-* **Transparência:** Software **Open Source**; permite a exportação do código-fonte em tempo real para auditoria e exibe sua própria assinatura digital (SHA-256). 
-* **Interface:** Aprimorada com um **Modo Administrador visual** (interface vermelha) e rotinas de cancelamento seguro.
+* **Transparência:** Software **Open Source**; permite a exportação do código-fonte em tempo real para auditoria e exibe sua própria assinatura digital (SHA-256). Adicionalmente, possui uma **Thread Assíncrona** que consulta a API do GitHub para alertar discretamente o usuário caso sua versão esteja obsoleta e insegura, sem comprometer a estabilidade (Air-gap safe).
+* **Interface:** Aprimorada com um **Modo Administrador visual** (interface vermelha). As rotinas de cancelamento do RAW foram otimizadas a nível de CPU, reduzindo drasticamente as chamadas de verificação do disco.
 
 > Tudo isso roda com barras de progresso, botão para copiar o relatório ou salvar em TXT.
 
