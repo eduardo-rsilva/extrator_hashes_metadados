@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados Forenses (ERS-IC-NIC)
-Versão: 3.5.1
+Versão: 4.0.0
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC-NIC)"
-VERSAO_APP = "3.5.1"
+VERSAO_APP = "4.0.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 # -------------------------------
@@ -511,33 +511,37 @@ def raw_hash_device(
     bytes_read_total = 0
     hash_objs = {}
 
+    # Prepara variáveis de resultado fora do try
+    total = 0
+    bytes_read_total = 0
+    hash_objs = {}
+
     try:
         total = device_get_length_bytes(h)
         hash_objs = init_hash_objects(algos)
-
         buf = ctypes.create_string_buffer(chunk_size)
-        last_progress_write = 0.0
 
-        if cancel_flag_path:
-            dir_flag = os.path.dirname(cancel_flag_path)
-            nome_flag = os.path.basename(cancel_flag_path)
+        last_progress_write = 0.0
+        last_cancel_check = 0.0  # <--- Nova variável para controle de tempo
 
         while bytes_read_total < total:
-            # --- VERIFICAÇÃO ESTRITA DE CANCELAMENTO ---
-            if cancel_flag_path:
-                try:
-                    if nome_flag in os.listdir(dir_flag):
-                        # Quebra o loop principal e vai direto pro finally
-                        return {
-                            "bytes_total": total,
-                            "bytes_read": bytes_read_total,
-                            "hashes": {},
-                            "cancelado": True
-                        }
-                except Exception:
-                    pass
+            now = time.time()
+
+            # --- VERIFICAÇÃO DE CANCELAMENTO OTIMIZADA ---
+            # Checa o disco no máximo 2 vezes por segundo (a cada 0.5s),
+            # em vez de checar a cada chunk de 1MB lido
+            if cancel_flag_path and (now - last_cancel_check) >= 0.5:
+                last_cancel_check = now
+                if os.path.exists(cancel_flag_path):
+                    return {
+                        "bytes_total": total,
+                        "bytes_read": bytes_read_total,
+                        "hashes": {},
+                        "cancelado": True
+                    }
 
             to_read = chunk_size
+
             remaining = total - bytes_read_total
             if remaining < to_read:
                 to_read = int(remaining)
@@ -600,7 +604,74 @@ def raw_hash_device(
         # O finally sempre rodará, fechando a alça do disco, não importa como saiu.
         CloseHandle(h)
         if f_img:
-            f_img.close()  # Garante que o arquivo da imagem seja fechado!
+            f_img.close()  # Garante que o arquivo da imagem seja fechado.
+
+def _raw_lock_key_from_device(device_path: str) -> str:
+    """Descobre os discos físicos reais associados ao caminho selecionado."""
+    s = (device_path or "").upper().strip()
+
+    # 1. Se já for um disco físico (ex: \\.\PhysicalDrive0)
+    if s.startswith("\\\\.\\PHYSICALDRIVE"):
+        n = "".join(ch for ch in s.split("PHYSICALDRIVE", 1)[1] if ch.isdigit())
+        if n:
+            return [f"PD_{n}"]
+
+    # 2. Se for um volume lógico (ex: \\.\C:)
+    elif s.startswith("\\\\.\\") and len(s) >= 6 and s[5] == ":":
+        try:
+            # Usa sua função nativa para descobrir de qual disco físico esse volume faz parte
+            drives = volume_to_physical_drives(device_path)
+            if drives:
+                # Se o volume for um RAID, pode estar em mais de um disco, retorna todos
+                return [f"PD_{d}" for d in drives]
+        except Exception:
+            pass
+
+    # 3. Fallback (unidades de rede mapeadas, pendrives não identificáveis, etc)
+    safe = "".join(ch if ch.isalnum() else "_" for ch in s)
+    return [f"DEV_{safe[:40]}"]
+
+
+def try_acquire_raw_device_lock(device_path: str):
+    """Tenta travar todos os discos físicos base associados à unidade requerida."""
+    keys = _raw_lock_key_from_device(device_path)
+    acquired_files = []
+
+    for key in keys:
+        lock_path = os.path.join(tempfile.gettempdir(), f"ERS_IC_NIC_RAW_LOCK_{key}.lock")
+        try:
+            f = open(lock_path, "a+b")
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)  # Falha imediato se ocupado
+            acquired_files.append(f)
+        except OSError:
+            # Se falhou ao travar este disco, SOLTA todos os outros que já tinha conseguido antes de negar
+            release_raw_device_lock(acquired_files)
+            return None, lock_path
+
+    return acquired_files, "locked"
+
+
+def release_raw_device_lock(files_list):
+    """Libera todos os locks adquiridos."""
+    if not files_list:
+        return
+
+    # Garante que funciona caso passe um único arquivo ou uma lista
+    if not isinstance(files_list, list):
+        files_list = [files_list]
+
+    for f in files_list:
+        try:
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        except Exception:
+            pass
+        try:
+            f.close()
+        except Exception:
+            pass
+
 
 def _build_runas_command_args(params_list: list[str]) -> str:
     """
@@ -722,6 +793,17 @@ def cli_raw_mode_main(argv=None) -> int:
     img_out = args.image_out.strip() or None
 
     try:
+        lock_f, lock_path = try_acquire_raw_device_lock(args.device)
+        if lock_f is None:
+            payload = {
+                "ok": False,
+                "error": f"JÁ EXISTE AQUISIÇÃO RAW EM ANDAMENTO PARA ESTE DRIVE: {args.device}"
+            }
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            return 0
+
         res = raw_hash_device(
             device_path=args.device,
             algos=algos,
@@ -737,11 +819,16 @@ def cli_raw_mode_main(argv=None) -> int:
     except Exception as e:
         payload = {"ok": False, "error": repr(e)}
 
+    finally:
+        if lock_f:
+            release_raw_device_lock(lock_f)
+
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
     return 0
+
 ###################### BLOCO PARA GERAÇÃO DE HASH BIT A BIT DE UNIDADES (FIM) #############################
 
 # --- FUNÇÃO PARA LOCALIZAR O EXIFTOOL ---
@@ -1736,6 +1823,14 @@ class JanelaHashes(QWidget):
         self._iniciar_raw_hash_elevado(device_path, caminho_imagem)
 
     def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = ""):
+        lf, _ = try_acquire_raw_device_lock(device_path)
+        if lf is None:
+            QMessageBox.warning(self, "RAW em andamento",
+                                f"Já existe uma aquisição RAW em andamento para: {device_path}")
+            return
+        # Se conseguiu, libera imediatamente (a trava real será no helper)
+        release_raw_device_lock(lf)
+
         algos = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         if not algos:
             QMessageBox.warning(self, "Algoritmos", "Selecione ao menos um algoritmo de hash.")
@@ -1910,30 +2005,34 @@ class JanelaHashes(QWidget):
         event.accept()
 
     def limpar_arquivos_temporarios(self):
-        """Varre a pasta Temp do Windows, cria flags de cancelamento e remove diretórios órfãos."""
+        """
+        Varre a pasta Temp do Windows, cria flags de cancelamento e remove diretórios órfãos.
+        Remove apenas temporários RAW antigos (>24h). NÃO cancela operações ativas.
+        """
         try:
             diretorio_temp_so = tempfile.gettempdir()
+            agora = time.time()
+            limite = 24 * 3600  # 24h
+
             for item in os.listdir(diretorio_temp_so):
-                if item.startswith("ERS_IC_NIC_RAW_"):
-                    caminho_completo = os.path.join(diretorio_temp_so, item)
-                    if os.path.isdir(caminho_completo):
-                        # Cria o arquivo de flag de cancelamento dentro do diretório
-                        flag_path = os.path.join(caminho_completo, "CANCELAR.flag")
-                        try:
-                            with open(flag_path, "w") as f:
-                                f.write("CANCELAR")
-                            print(f"[DEBUG] Flag de cancelamento criada em: {flag_path}")
-                        except Exception as e:
-                            print(f"[DEBUG] Erro ao criar flag em {caminho_completo}: {e}")
+                if not item.startswith("ERS_IC_NIC_RAW_"):
+                    continue
 
-                        # Aguarda um curto período para que o processo detecte a flag
-                        time.sleep(1)
+                caminho_completo = os.path.join(diretorio_temp_so, item)
+                if not os.path.isdir(caminho_completo):
+                    continue
 
-                        # Tenta remover o diretório (ignorando erros se ainda estiver em uso)
-                        shutil.rmtree(caminho_completo, ignore_errors=True)
-                        print(f"[DEBUG] Diretório temporário removido: {caminho_completo}")
+                try:
+                    mtime_dir = os.path.getmtime(caminho_completo)
+                except Exception:
+                    continue
+
+                # Só apaga se for claramente "órfão/antigo"
+                if (agora - mtime_dir) > limite:
+                    shutil.rmtree(caminho_completo, ignore_errors=True)
         except Exception as e:
             print(f"[DEBUG] Erro ao executar limpeza global de temporários: {e}")
+
 
     def eventFilter(self, obj, event):
         # Verifica se o alvo é o checkbox de metadados ou algum dos checkboxes de hash
@@ -3461,6 +3560,18 @@ if __name__ == "__main__":
     # Inicialização normal da interface
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # --- ESTILO GLOBAL PARA TOOLTIPS ---
+    app.setStyleSheet("""
+            QToolTip {
+                background-color: #ffffff;
+                color: #000000;
+                border: 1px solid #cccccc;
+                padding: 2px;
+                font-size: 10pt;
+            }
+        """)
+    # -----------------------------------------
 
     if os.path.exists(ICON_PATH):
         app.setWindowIcon(QIcon(ICON_PATH))
