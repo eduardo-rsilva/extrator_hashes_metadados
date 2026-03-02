@@ -1968,6 +1968,9 @@ class JanelaHashes(QWidget):
             return
 
         # Timer para acompanhar progresso/resultado
+        self._raw_tempo_inicio = time.time()
+
+        # Timer para acompanhar progresso/resultado
         self._raw_timer = QTimer(self)
         self._raw_timer.timeout.connect(self._poll_raw_hash_status)
         self._raw_timer.start(300)
@@ -1982,6 +1985,35 @@ class JanelaHashes(QWidget):
                 pct = int(p.get("percent", 0))
                 self.barra_arquivo.setValue(max(0, min(100, pct)))
                 self.lbl_progresso_arquivo.setText(f"RAW {pct}% - {self._raw_device}")
+
+                bytes_read = p.get("bytes_read", 0)
+                bytes_total = p.get("bytes_total", 0)
+
+                if hasattr(self, "_raw_tempo_inicio"):
+                    import time  # Certifique-se de que time está importado no topo do arquivo
+                    decorrido = time.time() - self._raw_tempo_inicio
+
+                    # Formata o tempo decorrido
+                    horas_d, rem_d = divmod(decorrido, 3600)
+                    mins_d, segs_d = divmod(rem_d, 60)
+                    str_decorrido = f"{int(horas_d):02d}:{int(mins_d):02d}:{int(segs_d):02d}"
+
+                    # Calcula o tempo restante
+                    if bytes_read > 0 and decorrido > 0:
+                        bytes_por_segundo = bytes_read / decorrido
+                        bytes_restantes = bytes_total - bytes_read
+
+                        restante = bytes_restantes / bytes_por_segundo if bytes_por_segundo > 0 else 0
+
+                        horas_r, rem_r = divmod(restante, 3600)
+                        mins_r, segs_r = divmod(rem_r, 60)
+                        str_restante = f"{int(horas_r):02d}:{int(mins_r):02d}:{int(segs_r):02d}"
+                    else:
+                        str_restante = "Calculando..."
+
+                    self.lbl_progresso_total.setText(
+                        f"Progresso RAW - Decorrido: {str_decorrido} | Restante: {str_restante}"
+                    )
         except Exception:
             pass
 
@@ -2043,6 +2075,7 @@ class JanelaHashes(QWidget):
             self.destravar_interface()
             self.barra_arquivo.setValue(0)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
+            self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
 
             # --- LIMPEZA DO DIRETÓRIO TEMPORÁRIO ---
             try:
