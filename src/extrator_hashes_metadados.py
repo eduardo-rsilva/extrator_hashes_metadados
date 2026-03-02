@@ -1176,19 +1176,26 @@ class JanelaHashes(QWidget):
         self.btn_cancelar.setMinimumWidth(280)
         self.btn_cancelar.setMinimumHeight(40)
         self.btn_cancelar.setStyleSheet("""
-                    QPushButton {
-                        background-color: #ffcccc; 
-                        color: #990000; 
-                        font-weight: bold;
-                        border: 1px solid #cc9999;
-                        border-radius: 5px;
-                    }
-                    QPushButton:disabled {
-                        background-color: #e0e0e0; 
-                        color: #888888;
-                        border: 1px solid #cccccc;
-                    }
-                """)
+                            QPushButton {
+                                background-color: #ffcccc; 
+                                color: #990000; 
+                                font-weight: bold;
+                                border: 1px solid #cc9999;
+                                border-radius: 5px;
+                            }
+                            QPushButton:hover {
+                                background-color: #ffb3b3; /* Vermelho um pouco mais forte ao passar o mouse */
+                                border: 1px solid #b30000;
+                            }
+                            QPushButton:pressed {
+                                background-color: #ff9999; /* Vermelho ainda mais escuro ao clicar */
+                            }
+                            QPushButton:disabled {
+                                background-color: #e0e0e0; 
+                                color: #888888;
+                                border: 1px solid #cccccc;
+                            }
+                        """)
         self.btn_cancelar.setEnabled(False)
         self.btn_cancelar.clicked.connect(self.acao_cancelar)
 
