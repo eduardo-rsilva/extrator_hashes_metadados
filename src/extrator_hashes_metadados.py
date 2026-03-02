@@ -991,6 +991,13 @@ class JanelaHashes(QWidget):
         # --- LIMPEZA PREVENTIVA DE RASTROS DE EXECUÇÕES ANTERIORES ---
         self.limpar_arquivos_temporarios()
 
+        # --- CONTROLE DE TEMPO DECORRIDO E DE TEMPO RESTANTE ---
+        self.timer_tempo = QTimer(self)
+        self.timer_tempo.timeout.connect(self.atualizar_tempo_total)
+        self.bytes_processados_total = 0
+        self.total_bytes_processar = 0
+        self.tempo_inicio_total = 0
+
     def setup_ui(self):
         layout_principal = QVBoxLayout()
 
@@ -1220,6 +1227,35 @@ class JanelaHashes(QWidget):
             hash_states = config.get('hashes', {})
             for algo, chk in self.chk_hashes.items():
                 chk.setChecked(hash_states.get(algo, algo in ["SHA-256", "SHA-512"]))
+
+    def atualizar_tempo_total(self):
+        if not self.processando or self.total_bytes_processar == 0:
+            return
+
+        decorrido = time.time() - self.tempo_inicio_total
+
+        # Formatação do tempo decorrido
+        horas_d, rem_d = divmod(decorrido, 3600)
+        mins_d, segs_d = divmod(rem_d, 60)
+        str_decorrido = f"{int(horas_d):02d}:{int(mins_d):02d}:{int(segs_d):02d}"
+
+        # Cálculo do tempo restante baseado nos BYTES processados (alta precisão)
+        if self.bytes_processados_total > 0:
+            bytes_por_segundo = self.bytes_processados_total / decorrido
+            bytes_restantes = self.total_bytes_processar - self.bytes_processados_total
+
+            # Evita divisão por zero caso a leitura trave
+            restante = bytes_restantes / bytes_por_segundo if bytes_por_segundo > 0 else 0
+
+            horas_r, rem_r = divmod(restante, 3600)
+            mins_r, segs_r = divmod(rem_r, 60)
+            str_restante = f"{int(horas_r):02d}:{int(mins_r):02d}:{int(segs_r):02d}"
+        else:
+            str_restante = "Calculando..."
+
+        self.lbl_progresso_total.setText(
+            f"Progresso Total (Arquivos) - Decorrido: {str_decorrido} | Restante: {str_restante}"
+        )
 
     def exportar_codigo_fonte(self):
         """Permite que o usuário salve uma cópia do script para auditoria forense"""
@@ -2921,6 +2957,8 @@ class JanelaHashes(QWidget):
                             contagem_bytes.update(chunk)  # <--- Conta a frequência dos bytes para entropia de Shannon
                             bytes_processados += len(chunk)
 
+                            self.bytes_processados_total += len(chunk)
+
                             if bytes_processados % (tamanho_chunk * 16) == 0:
                                 percentual = int((bytes_processados / tamanho_bytes) * 100) if tamanho_bytes > 0 else 100
                                 self.barra_arquivo.setValue(percentual)
@@ -3187,6 +3225,18 @@ class JanelaHashes(QWidget):
         self.barra_total.setMaximum(total_arquivos)
         self.barra_total.setValue(0)
 
+        # Pré-calcula o tamanho total em bytes para o ETA funcionar
+        self.total_bytes_processar = 0
+        for arq in lista_arquivos:
+            try:
+                self.total_bytes_processar += os.path.getsize(arq)
+            except OSError:
+                pass  # Ignora arquivos inacessíveis no pré-cálculo
+
+        self.bytes_processados_total = 0
+        self.tempo_inicio_total = time.time()
+        self.timer_tempo.start(1000)  # Atualiza o texto na tela a cada 1 segundo
+
         self.texto_saida.append(f"Processando {total_arquivos} arquivo(s)...\n")
 
         # --- IMPRIME AS INFOS DA UNIDADE APENAS SE FOR RAIZ ---
@@ -3272,12 +3322,39 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"{qtd} arquivo(s) {ext}")
 
         self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
-
         self.texto_saida.append("-" * 60)
 
+        # --- NOVO BLOCO DE FINALIZAÇÃO DO TEMPO (FORMATO AMIGÁVEL) ---
+        self.timer_tempo.stop()  # Para o cronômetro
+
         if not self.cancelar_operacao:
+            # Calcula o tempo total exato que a operação levou
+            tempo_total = time.time() - self.tempo_inicio_total
+            horas, resto = divmod(tempo_total, 3600)
+            minutos, segundos = divmod(resto, 60)
+
+            h = int(horas)
+            m = int(minutos)
+            s = int(segundos)
+
+            # Constrói o texto dinamicamente (ex: 1h20min30s, 35min20s ou 17s)
+            if h > 0:
+                str_tempo_final = f"{h}h{m}min{s}s"
+            elif m > 0:
+                str_tempo_final = f"{m}min{s}s"
+            else:
+                str_tempo_final = f"{s}s" if s > 0 else "< 1s"
+
+            # Atualiza a barra mantendo o tempo final visível
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
-            self.texto_saida.append("Processamento concluído!\n")
+            self.lbl_progresso_total.setText(
+                f"Progresso Total (Arquivos) - Concluído! (Tempo Decorrido: {str_tempo_final})")
+
+            # Adiciona o tempo no relatório de texto para ficar salvo se o usuário exportar
+            self.texto_saida.append(f"Processamento concluído com sucesso em {str_tempo_final}!\n")
+        else:
+            self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
+        # ------------------------------------------------------
 
         self.btn_cancelar.setEnabled(False)
         self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
