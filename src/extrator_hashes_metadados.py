@@ -1022,7 +1022,18 @@ class JanelaHashes(QWidget):
         self.btn_unidade_raw = QPushButton("Selecionar Unidade (RAW)")
         self.btn_unidade_raw.clicked.connect(self.selecionar_unidade_raw)
         # Estilo distinto para diferenciar o RAW dos arquivos comuns
-        self.btn_unidade_raw.setStyleSheet("font-weight: bold; color: #800000; background-color: #e6e6e6;")
+        self.btn_unidade_raw.setStyleSheet("""
+                    QPushButton {
+                        font-weight: bold; 
+                        color: #800000; 
+                        background-color: #e6e6e6;
+                    }
+                    QPushButton:disabled {
+                        color: #999999; 
+                        background-color: #f0f0f0;
+                        border: 1px solid #cccccc;
+                    }
+                """)
         layout_controles.addWidget(self.btn_unidade_raw)
 
         # --- Checkbox de Metadados Extras à direita de Subdiretórios ---
