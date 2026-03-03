@@ -1,4 +1,4 @@
-# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.0.1
+# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.0.2
 
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.
@@ -41,7 +41,7 @@ Para documentos (PDF e Office), extrai autoria, software criador e último usuá
 * **Executáveis (.exe, .dll, .sys):** Faz o parse do cabeçalho PE, extraindo a **data real de compilação (UTC)**, verifica assinatura digital (Authenticode) e varre tabelas de strings.
 * **Atalhos (.lnk):** Extrai o caminho base local, o Rótulo do Volume, o Serial do disco de origem e o **MAC Address** da placa de rede.
 * **E-mails (.eml, .msg):** Varre cabeçalhos em busca do primeiro servidor de trânsito para **rastreio de IP de origem**.
-* **Fluxos Ocultos (ADS NTFS):** Varredura automática por Alternate Data Streams. Identifica a **"Mark of the Web"** e IDs de Zona de download.
+* **Fluxos Ocultos (ADS NTFS):** Varredura automática profunda por *Alternate Data Streams*. Identifica a **"Mark of the Web"** e IDs de Zona de download. Em fluxos longos ou binários ocultos (>= 50 KB), o script gera automaticamente os comandos nativos do PowerShell (`Get-Content`) para que o analista possa realizar a extração bruta e isolada do payload.
 
 ---
 
