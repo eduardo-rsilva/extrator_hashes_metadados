@@ -3543,7 +3543,7 @@ class JanelaHashes(QWidget):
 
         self.bytes_processados_total = 0
         self.tempo_inicio_total = time.time()
-        self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)  # Atualiza o texto na tela a cada 5 segundo
+        self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)
 
         self.texto_saida.append(f"Processando {total_arquivos} arquivo(s)...\n")
 
