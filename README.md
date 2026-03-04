@@ -88,7 +88,9 @@ O executável oficial deste projeto é gerado utilizando o **Nuitka** com o comp
 
 3. Utilize o script lançador para injetar o compilador MSVC e gerar o executável standalone:
    * Dê um duplo clique no arquivo compilar.bat (faça os ajustes necessários quanto aos caminhos do compilador MSVC e do ambiente virtual).
-   * _Alternativamente:_ Abra o terminal "Developer Command Prompt for VS", ative a venv e rode python build.py
+   * _Alternativamente:_ Abra o terminal "Developer Command Prompt for VS", ative a venv e rode:
+     ```cmd
+     python build.py
 
 O Nuitka embutirá nativamente os metadados da instituição (ERS-IC/SP-NIC) na compilação, e a pasta final pronta para uso será gerada em src/extrator_hashes_metadados.dist. O uso da flag --standalone (em vez de --onefile) é intencional para evitar bloqueios heurísticos de antivírus.
 
