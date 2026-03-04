@@ -11,7 +11,7 @@ from src.extrator_hashes_metadados import VERSAO_APP
 
 # 2) renomear o arquivo exiftool-13.51_64/exiftool(-k).exe como exiftool-13.51_64/exiftool.exe
 
-# 3) rodar no terminal: python build.py
+# 3) rodar no terminal: compilar.bat
 
 # ===== GERAÇÃO DO HASH DO CÓDIGO FONTE =====
 source_file = os.path.join("src", "extrator_hashes_metadados.py")
@@ -35,6 +35,14 @@ nuitka_command = [
     "--enable-plugin=pyside6",
     "--enable-plugin=anti-bloat",
     "--windows-icon-from-ico=src/app.ico",
+    # --- NOVAS FLAGS: COMPILADOR E METADADOS ANTI-FALSO POSITIVO ---
+    "--msvc=latest",
+    "--windows-company-name=ERS-IC/SP-NIC",
+    "--windows-product-name=Extrator de Hashes e Metadados",
+    "--windows-file-description=Ferramenta Forense de Extracao de Metadados",
+    f"--windows-product-version={VERSAO_APP}.0",
+    f"--windows-file-version={VERSAO_APP}.0",
+    # ---------------------------------------------------------------
     "--include-data-files=src/app.ico=app.ico",
     "--include-data-files=src/extrator_hashes_metadados.py=extrator_hashes_metadados.py",
     # Inclui também o arquivo com o hash para auditoria
