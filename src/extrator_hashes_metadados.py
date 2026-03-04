@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.1.0"
+VERSAO_APP = "3.1.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -1093,7 +1093,7 @@ def obter_info_volume(caminho):
 
 
 class JanelaHashes(QWidget):
-    sinal_atualizacao = Signal(str, str)
+    sinal_atualizacao = Signal(str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -1388,70 +1388,77 @@ class JanelaHashes(QWidget):
                 import json
                 import re
 
-                if DEBUG_MESSAGES:
-                    print(f"[DEBUG Atualização] Conectando na API do GitHub: {url}")
-
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
                 with urllib.request.urlopen(req, timeout=5) as response:
                     dados = json.loads(response.read().decode('utf-8'))
 
-                versao_github_bruta = dados.get("tag_name", "")
-                if DEBUG_MESSAGES:
-                    print(f"[DEBUG Atualização] Versão encontrada no GitHub: {versao_github_bruta}")
-                    print(f"[DEBUG Atualização] Versão local atual: {VERSAO_APP}")
+                versao_github_bruta = dados.get('tag_name', '')
+                url_download = dados.get('html_url', LINK_GITHUB)
+                notas_lancamento = dados.get('body', 'Sem notas de lançamento disponíveis.')
 
-                # Usa Regex para extrair APENAS os números e pontos (ignora "v", "ERS", espaços, etc)
-                # Ex: "v3.5.0-beta" vira "3.5.0"
                 match_gh = re.search(r'(\d+\.\d+\.\d+)', versao_github_bruta)
                 match_local = re.search(r'(\d+\.\d+\.\d+)', VERSAO_APP)
 
                 if match_gh and match_local:
                     str_gh = match_gh.group(1)
                     str_local = match_local.group(1)
-
-                    # Converte "3.5.0" para (3, 5, 0)
                     tup_gh = tuple(map(int, str_gh.split('.')))
                     tup_local = tuple(map(int, str_local.split('.')))
 
-                    if DEBUG_MESSAGES:
-                        print(f"[DEBUG Atualização] Tuplas comparadas -> GH: {tup_gh} | Local: {tup_local}")
-
                     if tup_gh > tup_local:
-                        if DEBUG_MESSAGES:
-                            print("[DEBUG Atualização] Atualização é maior! Agendando renderização na GUI...")
-                        url_download = dados.get("html_url", LINK_GITHUB)
-
-                        # Emite o sinal de forma segura para a thread principal da GUI
-                        self.sinal_atualizacao.emit(versao_github_bruta, url_download)
-                    else:
-                        if DEBUG_MESSAGES:
-                            print("[DEBUG Atualização] Versão local já é igual ou superior. Nenhuma ação necessária.")
-                else:
-                    if DEBUG_MESSAGES:
-                        print("[DEBUG Atualização] Falha ao extrair os números das versões via Regex.")
+                        # Emite as três informações para a interface
+                        self.sinal_atualizacao.emit(versao_github_bruta, url_download, notas_lancamento)
 
             except Exception as e:
-                if DEBUG_MESSAGES:
-                    print(f"[DEBUG Atualização] ERRO FATAL na checagem: {repr(e)}")
+                pass  # Erros de rede são ignorados silenciosamente para não travar o app
 
         import threading
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
 
-    def _exibir_alerta_atualizacao(self, nova_versao, link):
-        """Exibe o banner amarelo de atualização acima da área de texto"""
+    def _exibir_alerta_atualizacao(self, nova_versao, link, notas_lancamento):
+        import re
+
         alerta_html = (
             f"<div style='background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 5px; margin-bottom: 5px;'>"
             f"<span style='color: #856404; font-size: 11pt;'>"
-            f"<b>⚠️ Nova atualização disponível:</b> A versão <b>{nova_versao}</b> foi lançada "
+            f"<b>⚠️ Nova atualização disponível!</b> A versão <b>{nova_versao}</b> foi lançada! "
             f"(Você está usando a v.{VERSAO_APP}). "
-            f"<a href='{link}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>[BAIXAR NOVA VERSÃO]</a>"
+            f"<a href='{link}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>BAIXAR NOVA VERSÃO</a>"
             f"</span>"
             f"</div>"
         )
 
+        notas = notas_lancamento.replace('\r\n', '\n')
+        while '\n\n\n' in notas:
+            notas = notas.replace('\n\n\n', '\n\n')
+
+        notas = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', notas)
+        notas = re.sub(r'^- (.*)', r'• \1', notas, flags=re.MULTILINE)
+        notas = re.sub(r'^#+ (.*)', r'<b>\1</b>', notas, flags=re.MULTILINE)
+
+        if len(notas) > 1200:
+            notas = notas[:1200] + "\n\n... (clique para ver as notas completas)"
+
+        notas_formatadas = notas.replace('\n', '<br>')
+
+        # Dica: adicionei um background na div interna para garantir que ela
+        # não fique transparente em alguns temas do Windows
+        tooltip_html = (
+            f"<div style='width: 650px; font-size: 10pt; line-height: 1.2; font-family: Consolas, monospace; background-color: #ffffff; color: #000000; padding: 5px;'>"
+            f"<span style='font-size: 11pt;'><b>O que há de novo na versão {nova_versao}:</b></span><hr>"
+            f"{notas_formatadas}"
+            f"</div>"
+        )
+
         self.lbl_alerta_versao.setText(alerta_html)
-        self.lbl_alerta_versao.show()  # Torna o aviso visível na tela
+        self.lbl_alerta_versao.show()
+
+        # Guarda o texto da tooltip na própria label para podermos acessar depois
+        self.lbl_alerta_versao.custom_tooltip_text = tooltip_html
+
+        # Instala um filtro para ouvir quando o mouse entra na label
+        self.lbl_alerta_versao.installEventFilter(self)
 
     def atualizar_tempo_total(self):
         if not self.processando or self.total_bytes_processar == 0:
@@ -2192,31 +2199,42 @@ class JanelaHashes(QWidget):
             if DEBUG_MESSAGES:
                 print(f"[DEBUG] Erro ao executar limpeza global de temporários: {e}")
 
-
     def eventFilter(self, obj, event):
-        # Verifica se o alvo é o checkbox de metadados ou algum dos checkboxes de hash
-        alvos_tooltip = [self.chk_metadados] + list(self.chk_hashes.values())
+        # Verifica se o alvo é o checkbox de metadados, algum dos checkboxes de hash ou a label de alerta
+        alvos_tooltip = [self.chk_metadados, self.lbl_alerta_versao] + list(self.chk_hashes.values())
 
         if obj in alvos_tooltip:
             # 1. Quando o mouse ENTRA (Ação imediata)
             if event.type() == QEvent.Type.Enter:
                 from PySide6.QtGui import QCursor
+                from PySide6.QtWidgets import QToolTip
+
                 pos_mouse = QCursor.pos()
 
-                # Se for o tooltip GIGANTE de Metadados, empurra pra esquerda.
-                # Se for os de Hashes (menores), deixa perto do mouse.
-                if obj == self.chk_metadados:
+                # A) Se for o Tooltip de Nova Versão, exibe o HTML costumizado e empurra MUITO pra esquerda
+                if obj == self.lbl_alerta_versao and hasattr(self.lbl_alerta_versao, 'custom_tooltip_text'):
+                    pos_mouse.setX(pos_mouse.x() - 500)
+                    pos_mouse.setY(pos_mouse.y() + 15)
+                    QToolTip.showText(pos_mouse, self.lbl_alerta_versao.custom_tooltip_text, obj)
+                    return True
+
+                # B) Se for o tooltip GIGANTE de Metadados, empurra um pouco pra esquerda
+                elif obj == self.chk_metadados:
                     pos_mouse.setX(pos_mouse.x() - 320)
+                    pos_mouse.setY(pos_mouse.y() + 15)
+                    QToolTip.showText(pos_mouse, obj.toolTip(), obj)
+                    return True
+
+                # C) Se for os de Hashes (menores), deixa perto do mouse e para a direita
                 else:
                     pos_mouse.setX(pos_mouse.x() + 15)
-
-                pos_mouse.setY(pos_mouse.y() + 15)
-
-                QToolTip.showText(pos_mouse, obj.toolTip(), obj)
-                return True
+                    pos_mouse.setY(pos_mouse.y() + 15)
+                    QToolTip.showText(pos_mouse, obj.toolTip(), obj)
+                    return True
 
             # 2. Quando o mouse SAI
             elif event.type() == QEvent.Type.Leave:
+                from PySide6.QtWidgets import QToolTip
                 QToolTip.hideText()
                 return True
 
@@ -2224,9 +2242,8 @@ class JanelaHashes(QWidget):
             elif event.type() == QEvent.Type.ToolTip:
                 return True
 
-        # Para todos os outros botões da tela, segue o comportamento normal
+        # Para todos os outros botões e eventos de tela, segue o comportamento normal
         return super().eventFilter(obj, event)
-
 
     def mostrar_sobre(self):
         dialog = QDialog(self)
