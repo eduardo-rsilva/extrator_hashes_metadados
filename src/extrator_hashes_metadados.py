@@ -392,6 +392,7 @@ def traduzir_erro_windows(err_code: int, operacao: str) -> str:
         23: "Erro de Dados (CRC): [FALHA DE HARDWARE] Ocorreu um Erro de Verificação Cíclica de Redundância. O disco possui setores fisicamente danificados ou corrupção severa.",
         27: "Setor Não Encontrado: [FALHA DE HARDWARE] A agulha ou controladora não conseguiu localizar o setor físico no disco.",
         32: "Violação de Compartilhamento: Outro processo (ou o próprio Windows) está com acesso exclusivo bloqueando a unidade.",
+        433: "Dispositivo Inexistente (NO_SUCH_DEVICE): O hardware foi removido ou desconectado abruptamente (cabo solto/ejetado) no meio da leitura de baixo nível.",
         1117: "Erro de Dispositivo de E/S (I/O): [FALHA CRÍTICA] O dispositivo de armazenamento falhou fisicamente ou a controladora travou durante a transferência de dados.",
         1167: "Dispositivo Não Conectado: O pendrive/disco foi fisicamente removido no meio da operação de leitura."
     }
