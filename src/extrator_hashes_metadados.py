@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.1.0
+Versão: 4.1.1
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.1.0"
+VERSAO_APP = "4.1.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -69,6 +69,8 @@ LINK_GITHUB = f"https://github.com/{USUARIO}/{REPOSITORIO}"
 # -------------------------------
 
 DEBUG_MESSAGES = False # USADO APENAS NA FASE DE DESENVOLVIMENTO
+
+INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL = 2 # em segundos
 
 # --- VALIDAÇÃO DE ARQUITETURA ---
 if sys.maxsize <= 2**32:
@@ -579,7 +581,7 @@ def raw_hash_device(
             bytes_read_total += n
 
             now = time.time()
-            if progress_json_path and (now - last_progress_write) >= 0.5:
+            if progress_json_path and (now - last_progress_write) >= INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL:
                 pct = int((bytes_read_total / total) * 100) if total else 0
                 tmp = {
                     "device": device_path,
@@ -1972,6 +1974,9 @@ class JanelaHashes(QWidget):
 
         # trava UI e ativa modo admin VISUAL enquanto o helper roda
         self.travar_interface()
+        self.barra_total.setMaximum(100)
+        self.barra_total.setValue(0)
+        self.lbl_progresso_total.setText("Progresso RAW - Iniciando...")
         self._ativar_modo_admin_visual()
         self.cancelar_operacao = False
         self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
@@ -2007,7 +2012,8 @@ class JanelaHashes(QWidget):
         # Timer para acompanhar progresso/resultado
         self._raw_timer = QTimer(self)
         self._raw_timer.timeout.connect(self._poll_raw_hash_status)
-        self._raw_timer.start(300)
+        self._raw_timer.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)
+
 
     def _poll_raw_hash_status(self):
         QApplication.processEvents() # Permite que o programa registre o clique no botão "Cancelar"
@@ -2018,6 +2024,7 @@ class JanelaHashes(QWidget):
                     p = json.load(f)
                 pct = int(p.get("percent", 0))
                 self.barra_arquivo.setValue(max(0, min(100, pct)))
+                self.barra_total.setValue(max(0, min(100, pct)))
                 self.lbl_progresso_arquivo.setText(f"RAW {pct}% - {self._raw_device}")
 
                 bytes_read = p.get("bytes_read", 0)
@@ -2108,6 +2115,7 @@ class JanelaHashes(QWidget):
             self._desativar_modo_admin_visual()
             self.destravar_interface()
             self.barra_arquivo.setValue(0)
+            self.barra_total.setValue(100)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
 
@@ -3535,7 +3543,7 @@ class JanelaHashes(QWidget):
 
         self.bytes_processados_total = 0
         self.tempo_inicio_total = time.time()
-        self.timer_tempo.start(1000)  # Atualiza o texto na tela a cada 1 segundo
+        self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)  # Atualiza o texto na tela a cada 5 segundo
 
         self.texto_saida.append(f"Processando {total_arquivos} arquivo(s)...\n")
 
