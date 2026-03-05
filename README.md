@@ -16,6 +16,15 @@ Além disso:
 
 ---
 
+## 🔗 Validação Automática da Cadeia de Custódia
+* **Conferência de Listagens de Hashes:** Permite o *Drag & Drop* (arrastar e soltar) de laudos e listagens de hashes de origem (nos formatos PDF, DOCX, XLSX, TXT) ou inserção de texto livre, para auditar a extração feita pelo responsável pela coleta original dos dados e preservar intacta a Cadeia de Custódia.
+* **Limpeza Forense de Texto:** Motor de extração blindado contra sujeiras de formatação e artefatos visuais de PDFs (como espaços invisíveis e quebras de linha fantasmas), garantindo a leitura exata do nome e do hash.
+* **Busca Heurística Inteligente:** O algoritmo rastreia o texto (na mesma linha ou em linhas anteriores) para associar o hash ao nome correto do arquivo. Exclusivamente para laudos em PDF, a ferramenta aciona uma busca bidirecional (progressiva) para compensar quebras irregulares de página, sempre utilizando "barreiras de algoritmo" para evitar falsos positivos.
+* **Rastreabilidade (A Prova da Prova):** Ao arrastar um arquivo de referência, a ferramenta calcula e registra no relatório final o hash SHA-256 do próprio documento utilizado para a conferência, amarrando a auditoria.
+* **Alerta de CRC32:** Hashes CRC32 eventualmente presentes nos laudos de referência são intencionalmente ignorados no cruzamento de dados para evitar falsos positivos (por colidirem com datas ou números sequenciais em texto plano).
+
+---
+
 ## 🌐 Isolamento de Nuvem e Triagem de Unidades e Aquisição RAW
 Um diferencial crítico é o **bloqueio automático de arquivos "Apenas Online"** (OneDrive, Google Drive, etc.). A ferramenta detecta o atributo *Recall on Data Access* e impede a leitura desses arquivos para evitar downloads indesejados que alterariam a evidência local e o tráfego de rede. 
 

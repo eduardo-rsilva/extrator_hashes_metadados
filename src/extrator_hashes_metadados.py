@@ -99,6 +99,7 @@ import json
 import msvcrt
 from ctypes import wintypes
 import os
+import re
 import subprocess
 import traceback
 from cryptography.fernet import Fernet
@@ -109,12 +110,12 @@ from email import policy
 from email.parser import BytesParser
 import datetime as dt # Importado como dt para não conflitar com o datetime existente
 from pathlib import Path
-from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                                QPushButton, QCheckBox, QTextEdit, QFileDialog,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
-                               QTabWidget, QFrame, QWidget)
+                               QTabWidget, QFrame, QGroupBox)
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import QTimer, QEvent, Signal
+from PySide6.QtCore import QTimer, QEvent, Signal, Qt
 
 # imports para hash bit a bit
 import argparse
@@ -1095,6 +1096,411 @@ def obter_info_volume(caminho):
     return None
 
 
+class TextEditCustodia(QTextEdit):
+    """Caixa de texto customizada que aceita arquivos PDF/DOCX/XLSX/TXT via Drag & Drop."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+        self.nome_arquivo_origem = None
+        self.hash_arquivo_origem = None
+
+        self._texto_fundo = (
+            "Arraste e solte o relatório de hashes gerados pela delegacia aqui (PDF, DOCX, XLSX, TXT)\n"
+            "ou cole o texto livremente para validar a Cadeia de Custódia... (Nota: Hashes CRC32 não são conferidos)"
+        )
+
+    def paintEvent(self, event):
+        """Sobrescreve a pintura para forçar o texto de fundo a aceitar quebra de linha (\n)"""
+        super().paintEvent(event)
+
+        # 2. Se a caixa estiver vazia, nós mesmos "pintamos" o texto no fundo
+        if not self.toPlainText():
+            from PySide6.QtGui import QPainter, QColor
+            from PySide6.QtCore import Qt
+
+            painter = QPainter(self.viewport())
+            painter.setPen(QColor("#888888"))  # Cor cinza padrão de placeholder
+
+            # Cria uma margem de 5 pixels para o texto não ficar grudado na borda
+            rect = self.viewport().rect().adjusted(5, 5, -5, -5)
+
+            # Desenha o texto respeitando o \n e alinhando no topo
+            painter.drawText(rect, Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, self._texto_fundo)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            caminho_arquivo = urls[0].toLocalFile()
+            event.acceptProposedAction()
+            self.carregar_arquivo(caminho_arquivo)
+        else:
+            super().dropEvent(event)
+
+    def carregar_arquivo(self, caminho):
+        """Lê o arquivo arrastado e extrai o texto de forma nativa e segura."""
+        self.nome_arquivo_origem = os.path.basename(caminho)
+
+        # --- CÁLCULO DO HASH (SHA-256) DO ARQUIVO DE REFERÊNCIA ---
+        try:
+            import hashlib
+            sha256_ref = hashlib.sha256()
+            with open(caminho, 'rb') as f_hash:
+                while chunk := f_hash.read(65536):
+                    sha256_ref.update(chunk)
+            self.hash_arquivo_origem = sha256_ref.hexdigest().upper()
+        except Exception:
+            self.hash_arquivo_origem = "[Erro ao calcular hash]"
+        # ----------------------------------------------------------
+
+        extensao = caminho.lower().split('.')[-1]
+        texto_extraido = ""
+
+        try:
+            # 1. LEITURA DE PDF
+            if extensao == 'pdf':
+                reader = PdfReader(caminho)
+                for page in reader.pages:
+                    texto_pagina = page.extract_text()
+                    if texto_pagina:
+                        texto_extraido += texto_pagina + "\n"
+
+                # Aviso de PDF Escaneado (Imagem)
+                if not texto_extraido.strip():
+                    texto_extraido = (
+                        "⚠️ [AVISO FORENSE]\n"
+                        "Nenhum texto digital detectado neste PDF.\n\n"
+                        "O arquivo parece ser um documento escaneado (composto apenas por imagens). "
+                        "Por favor, copie e cole os hashes do documento original manualmente aqui."
+                    )
+
+            # 2. LEITURA NATIVA DE WORD MODERNO (DOCX)
+            elif extensao == 'docx':
+                try:
+                    with zipfile.ZipFile(caminho) as z:
+                        xml_content = z.read('word/document.xml')
+                        tree = ET.fromstring(xml_content)
+                        textos = []
+                        # Itera sobre os parágrafos para não quebrar palavras ao meio
+                        for p_node in tree.iter():
+                            if p_node.tag.endswith('}p'):
+                                texto_paragrafo = ""
+                                for t_node in p_node.iter():
+                                    if t_node.tag.endswith('}t') and t_node.text:
+                                        texto_paragrafo += t_node.text
+                                if texto_paragrafo:
+                                    textos.append(texto_paragrafo)
+                        texto_extraido = "\n".join(textos)
+                except zipfile.BadZipFile:
+                    texto_extraido = "⚠️ Erro: O arquivo DOCX está corrompido."
+
+            # 3. LEITURA NATIVA DE EXCEL MODERNO (XLSX)
+            elif extensao == 'xlsx':
+                try:
+                    with zipfile.ZipFile(caminho) as z:
+                        textos = []
+                        # No Excel, os textos das células ficam salvos no sharedStrings.xml
+                        if 'xl/sharedStrings.xml' in z.namelist():
+                            xml_content = z.read('xl/sharedStrings.xml')
+                            tree = ET.fromstring(xml_content)
+                            for si_node in tree.iter():
+                                if si_node.tag.endswith('}si'):
+                                    texto_item = ""
+                                    for t_node in si_node.iter():
+                                        if t_node.tag.endswith('}t') and t_node.text:
+                                            texto_item += t_node.text
+                                    if texto_item:
+                                        textos.append(texto_item)
+                        texto_extraido = "\n".join(textos)
+                except zipfile.BadZipFile:
+                    texto_extraido = "⚠️ Erro: O arquivo XLSX está corrompido."
+
+            # 4. AVISO PARA FORMATOS LEGADOS (DOC / XLS)
+            elif extensao in ['doc', 'xls']:
+                texto_extraido = (
+                    f"⚠️ [FORMATO LEGADO NÃO SUPORTADO]\n"
+                    f"O formato (.{extensao}) possui uma estrutura binária fechada.\n\n"
+                    f"Para garantir a precisão da extração sem corromper os hashes, abra o arquivo no Office e "
+                    f"copie/cole o texto aqui, ou salve-o como PDF e arraste novamente."
+                )
+
+            # 5. ARQUIVOS DE TEXTO COMUNS (TXT, CSV)
+            else:
+                with open(caminho, 'r', encoding='utf-8', errors='replace') as f:
+                    texto_extraido = f.read()
+
+            self.setPlainText(texto_extraido)
+            # Imprime no console (se aberto) que o carregamento foi bem sucedido
+            print(f"Relatório carregado: {os.path.basename(caminho)}")
+        except Exception as e:
+            self.setPlainText(f"Erro inesperado ao ler o arquivo de referência: {str(e)}")
+
+    def clear(self):
+        """Sobrescreve a limpeza para esquecer o nome e o hash do arquivo quando o botão Limpar for clicado."""
+        self.nome_arquivo_origem = None
+        self.hash_arquivo_origem = None
+        super().clear()
+
+class ValidadorCustodia:
+    """Implementa a busca reversa com barreira de algoritmo para Cadeia de Custódia."""
+
+    def __init__(self, texto_referencia: str, is_pdf: bool = False):
+        self.linhas = [linha.strip() for linha in texto_referencia.splitlines()]
+        self.is_pdf = is_pdf
+
+        # Padrões com 'word boundaries' para identificar tamanhos exatos
+        self.padroes = {
+            "MD5": r'\b[a-fA-F0-9]{32}\b',
+            "SHA-1": r'\b[a-fA-F0-9]{40}\b',
+            "SHA-256": r'\b[a-fA-F0-9]{64}\b',
+            "SHA-384": r'\b[a-fA-F0-9]{96}\b',
+            "SHA-512": r'\b[a-fA-F0-9]{128}\b'
+        }
+
+        self.mapa_hashes = {}
+        self.barreiras_algo = {algo: set() for algo in self.padroes}
+        self._mapear_texto()
+
+    def _mapear_texto(self):
+        """Varre o texto uma única vez mapeando a posição de cada hash."""
+        for idx, linha in enumerate(self.linhas):
+            if not linha: continue
+
+            for algo, padrao in self.padroes.items():
+                for match in re.finditer(padrao, linha):
+                    val_hash = match.group().upper()
+
+                    if val_hash not in self.mapa_hashes:
+                        self.mapa_hashes[val_hash] = []
+
+                    self.mapa_hashes[val_hash].append({'algo': algo, 'linha_idx': idx})
+                    self.barreiras_algo[algo].add(idx)
+
+    def _linha_contem_nome(self, linha: str, nome_arquivo_atual: str) -> bool:
+        """Checa se o nome base do arquivo está na linha, blindado contra espaços injetados por PDFs."""
+        linha_lower = linha.lower()
+
+        # 1. Limpeza pesada de caracteres invisíveis
+        linha_lower = linha_lower.replace('\xad', '').replace('\u200b', '').replace('\u200e', '').replace('\u200f', '')
+
+        # 2. Corrige a falha clássica do pypdf: injetar espaços ao redor do ponto (ex: "RawTAP .pm" ou "RawTAP. pm")
+        linha_lower = linha_lower.replace(' .', '.').replace('. ', '.')
+
+        # --- TENTATIVA A: Busca Padronizada ---
+        idx = linha_lower.find(nome_arquivo_atual)
+        while idx != -1:
+            valido_antes = True
+            if idx > 0:
+                char_anterior = linha_lower[idx - 1]
+                if char_anterior.isalnum() or char_anterior == '_':
+                    valido_antes = False
+
+            valido_depois = True
+            fim_idx = idx + len(nome_arquivo_atual)
+            if fim_idx < len(linha_lower):
+                char_posterior = linha_lower[fim_idx]
+                if char_posterior.isalnum() or char_posterior == '_':
+                    valido_depois = False
+
+            if valido_antes and valido_depois:
+                return True
+
+            idx = linha_lower.find(nome_arquivo_atual, idx + 1)
+
+        # --- TENTATIVA B: Fallback Agressivo (Para PDF "esmigalhado" tipo P S P . p m) ---
+        # Removemos TODOS os espaços da linha e do nome do arquivo
+        linha_sem_espaco = linha_lower.replace(' ', '')
+        nome_sem_espaco = nome_arquivo_atual.replace(' ', '')
+
+        # Só ativamos esse modo se o arquivo tiver um nome razoável para evitar falsos positivos
+        if len(nome_sem_espaco) >= 4 and nome_sem_espaco in linha_sem_espaco:
+            idx_fuzzy = linha_sem_espaco.find(nome_sem_espaco)
+
+            # Como arrancamos os espaços, precisamos garantir que é o arquivo mesmo.
+            # Verifica se há uma barra (\ ou /) logo antes do nome, o que confirma ser o final de um caminho.
+            if idx_fuzzy > 0:
+                char_anterior = linha_sem_espaco[idx_fuzzy - 1]
+                if char_anterior in '\\/':
+                    return True
+            else:
+                return True
+
+        return False
+
+    def validar(self, caminho_arquivo: str, hashes_calculados: dict) -> tuple[int, str]:
+        """Executa a busca reversa, testando múltiplos hashes, e retorna (status, mensagem_formatada)."""
+        nome_arquivo_atual = os.path.basename(caminho_arquivo).lower()
+
+        algos_conferem = []
+        algos_alerta = []
+
+        for algo_calc, val_calc in hashes_calculados.items():
+            if val_calc in self.mapa_hashes:
+                ocorrencias = self.mapa_hashes[val_calc]
+                nome_encontrado_para_este_hash = False
+
+                for ocorrencia in ocorrencias:
+                    algo_ref = ocorrencia['algo']
+                    idx_ref = ocorrencia['linha_idx']
+
+                    # 1. Verifica na mesma linha
+                    if self._linha_contem_nome(self.linhas[idx_ref], nome_arquivo_atual):
+                        algos_conferem.append(algo_calc)
+                        nome_encontrado_para_este_hash = True
+                        break  # Achou o nome para este hash, vai pro próximo hash calculado
+
+                    # 2. Busca Reversa (Sobe as linhas do texto)
+                    idx_busca = idx_ref - 1
+                    achou_na_reversa = False
+
+                    while idx_busca >= 0:
+                        linha_atual = self.linhas[idx_busca]
+
+                        if self._linha_contem_nome(linha_atual, nome_arquivo_atual):
+                            algos_conferem.append(algo_calc)
+                            nome_encontrado_para_este_hash = True
+                            achou_na_reversa = True
+                            break
+
+                        # Barreira de Algoritmo
+                        if idx_busca in self.barreiras_algo[algo_ref]:
+                            break
+
+                        idx_busca -= 1
+
+                    if achou_na_reversa:
+                        break  # Se achou na reversa, sai do loop
+
+                    # 3. Busca Progressiva Condicional (SÓ RODA SE FOR PDF)
+                    if self.is_pdf and not nome_encontrado_para_este_hash:
+                        idx_busca = idx_ref + 1
+                        achou_na_progressiva = False
+
+                        while idx_busca < len(self.linhas):
+                            linha_atual = self.linhas[idx_busca]
+
+                            if self._linha_contem_nome(linha_atual, nome_arquivo_atual):
+                                algos_conferem.append(algo_calc)
+                                nome_encontrado_para_este_hash = True
+                                achou_na_progressiva = True
+                                break
+
+                            # Barreira de Algoritmo
+                            if idx_busca in self.barreiras_algo[algo_ref]:
+                                break
+
+                            idx_busca += 1
+
+                        if achou_na_progressiva:
+                            break  # Se achou descendo, sai do loop
+
+                # Se passou por todas as ocorrências desse hash no texto e não achou o nome perto de nenhuma
+                if not nome_encontrado_para_este_hash:
+                    algos_alerta.append(algo_calc)
+
+        # Montagem da mensagem final
+        if algos_conferem:
+            # Formata bonito com vírgulas e "e" no final
+            texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
+                algos_conferem[:-1]) + " e " + algos_conferem[-1]
+            sufixo = "s" if len(algos_conferem) > 1 else ""
+            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
+
+        elif algos_alerta:
+            texto_algos = " e ".join(algos_alerta) if len(algos_alerta) < 3 else ", ".join(algos_alerta[:-1]) + " e " + \
+                                                                                 algos_alerta[-1]
+            return 2, f"⚠️ ALERTA - Hash confere ({texto_algos}), mas o nome diverge."
+
+        return 3, "❌ DIVERGÊNCIA - Nenhum hash calculado para este arquivo consta na relação original da Cadeia de Custódia."
+
+    def validar_hash_simples(self, hashes_calculados: dict) -> tuple[int, str]:
+        """Valida apenas a existência do hash no texto, ideal para aquisições RAW onde o nome da mídia varia no laudo."""
+        algos_conferem = []
+
+        for algo_calc, val_calc in hashes_calculados.items():
+            if val_calc in self.mapa_hashes:
+                algos_conferem.append(algo_calc)
+
+        if algos_conferem:
+            texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
+                algos_conferem[:-1]) + " e " + algos_conferem[-1]
+            sufixo = "s" if len(algos_conferem) > 1 else ""
+            return 1, f"✅ CONFERE - Hash{sufixo} ({texto_algos}) localizado{sufixo} no documento de custódia."
+
+        return 3, "❌ NÃO CONFERE / NENHUM HASH DA UNIDADE LOCALIZADO NO TEXTO"
+
+    def obter_lista_limpa(self) -> list:
+        """Tenta extrair os pares (Nome do Arquivo, Hash) do texto de referência usando heurística forense."""
+        lista_limpa = []
+
+        for idx_linha, linha in enumerate(self.linhas):
+            for algo, padrao in self.padroes.items():
+                for match in re.finditer(padrao, linha):
+                    hash_val = match.group().upper()
+                    nome_encontrado = "[Nome não identificado]"
+
+                    # 1. Tenta achar na mesma linha
+                    # Remove o hash, e limpa prefixos como "SHA-256:" ou "*"
+                    texto_limpo = linha.replace(match.group(), '')
+                    texto_limpo = re.sub(r'^(CRC32|MD5|SHA-1|SHA-256|SHA-384|SHA-512)[\s:]*', '', texto_limpo,
+                                         flags=re.IGNORECASE)
+                    texto_limpo = texto_limpo.strip(' *:-')
+
+                    if texto_limpo and not texto_limpo.lower().startswith(
+                            ('tamanho', 'size', 'modificado', 'criado', 'data')):
+                        nome_encontrado = texto_limpo.replace('\\', '/').split('/')[-1].strip()
+                    else:
+                        # 2. Busca reversa (Sobe as linhas procurando o dono do hash)
+                        idx_busca = idx_linha - 1
+                        while idx_busca >= 0:
+                            if idx_busca in self.barreiras_algo[algo]:
+                                break
+
+                            linha_cima = self.linhas[idx_busca].strip()
+                            linha_cima_lower = linha_cima.lower()
+
+                            if not linha_cima:
+                                idx_busca -= 1
+                                continue
+
+                            # Pula linhas de metadados comuns ou prefixos de outros hashes
+                            prefixos_pular = ('tamanho', 'size', 'modificado', 'criado', 'data', 'entropia', 'crc32',
+                                              'md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512')
+                            if linha_cima_lower.startswith(prefixos_pular):
+                                idx_busca -= 1
+                                continue
+
+                            # Pula se a linha for apenas um hash puro solto (sem prefixo)
+                            if re.match(r'^[a-fA-F0-9]{32,128}\s*$', linha_cima):
+                                idx_busca -= 1
+                                continue
+
+                            # Chegou numa linha válida! Limpa prefixos de "Arquivo:" e extrai só o nome
+                            linha_cima = re.sub(r'^(Arquivo|Nome|File|Target)\s*:\s*', '', linha_cima,
+                                                flags=re.IGNORECASE)
+                            nome_encontrado = linha_cima.replace('\\', '/').split('/')[-1].strip()
+                            break
+
+                    # Formata de um jeito profissional para o relatório
+                    lista_limpa.append(f"📄 {nome_encontrado}   |   {algo}: {hash_val}")
+
+        return lista_limpa
+
+
+
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str)
 
@@ -1213,7 +1619,9 @@ class JanelaHashes(QWidget):
             "CRC32": "<p><b>CRC32:</b> Verificação de redundância (Não Criptográfico).</p>"
                      "<ul><li><b>Segurança:</b> Nula.</li>"
                      "<li><b>Colisão:</b> Altíssima.</li>"
-                     "<li><b>Uso:</b> Inseguro para evidências. Útil apenas para detecção rápida de corrupção acidental de dados.</li></ul>",
+                     "<li><b>Uso:</b> Inseguro para evidências. Útil apenas para detecção rápida de corrupção. <br><br>"
+                     "<span style='color: #990000;'><b>⚠️ Nota Pericial:</b> Para evitar falsos positivos, o CRC32 é "
+                     "intencionalmente ignorado na conferência automática da Cadeia de Custódia.</span></li></ul>",
 
             "MD5": "<p><b>MD5:</b> Hash criptográfico legado.</p>"
                    "<ul><li><b>Segurança:</b> Quebrada.</li>"
@@ -1268,12 +1676,46 @@ class JanelaHashes(QWidget):
         self.lbl_alerta_versao.hide()  # Esconde ao iniciar
         layout_principal.addWidget(self.lbl_alerta_versao)
 
+        # --- DIVISOR AJUSTÁVEL (QSplitter) ---
+        # É ele que permite arrastar a linha entre as caixas para redimensioná-las com o mouse
+        splitter = QSplitter(Qt.Orientation.Vertical)
+
+        # --- CADEIA DE CUSTÓDIA ---
+        grupo_validacao = QGroupBox("Validar Cadeia de Custódia (Opcional)")
+        layout_validacao = QHBoxLayout()  # O seu layout horizontal perfeito
+
+        self.texto_referencia = TextEditCustodia(self)
+        self.texto_referencia.setMinimumHeight(65)
+
+        self.btn_limpar_custodia = QPushButton("Limpar\nConteúdo")
+        self.btn_limpar_custodia.setFixedWidth(80)
+        # Faz o botão acompanhar a altura da caixa de texto
+        self.btn_limpar_custodia.setSizePolicy(self.btn_limpar_custodia.sizePolicy().Policy.Fixed,
+                                               self.btn_limpar_custodia.sizePolicy().Policy.Expanding)
+        self.btn_limpar_custodia.clicked.connect(self.texto_referencia.clear)
+
+        layout_validacao.addWidget(self.texto_referencia)
+        layout_validacao.addWidget(self.btn_limpar_custodia)
+        grupo_validacao.setLayout(layout_validacao)
+
+        # A MÁGICA ACONTECE AQUI: Em vez de adicionar ao layout principal, adicionamos ao splitter!
+        splitter.addWidget(grupo_validacao)
+
         # --- Área de Texto Principal ---
         self.texto_saida = QTextEdit()
         self.texto_saida.setReadOnly(True)
-        self.texto_saida.setStyleSheet("background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
+        self.texto_saida.setStyleSheet(
+            "background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
         self.texto_saida.append(MENSAGEM_INICIAL + "\n")
-        layout_principal.addWidget(self.texto_saida)
+
+        # Adiciona a saída também no splitter, para ficar embaixo da validação
+        splitter.addWidget(self.texto_saida)
+
+        # Define as proporções iniciais de altura (Ex: 80 pixels para validação e 500 para o log)
+        splitter.setSizes([190, 390])
+
+        # Finalmente, coloca o splitter inteiro na tela principal
+        layout_principal.addWidget(splitter)
 
         # --- Barras de Progresso ---
         layout_progresso = QVBoxLayout()
@@ -1530,21 +1972,21 @@ class JanelaHashes(QWidget):
 
         # Estilo geral da janela (Fundo vermelho e letras brancas para os botões/textos soltos)
         estilo_admin = """
-                    #MainWindow { background-color: #4a0000; }
-                    #MainWindow QLabel, #MainWindow QCheckBox, #MainWindow QPushButton { color: #f0f0f0; }
+                            #MainWindow { background-color: #4a0000; }
+                            #MainWindow QLabel, #MainWindow QCheckBox, #MainWindow QPushButton, #MainWindow QGroupBox { color: #f0f0f0; }
 
-                    QProgressBar {
-                        border: 1px solid #7a0000;
-                        background-color: #2a0000;
-                        text-align: center;
-                        color: #ffffff;
-                        font-weight: bold;
-                        border-radius: 4px;
-                    }
-                    QProgressBar::chunk {
-                        background-color: #cc0000;
-                    }
-                """
+                            QProgressBar {
+                                border: 1px solid #7a0000;
+                                background-color: #2a0000;
+                                text-align: center;
+                                color: #ffffff;
+                                font-weight: bold;
+                                border-radius: 4px;
+                            }
+                            QProgressBar::chunk {
+                                background-color: #cc0000;
+                            }
+                        """
         self.setStyleSheet(estilo_admin)
 
         # Trata a caixa de texto grande (QTextEdit) individualmente para evitar conflito de prioridade de CSS
@@ -2088,6 +2530,22 @@ class JanelaHashes(QWidget):
                     texto_hashes.append(f"{k}: {v}")
                     self.texto_saida.append(f"{k}: {v}")
 
+                # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA PARA RAW ---
+                texto_custodia = self.texto_referencia.toPlainText().strip()
+                if texto_custodia:
+                    validador_raw = ValidadorCustodia(texto_custodia)
+                    status, msg_custodia = validador_raw.validar_hash_simples(hashes)
+                    self.texto_saida.append("")
+                    self.texto_saida.append("=== VALIDAÇÃO DA CADEIA DE CUSTÓDIA ===")
+                    self.texto_saida.append(msg_custodia)
+                    self.texto_saida.append("")
+
+                    # Adiciona a validação à lista de textos que vão para o Log físico (txt)
+                    texto_hashes.append("")
+                    texto_hashes.append("=== RESULTADO DA VALIDAÇÃO ===")
+                    texto_hashes.append(msg_custodia)
+                # ------------------------------------------------------------
+
                 # Escreve o arquivo de auditoria físico (.txt)
                 if hasattr(self, '_caminho_audit_log') and self._caminho_audit_log:
                     try:
@@ -2353,6 +2811,15 @@ class JanelaHashes(QWidget):
             "<li><b>Metadados Avançados:</b> Extração de coordenadas GPS (com links para mapas), datas internas de criação, marcas de dispositivos e rastreios de autoria/edição de software.</li>"
             "<li><b>Validação de Assinatura e Binários:</b> Checagem de certificados Authenticode em executáveis (EXE/DLL/SYS) e extração do Data/Hora exata de compilação registrada no cabeçalho PE.</li>"
             "</ul>"
+            
+            "<h3>🔗 Validação Automática da Cadeia de Custódia:</h3>"
+            "<ul>"
+            "<li><b>Conferência de Listagens de Hashes:</b> Permite o <i>Drag & Drop</i> (arrastar e soltar) de laudos e listagens de hashes de origem (nos formatos PDF, DOCX, XLSX, TXT) ou inserção de texto livre, para auditar a extração feita pelo responsável pela coleta original dos dados e preservar intacta a Cadeia de Custódia.</li>"
+            "<li><b>Limpeza Forense de Texto:</b> Motor de extração blindado contra sujeiras de formatação e artefatos visuais de PDFs (como espaços invisíveis e quebras de linha fantasmas), garantindo a leitura exata do nome e do hash.</li>"
+            "<li><b>Busca Heurística Inteligente:</b> O algoritmo rastreia o texto (na mesma linha ou em linhas anteriores) para associar o hash ao nome correto do arquivo. Exclusivamente para laudos em PDF, a ferramenta aciona uma busca bidirecional (progressiva) para compensar quebras irregulares de página, sempre utilizando 'barreiras de algoritmo' para evitar falsos positivos.</li>"
+            "<li><b>Rastreabilidade (A Prova da Prova):</b> Ao arrastar um arquivo de referência, a ferramenta calcula e registra no relatório final o hash SHA-256 do próprio documento utilizado para a conferência, amarrando a auditoria.</li>"
+            "<li><b>Alerta de CRC32:</b> Hashes CRC32 eventualmente presentes nos laudos de referência são intencionalmente ignorados no cruzamento de dados para evitar falsos positivos (por colidirem com datas ou números sequenciais em texto plano).</li>"
+            "</ul>"
 
             "<h3>🔓 Transparência, Velocidade e Auditoria:</h3>"
             "<ul>"
@@ -2462,6 +2929,9 @@ class JanelaHashes(QWidget):
         self.btn_sobre.setEnabled(False)
         self.setAcceptDrops(False)
         self.btn_salvar.setEnabled(False)
+        self.texto_referencia.setEnabled(False)
+        self.btn_limpar_custodia.setEnabled(False)
+
         for chk in self.chk_hashes.values():
             chk.setEnabled(False)
 
@@ -2478,6 +2948,9 @@ class JanelaHashes(QWidget):
         self.btn_sobre.setEnabled(True)
         self.setAcceptDrops(True)
         self.btn_salvar.setEnabled(True)
+        self.texto_referencia.setEnabled(True)
+        self.btn_limpar_custodia.setEnabled(True)
+
         for chk in self.chk_hashes.values():
             chk.setEnabled(True)
 
@@ -3502,10 +3975,17 @@ class JanelaHashes(QWidget):
                         if os.path.isfile(caminho_completo):
                             arquivos_encontrados.append(caminho_completo)
 
-        # Passa a informação do drive (se existir) para o processamento final
-        self.processar_arquivos(arquivos_encontrados, info_drive)
+        # --- Captura o texto colado da Cadeia de Custódia ---
+        texto_custodia = ""
+        # Verifica se o componente foi criado na UI antes de tentar ler
+        if hasattr(self, 'texto_referencia'):
+            texto_custodia = self.texto_referencia.toPlainText().strip()
+        # ----------------------------------------------------------------------
 
-    def processar_arquivos(self, lista_arquivos, info_drive=None):
+        # Passa a informação do drive (se existir) para o processamento final
+        self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia)
+
+    def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
 
@@ -3533,6 +4013,21 @@ class JanelaHashes(QWidget):
         self.btn_cancelar.setEnabled(True)
         self.barra_total.setMaximum(total_arquivos)
         self.barra_total.setValue(0)
+
+        # Inicializa o validador se houver texto
+        validador = None
+        qtd_validados = 0
+        qtd_alertas = 0
+        qtd_nao_validados = 0
+
+        if texto_custodia:
+            # Verifica se o texto veio de um PDF arrastado
+            veio_de_pdf = False
+            nome_ref = getattr(self.texto_referencia, 'nome_arquivo_origem', None)
+            if nome_ref and nome_ref.lower().endswith('.pdf'):
+                veio_de_pdf = True
+
+            validador = ValidadorCustodia(texto_custodia, is_pdf=veio_de_pdf)
 
         # Pré-calcula o tamanho total em bytes para o ETA funcionar
         self.total_bytes_processar = 0
@@ -3613,6 +4108,21 @@ class JanelaHashes(QWidget):
                     for meta in metadados_midia:
                         self.texto_saida.append(meta)
                 # --------------------------------------------------------
+
+                # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA ---
+                if validador:
+                    status, msg_custodia = validador.validar(arquivo, resultado['hashes'])
+                    self.texto_saida.append("")
+                    self.texto_saida.append(msg_custodia)
+
+                    # Atualiza os contadores pro resumo final
+                    if status == 1:
+                        qtd_validados += 1
+                    elif status == 2:
+                        qtd_alertas += 1
+                    else:
+                        qtd_nao_validados += 1
+                # --------------------------------------------------------
             else:
                 self.texto_saida.append(f"Erro: {resultado['erro']}")
 
@@ -3632,6 +4142,36 @@ class JanelaHashes(QWidget):
 
         self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
         self.texto_saida.append("-" * 60)
+
+        # --- RESUMO FINAL DA CADEIA DE CUSTÓDIA ---
+        if validador:
+            # --- LISTA LIMPA DE REFERÊNCIA ENVIADA PELA DELEGACIA OU REQUISITANTE DO EXAME ---
+            lista_referencia = validador.obter_lista_limpa()
+            if lista_referencia:
+                # Verifica se a caixa lembra do nome e do hash
+                nome_ref = self.texto_referencia.nome_arquivo_origem
+                hash_ref = getattr(self.texto_referencia, 'hash_arquivo_origem', None)
+
+                if nome_ref and hash_ref:
+                    self.texto_saida.append(
+                        f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref} - SHA-256: {hash_ref}) ===")
+                elif nome_ref:
+                    self.texto_saida.append(f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref}) ===")
+                else:
+                    self.texto_saida.append("\n=== RELAÇÃO ORIGINAL DE HASHES (CADEIA DE CUSTÓDIA) ===")
+
+                for item in lista_referencia:
+                    self.texto_saida.append(item)
+                self.texto_saida.append("\n" + "-" * 60)
+
+            self.texto_saida.append("\n=== RESUMO DA VALIDAÇÃO DE CUSTÓDIA ===")
+            self.texto_saida.append(f"✅ Arquivos validados com sucesso: {qtd_validados}")
+            if qtd_alertas > 0:
+                self.texto_saida.append(f"⚠️ Arquivos com alerta (hash bate, nome diverge): {qtd_alertas}")
+            self.texto_saida.append(f"❌ Arquivos não validados/não encontrados: {qtd_nao_validados}")
+            self.texto_saida.append("\n" + "-" * 60)
+            # ------------------------------------------
+        # ------------------------------------------
 
         # --- BLOCO DE FINALIZAÇÃO DO TEMPO (FORMATO AMIGÁVEL) ---
         self.timer_tempo.stop()  # Para o cronômetro
