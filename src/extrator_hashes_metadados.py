@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.2.0
+Versão: 4.2.1
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.2.0"
+VERSAO_APP = "4.2.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -1448,25 +1448,42 @@ class ValidadorCustodia:
 
         # Montagem da mensagem final
         if algos_conferem:
-            # Formata bonito com vírgulas e "e" no final
-            texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
-                algos_conferem[:-1]) + " e " + algos_conferem[-1]
-            sufixo = "s" if len(algos_conferem) > 1 else ""
+            texto_algos = ' e '.join(algos_conferem) if len(algos_conferem) < 3 else ', '.join(
+                algos_conferem[:-1]) + ' e ' + algos_conferem[-1]
+            sufixo = 's' if len(algos_conferem) > 1 else ''
 
-            hash_principal = hashes_calculados.get(algos_conferem[0], "N/A")
-            nome_limpo = os.path.basename(caminho_arquivo)
-            self.arquivos_validados.append(f"📄 {nome_limpo}   |   {algos_conferem[0]}: {hash_principal[:4]}...")
+            for a in algos_conferem:
+                if not hasattr(self, 'arquivos_validados_dict'): self.arquivos_validados_dict = {}
+                if nome_arquivo_atual not in self.arquivos_validados_dict:
+                    self.arquivos_validados_dict[nome_arquivo_atual] = {}
+                self.arquivos_validados_dict[nome_arquivo_atual][a] = hashes_calculados[a]
 
-            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo} como presente na relação original de hashes."
+            # --- VERIFICAÇÃO DE DIVERGÊNCIA PARCIAL ---
+            algos_calculados_lista = list(hashes_calculados.keys())
+            if "CRC32" in algos_calculados_lista:
+                algos_calculados_lista.remove("CRC32")
+
+            algos_falharam = [a for a in algos_calculados_lista if a not in algos_conferem]
+
+            if algos_falharam:
+                texto_falhos = ' e '.join(algos_falharam) if len(algos_falharam) < 3 else ', '.join(
+                    algos_falharam[:-1]) + ' e ' + algos_falharam[-1]
+                return 4, f"⚠️ ALERTA PARCIAL - {texto_algos} validado{sufixo}, mas houve DIVERGÊNCIA no {texto_falhos}."
+            # -------------------------------------------
+
+            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
 
         elif algos_alerta:
-            texto_algos = " e ".join(algos_alerta) if len(algos_alerta) < 3 else ", ".join(algos_alerta[:-1]) + " e " + \
+            texto_algos = ' e '.join(algos_alerta) if len(algos_alerta) < 3 else ', '.join(algos_alerta[:-1]) + ' e ' + \
                                                                                  algos_alerta[-1]
 
             hash_principal = hashes_calculados.get(algos_alerta[0], "N/A")
             nome_limpo = os.path.basename(caminho_arquivo)
-            self.arquivos_validados.append(
-                f"📄 {nome_limpo}   |   {algos_alerta[0]}: {hash_principal[:4]}... (NOME DIVERGENTE)")
+
+            if not hasattr(self, 'arquivos_validados_dict'): self.arquivos_validados_dict = {}
+            if nome_limpo not in self.arquivos_validados_dict:
+                self.arquivos_validados_dict[nome_limpo] = {}
+            self.arquivos_validados_dict[nome_limpo][algos_alerta[0]] = f"{hash_principal} (NOME DIVERGENTE)"
 
             return 2, f"⚠️ ALERTA - Hash confere ({texto_algos}), mas o nome diverge."
 
@@ -1484,6 +1501,20 @@ class ValidadorCustodia:
             texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
                 algos_conferem[:-1]) + " e " + algos_conferem[-1]
             sufixo = "s" if len(algos_conferem) > 1 else ""
+
+            # --- VERIFICAÇÃO DE DIVERGÊNCIA PARCIAL ---
+            algos_calculados_lista = list(hashes_calculados.keys())
+            if "CRC32" in algos_calculados_lista:
+                algos_calculados_lista.remove("CRC32")  # CRC32 não entra em custódia
+
+            algos_falharam = [a for a in algos_calculados_lista if a not in algos_conferem]
+
+            if algos_falharam:
+                texto_falhos = " e ".join(algos_falharam) if len(algos_falharam) < 3 else ", ".join(
+                    algos_falharam[:-1]) + " e " + algos_falharam[-1]
+                return 2, f"⚠️ ALERTA PARCIAL - Hash{sufixo} confere ({texto_algos}), mas houve DIVERGÊNCIA no {texto_falhos}."
+            # -------------------------------------------
+
             return 1, f"✅ CONFERE - Hash{sufixo} ({texto_algos}) localizado{sufixo} no documento de custódia."
 
         return 3, "❌ NÃO CONFERE / NENHUM HASH DA UNIDADE LOCALIZADO NO TEXTO"
@@ -4093,6 +4124,7 @@ class JanelaHashes(QWidget):
         qtd_validados = 0
         qtd_alertas = 0
         qtd_nao_validados = 0
+        qtd_alertas_parciais = 0
 
         if texto_custodia:
             # Verifica se o texto veio de um PDF arrastado
@@ -4194,8 +4226,11 @@ class JanelaHashes(QWidget):
                         qtd_validados += 1
                     elif status == 2:
                         qtd_alertas += 1
+                    elif status == 4:
+                        qtd_alertas_parciais += 1
                     else:
                         qtd_nao_validados += 1
+
                 # --------------------------------------------------------
             else:
                 self.texto_saida.append(f"Erro: {resultado['erro']}")
@@ -4242,8 +4277,12 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"✅ Arquivos validados com sucesso: {qtd_validados}")
             if qtd_alertas > 0:
                 self.texto_saida.append(f"⚠️ Arquivos com alerta (hash bate, nome diverge): {qtd_alertas}")
+
+            if qtd_alertas_parciais > 0:
+                self.texto_saida.append(f"⚠️ Arquivos com alerta (algum hash com divergência): {qtd_alertas_parciais}")
+
             self.texto_saida.append(f"❌ Arquivos não validados/não encontrados: {qtd_nao_validados}")
-            self.texto_saida.append("\n" + "-" * 60)
+            self.texto_saida.append("-" * 60)
             # ------------------------------------------
         # ------------------------------------------
 
