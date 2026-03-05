@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.1.1
+Versão: 4.2.0
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.1.1"
+VERSAO_APP = "4.2.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -3116,11 +3116,19 @@ class JanelaHashes(QWidget):
                         if fps > 0:
                             metadados_extras.append(f"FPS: {fps:.3f}")
                             if total_frames > 0:
+                                # Adiciona a contagem exata de frames
+                                metadados_extras.append(f"Total de Frames: {total_frames}")
+
+                                # Calcula a duração com precisão de milissegundos
                                 duracao = total_frames / fps
                                 mins, secs = divmod(duracao, 60)
                                 horas, mins = divmod(mins, 60)
+
+                                # Extrai a parte fracionária dos segundos e converte para milissegundos
+                                milisegundos = int(round((duracao - int(duracao)) * 1000))
+
                                 metadados_extras.append(
-                                    f"Duração Estimada: {int(horas):02d}:{int(mins):02d}:{int(secs):02d}")
+                                    f"Duração Calculada (via FPS): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
                         cap.release()
                     else:
                         metadados_extras.append(
