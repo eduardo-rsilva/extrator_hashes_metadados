@@ -1096,6 +1096,28 @@ def obter_info_volume(caminho):
     return None
 
 
+def _reunir_hashes_quebrados_pdf(texto: str) -> str:
+    import re
+    # 1. Limpa caracteres invisíveis que o pypdf injeta secretamente
+    texto = re.sub(r'[\u200b\u200e\u200f\x00]', '', texto)
+
+    # 2. Padrão: Busca blocos de hexadecimais que tenham sido partidos por
+    # espaços ou quebras de linha (\s, \n, \r).
+    # Exige mínimo de 10 caracteres por pedaço para não grudar lixo aleatório.
+    padrao = r'(?:[a-fA-F0-9]{10,}(?:[\s\n\r]+[a-fA-F0-9]{10,})+)'
+
+    def substituir(match):
+        trecho = match.group(0)
+        # Arranca qualquer quebra de linha ou espaço entre os pedaços
+        limpo = re.sub(r'\s+', '', trecho)
+        # Só efetiva a união se a soma resultar exatamente no tamanho de um hash
+        if len(limpo) in {32, 40, 64, 96, 128}:
+            return limpo
+        return trecho  # Se não for um tamanho válido, devolve intacto
+
+    return re.sub(padrao, substituir, texto)
+
+
 class TextEditCustodia(QTextEdit):
     """Caixa de texto customizada que aceita arquivos PDF/DOCX/XLSX/TXT via Drag & Drop."""
 
@@ -1177,6 +1199,8 @@ class TextEditCustodia(QTextEdit):
                     texto_pagina = page.extract_text()
                     if texto_pagina:
                         texto_extraido += texto_pagina + "\n"
+
+                texto_extraido = _reunir_hashes_quebrados_pdf(texto_extraido)
 
                 # Aviso de PDF Escaneado (Imagem)
                 if not texto_extraido.strip():
@@ -1272,6 +1296,9 @@ class ValidadorCustodia:
 
         self.mapa_hashes = {}
         self.barreiras_algo = {algo: set() for algo in self.padroes}
+
+        self.arquivos_validados = []
+
         self._mapear_texto()
 
     def _mapear_texto(self):
@@ -1362,21 +1389,25 @@ class ValidadorCustodia:
                         nome_encontrado_para_este_hash = True
                         break  # Achou o nome para este hash, vai pro próximo hash calculado
 
-                    # 2. Busca Reversa (Sobe as linhas do texto)
+                    # 2. Busca Reversa: Sobe as linhas do texto acumulando o contexto
                     idx_busca = idx_ref - 1
                     achou_na_reversa = False
+                    bloco_acumulado = self.linhas[idx_ref]
 
                     while idx_busca >= 0:
                         linha_atual = self.linhas[idx_busca]
 
-                        if self._linha_contem_nome(linha_atual, nome_arquivo_atual):
+                        # Barreira de Algoritmo
+                        if idx_busca in self.barreiras_algo[algo_ref]:
+                            break
+
+                        # Acumula a linha de cima com o bloco atual
+                        bloco_acumulado = linha_atual + " " + bloco_acumulado
+
+                        if self._linha_contem_nome(bloco_acumulado, nome_arquivo_atual):
                             algos_conferem.append(algo_calc)
                             nome_encontrado_para_este_hash = True
                             achou_na_reversa = True
-                            break
-
-                        # Barreira de Algoritmo
-                        if idx_busca in self.barreiras_algo[algo_ref]:
                             break
 
                         idx_busca -= 1
@@ -1388,18 +1419,22 @@ class ValidadorCustodia:
                     if self.is_pdf and not nome_encontrado_para_este_hash:
                         idx_busca = idx_ref + 1
                         achou_na_progressiva = False
+                        bloco_acumulado_descendo = self.linhas[idx_ref]
 
                         while idx_busca < len(self.linhas):
                             linha_atual = self.linhas[idx_busca]
 
-                            if self._linha_contem_nome(linha_atual, nome_arquivo_atual):
+                            # Barreira de Algoritmo
+                            if idx_busca in self.barreiras_algo[algo_ref]:
+                                break
+
+                            # Acumula a linha de baixo com o bloco atual
+                            bloco_acumulado_descendo = bloco_acumulado_descendo + " " + linha_atual
+
+                            if self._linha_contem_nome(bloco_acumulado_descendo, nome_arquivo_atual):
                                 algos_conferem.append(algo_calc)
                                 nome_encontrado_para_este_hash = True
                                 achou_na_progressiva = True
-                                break
-
-                            # Barreira de Algoritmo
-                            if idx_busca in self.barreiras_algo[algo_ref]:
                                 break
 
                             idx_busca += 1
@@ -1417,11 +1452,22 @@ class ValidadorCustodia:
             texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
                 algos_conferem[:-1]) + " e " + algos_conferem[-1]
             sufixo = "s" if len(algos_conferem) > 1 else ""
-            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
+
+            hash_principal = hashes_calculados.get(algos_conferem[0], "N/A")
+            nome_limpo = os.path.basename(caminho_arquivo)
+            self.arquivos_validados.append(f"📄 {nome_limpo}   |   {algos_conferem[0]}: {hash_principal[:4]}...")
+
+            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo} como presente na relação original de hashes."
 
         elif algos_alerta:
             texto_algos = " e ".join(algos_alerta) if len(algos_alerta) < 3 else ", ".join(algos_alerta[:-1]) + " e " + \
                                                                                  algos_alerta[-1]
+
+            hash_principal = hashes_calculados.get(algos_alerta[0], "N/A")
+            nome_limpo = os.path.basename(caminho_arquivo)
+            self.arquivos_validados.append(
+                f"📄 {nome_limpo}   |   {algos_alerta[0]}: {hash_principal[:4]}... (NOME DIVERGENTE)")
+
             return 2, f"⚠️ ALERTA - Hash confere ({texto_algos}), mas o nome diverge."
 
         return 3, "❌ DIVERGÊNCIA - Nenhum hash calculado para este arquivo consta na relação original da Cadeia de Custódia."
@@ -1445,6 +1491,7 @@ class ValidadorCustodia:
     def obter_lista_limpa(self) -> list:
         """Tenta extrair os pares (Nome do Arquivo, Hash) do texto de referência usando heurística forense."""
         lista_limpa = []
+        arquivos_encontrados = {}  # Para agrupar hashes do mesmo arquivo
 
         for idx_linha, linha in enumerate(self.linhas):
             for algo, padrao in self.padroes.items():
@@ -1452,53 +1499,72 @@ class ValidadorCustodia:
                     hash_val = match.group().upper()
                     nome_encontrado = "[Nome não identificado]"
 
-                    # 1. Tenta achar na mesma linha
-                    # Remove o hash, e limpa prefixos como "SHA-256:" ou "*"
-                    texto_limpo = linha.replace(match.group(), '')
-                    texto_limpo = re.sub(r'^(CRC32|MD5|SHA-1|SHA-256|SHA-384|SHA-512)[\s:]*', '', texto_limpo,
-                                         flags=re.IGNORECASE)
-                    texto_limpo = texto_limpo.strip(' *:-')
+                    # Busca reversa DIRETA (Sobe as linhas acumulando o texto do nome)
+                    idx_busca = idx_linha - 1
+                    bloco_nome = ""
 
-                    if texto_limpo and not texto_limpo.lower().startswith(
-                            ('tamanho', 'size', 'modificado', 'criado', 'data')):
-                        nome_encontrado = texto_limpo.replace('\\', '/').split('/')[-1].strip()
-                    else:
-                        # 2. Busca reversa (Sobe as linhas procurando o dono do hash)
-                        idx_busca = idx_linha - 1
-                        while idx_busca >= 0:
-                            if idx_busca in self.barreiras_algo[algo]:
-                                break
-
-                            linha_cima = self.linhas[idx_busca].strip()
-                            linha_cima_lower = linha_cima.lower()
-
-                            if not linha_cima:
-                                idx_busca -= 1
-                                continue
-
-                            # Pula linhas de metadados comuns ou prefixos de outros hashes
-                            prefixos_pular = ('tamanho', 'size', 'modificado', 'criado', 'data', 'entropia', 'crc32',
-                                              'md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512')
-                            if linha_cima_lower.startswith(prefixos_pular):
-                                idx_busca -= 1
-                                continue
-
-                            # Pula se a linha for apenas um hash puro solto (sem prefixo)
-                            if re.match(r'^[a-fA-F0-9]{32,128}\s*$', linha_cima):
-                                idx_busca -= 1
-                                continue
-
-                            # Chegou numa linha válida! Limpa prefixos de "Arquivo:" e extrai só o nome
-                            linha_cima = re.sub(r'^(Arquivo|Nome|File|Target)\s*:\s*', '', linha_cima,
-                                                flags=re.IGNORECASE)
-                            nome_encontrado = linha_cima.replace('\\', '/').split('/')[-1].strip()
+                    while idx_busca >= 0:
+                        if idx_busca in self.barreiras_algo[algo]:
                             break
 
-                    # Formata de um jeito profissional para o relatório
-                    lista_limpa.append(f"📄 {nome_encontrado}   |   {algo}: {hash_val}")
+                        linha_original = self.linhas[idx_busca]
+                        linha_cima = linha_original.strip()
+                        linha_cima_lower = linha_cima.lower()
+
+                        if not linha_cima:
+                            idx_busca -= 1
+                            continue
+
+                        # Pula linhas de metadados comuns ou prefixos de outros hashes
+                        prefixos_pular = ('tamanho', 'size', 'modificado', 'criado', 'data', 'entropia', 'crc32',
+                                          'md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512')
+                        if linha_cima_lower.startswith(prefixos_pular):
+                            idx_busca -= 1
+                            continue
+
+                        # Pula se a linha for apenas um hash puro solto (sem prefixo)
+                        if re.match(r'^[a-fA-F0-9]{32,128}\s*$', linha_cima):
+                            idx_busca -= 1
+                            continue
+
+                        # Limpa prefixos como "Arquivo:"
+                        linha_cima = re.sub(r'^(Arquivo|Nome|File|Target)\s*:\s*', '', linha_cima,
+                                            flags=re.IGNORECASE)
+
+                        # Acumula na frente (já que estamos subindo)
+                        if bloco_nome:
+                            bloco_nome = linha_cima + " " + bloco_nome
+                        else:
+                            bloco_nome = linha_cima
+
+                        # Condição de parada de sucesso: Achou o prefixo "Arquivo:" ou letra de Drive C:/
+                        if re.match(r'^(Arquivo|Nome|File|Target)\s*:', linha_original, flags=re.IGNORECASE) or \
+                                re.match(r'^([A-Za-z]:[\\/]|\\\\|/)', linha_cima):
+                            break
+
+                        # Se não for PDF, a quebra de linha em laudos txt não deveria existir no meio do nome.
+                        if not getattr(self, 'is_pdf', False):
+                            break
+
+                        idx_busca -= 1
+
+                    if bloco_nome:
+                        # Pega sempre a ponta final (o nome do arquivo em si) do bloco acumulado
+                        nome_encontrado = bloco_nome.replace('\\', '/').split('/')[-1].strip()
+
+                    # Agrupa os hashes completos pelo nome do arquivo encontrado
+                    if nome_encontrado not in arquivos_encontrados:
+                        arquivos_encontrados[nome_encontrado] = []
+
+                    # Salva o hash original em seu tamanho completo
+                    arquivos_encontrados[nome_encontrado].append(f"{algo}: {hash_val}")
+
+        # Formata de um jeito profissional para o relatório final
+        for nome, hashes in arquivos_encontrados.items():
+            hashes_str = " | ".join(hashes)
+            lista_limpa.append(f"📄 {nome}   |   {hashes_str}")
 
         return lista_limpa
-
 
 
 class JanelaHashes(QWidget):
