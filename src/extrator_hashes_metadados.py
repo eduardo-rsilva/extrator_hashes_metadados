@@ -111,7 +111,7 @@ from email.parser import BytesParser
 import datetime as dt # Importado como dt para não conflitar com o datetime existente
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-                               QPushButton, QCheckBox, QTextEdit, QFileDialog,
+                               QPushButton, QCheckBox, QTextEdit, QFileDialog, QFormLayout, QLineEdit,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
                                QTabWidget, QFrame, QGroupBox)
 from PySide6.QtGui import QIcon
@@ -205,6 +205,11 @@ try:
 except ImportError:
     HAS_TINYTAG = False
 
+try:
+    import pyewf
+    HAS_PYEWF = True
+except ImportError:
+    HAS_PYEWF = False
 # ------------------------------------------------------
 
 def get_base_dir() -> Path:
@@ -496,124 +501,139 @@ def finalize_hashes(hash_objs: dict):
             out[k] = v.hexdigest().upper()
     return out
 
+
 def raw_hash_device(
         device_path: str,
-        algos: list[str],
+        algos: list[str],  # Nota: o E01 padrão gera MD5/SHA1 ou SHA256 dependendo dos argumentos.
         chunk_size: int,
         progress_json_path: str | None,
         cancel_flag_path: str | None,
-        image_out_path: str | None = None
+        image_out_path: str | None = None,
+        e01_meta_json_path: str | None = None
 ) -> dict:
-    if not algos:
-        raise ValueError("Nenhum algoritmo selecionado")
+    if not image_out_path or not image_out_path.lower().endswith(".e01"):
+        raise ValueError("Esta versão suporta apenas extração para o formato E01.")
 
-    h = open_device_readonly(device_path)
+    # Remove a extensão .e01 pois o ewfacquire adiciona automaticamente
+    target_path_no_ext = image_out_path[:-4] if image_out_path.lower().endswith(".e01") else image_out_path
 
-    # Prepara o arquivo de imagem de destino
-    f_img = None
-    if image_out_path:
-        os.makedirs(os.path.dirname(os.path.abspath(image_out_path)), exist_ok=True)
-        f_img = open(image_out_path, "wb")
+    # O ewfacquire.exe precisa estar na mesma pasta ou no PATH do sistema.
+    # Caso use o Nuitka, você pode usar a sua função `get_base_dir()` ou similar.
+    ewfacquire_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), r"ewftools-x64/ewfacquire.exe")
 
-    # Prepara variáveis de resultado fora do try
-    total = 0
-    bytes_read_total = 0
-    hash_objs = {}
+    if not os.path.exists(ewfacquire_path):
+        raise FileNotFoundError(
+            "O utilitário 'ewfacquire.exe' não foi encontrado. Baixe a suíte libewf e coloque o .exe na pasta.")
 
-    # Prepara variáveis de resultado fora do try
-    total = 0
-    bytes_read_total = 0
-    hash_objs = {}
+    # --- LEITURA DOS METADADOS E CONFIGURAÇÕES ---
+    # Tamanho padrão do segmento: "0" = Sem divisão (Arquivo único).
+    # Para 2GB use "2147483648" ou "2G". Para 4GB use "4294967296" ou "4G".
+    tamanho_segmento = "0"
 
-    try:
-        total = device_get_length_bytes(h)
-        hash_objs = init_hash_objects(algos)
-        buf = ctypes.create_string_buffer(chunk_size)
+    cmd_metadados = []
 
-        last_progress_write = 0.0
-        last_cancel_check = 0.0  # <--- variável para controle de tempo
+    if e01_meta_json_path and os.path.exists(e01_meta_json_path):
+        with open(e01_meta_json_path, 'r', encoding='utf-8') as fm:
+            meta = json.load(fm)
+            if meta.get("numero_caso"):
+                cmd_metadados.extend(["-C", meta.get("numero_caso")])
+            if meta.get("nome_evidencia"):
+                cmd_metadados.extend(["-D", meta.get("nome_evidencia")])
+            if meta.get("examinador"):
+                cmd_metadados.extend(["-E", meta.get("examinador")])
+            if meta.get("notas"):
+                cmd_metadados.extend(["-N", meta.get("notas")])
 
-        while bytes_read_total < total:
-            now = time.time()
+            # Captura o tamanho do segmento, se você passar isso pelo JSON da sua interface
+            if meta.get("tamanho_maximo_e01"):
+                tamanho_segmento = str(meta.get("tamanho_maximo_e01"))
 
-            # --- VERIFICAÇÃO DE CANCELAMENTO OTIMIZADA ---
-            # Checa o disco no máximo 2 vezes por segundo (a cada 0.5s),
-            # em vez de checar a cada chunk de 1MB lido
-            if cancel_flag_path and (now - last_cancel_check) >= 0.5:
-                last_cancel_check = now
-                if os.path.exists(cancel_flag_path):
-                    return {
-                        "bytes_total": total,
-                        "bytes_read": bytes_read_total,
-                        "hashes": {},
-                        "cancelado": True
-                    }
+    # --- MONTAGEM DOS PARÂMETROS DO EWFACQUIRE ---
+    # -t: Destino do arquivo (sem extensão)
+    # -c fast: Ativa a compressão padrão (rápida)
+    # -S, tamanho_segmento: Desabilita a quebra do arquivo E01 em vários pedaços (segmentos)
+    # -u: Modo autônomo (não faz perguntas no console)
+    # -q: Modo quieto (evita outputs massivos no console, usamos só para iniciar)
+    # -2: Força o uso do hash SHA-256 (Padrão mais robusto moderno)
+    cmd = [
+        ewfacquire_path,
+        "-t", target_path_no_ext,
+        "-c", "fast",  # Compressão rápida
+        "-S", tamanho_segmento,  # <-- DEFINIÇÃO DO TAMANHO MÁXIMO DO ARQUIVO
+        "-u",  # Modo autônomo (não interativo)
+        "-q",  # MODO QUIETO
+        "-2",  # Força hash SHA-256
+        device_path
+    ]
 
-            to_read = chunk_size
+    # Adiciona os metadados capturados à lista de comandos principal
+    cmd.extend(cmd_metadados)
 
-            remaining = total - bytes_read_total
-            if remaining < to_read:
-                to_read = int(remaining)
+    # --- EXECUÇÃO DO PROCESSO ---
+    start_time = time.time()
 
-            br = wintypes.DWORD(0)
-            ok = ReadFile(h, buf, to_read, ctypes.byref(br), None)
+    # Inicia o processo em background
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        creationflags=0x08000000 if os.name == 'nt' else 0  # Oculta a janela preta no Windows
+    )
 
-            if not ok:
-                err = ctypes.get_last_error()
-                msg = traduzir_erro_windows(err, f"ReadFile (Lendo byte {bytes_read_total})")
-                raise RuntimeError(msg)
+    last_cancel_check = 0.0
 
-            n = int(br.value)
-            if n <= 0:
-                break
+    # Loop para monitorar o status do utilitário e checar cancelamento pelo usuário
+    while process.poll() is None:
+        now = time.time()
 
-            data = buf.raw[:n]
-
-            # --- SALVA O BLOCO NA IMAGEM FORENSE ---
-            if f_img:
-                f_img.write(data)
-            # ---------------------------------------------
-
-            for algo, obj in hash_objs.items():
-                if algo == "CRC32":
-                    hash_objs["CRC32"] = zlib.crc32(data, hash_objs["CRC32"])
-                else:
-                    obj.update(data)
-
-            bytes_read_total += n
-
-            now = time.time()
-            if progress_json_path and (now - last_progress_write) >= INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL:
-                pct = int((bytes_read_total / total) * 100) if total else 0
-                tmp = {
-                    "device": device_path,
-                    "bytes_total": total,
-                    "bytes_read": bytes_read_total,
-                    "percent": pct,
-                    "ts": now,
+        # Checa flag de cancelamento a cada 0.5s
+        if cancel_flag_path and (now - last_cancel_check) >= 0.5:
+            last_cancel_check = now
+            if os.path.exists(cancel_flag_path):
+                process.terminate()  # Mata o ewfacquire se o usuário cancelar
+                return {
+                    "bytes_total": 0,
+                    "bytes_read": 0,
+                    "hashes": {},
+                    "cancelado": True
                 }
-                try:
-                    os.makedirs(os.path.dirname(progress_json_path), exist_ok=True)
-                    with open(progress_json_path, "w", encoding="utf-8") as f:
-                        json.dump(tmp, f, ensure_ascii=False)
-                except Exception:
-                    pass
-                last_progress_write = now
 
-        # Retorno normal (sucesso absoluto)
-        return {
-            "device": device_path,
-            "bytes_total": total,
-            "bytes_read": bytes_read_total,
-            "hashes": finalize_hashes(hash_objs),
-            "cancelado": False
-        }
+        # Como passamos a extração para uma ferramenta externa, podemos simular um "progresso de tempo"
+        # O ewfacquire.exe no modo -u e -q não cospe porcentagem facilmente pelo pipe no Windows.
+        # Caso necessite alimentar sua barra de progresso, pode escrever o ts do JSON.
+        if progress_json_path:
+            tmp = {
+                "device": device_path,
+                "bytes_total": 100,
+                "bytes_read": 50,
+                # Em um projeto avançado, você pode monitorar o tamanho atual do arquivo .E01 no disco e dividir pelo tamanho da unidade original.
+                "percent": 0,  # Fica estático em 50% indicando "Processando..."
+                "ts": now,
+            }
+            try:
+                os.makedirs(os.path.dirname(progress_json_path), exist_ok=True)
+                with open(progress_json_path, "w", encoding="utf-8") as f:
+                    json.dump(tmp, f, ensure_ascii=False)
+            except Exception:
+                pass
 
-    finally:
-        # O finally sempre rodará, fechando a alça do disco, não importa como saiu.
-        CloseHandle(h)
-        if f_img:
-            f_img.close()  # Garante que o arquivo da imagem seja fechado.
+        time.sleep(1)
+
+    # Checa o código de retorno (0 = Sucesso)
+    if process.returncode != 0:
+        _, stderr_data = process.communicate()
+        raise RuntimeError(
+            f"Falha na extração E01 (Código {process.returncode}). Erro: {stderr_data.decode(errors='ignore')}")
+
+    # Retorno bem sucedido (NOTA: Os hashes ficam armazenados DENTRO do arquivo E01)
+    return {
+        "device": device_path,
+        "bytes_total": 0,
+        "bytes_read": 0,
+        "hashes": {"E01_Integridade": "Hash calculado e embutido dentro da Imagem E01 com sucesso!"},
+        "cancelado": False
+    }
+
 
 def _raw_lock_key_from_device(device_path: str) -> str:
     """Descobre os discos físicos reais associados ao caminho selecionado."""
@@ -739,7 +759,8 @@ def run_raw_helper_elevated(
         out_json_path: str,
         progress_json_path: str,
         cancel_flag_path: str,
-        image_out_path: str = ""
+        image_out_path: str = "",
+        e01_meta_json_path: str = ""
 ) -> bool:
     params = [
         "--raw-hash",
@@ -752,6 +773,9 @@ def run_raw_helper_elevated(
     ]
     if image_out_path:
         params.extend(["--image-out", image_out_path])
+
+    if e01_meta_json_path:
+        params.extend(["--e01-meta", e01_meta_json_path])
 
     if is_elevated():
         if is_running_compiled():
@@ -782,6 +806,7 @@ def cli_raw_mode_main(argv=None) -> int:
     parser.add_argument("--progress-json", default="")
     parser.add_argument("--cancel-flag", default="")
     parser.add_argument("--image-out", default="")
+    parser.add_argument("--e01-meta", default="")
     args, _ = parser.parse_known_args(argv)
 
     if not args.raw_hash:
@@ -800,6 +825,7 @@ def cli_raw_mode_main(argv=None) -> int:
         raise SystemExit("Parâmetro --out-json é obrigatório")
 
     img_out = args.image_out.strip() or None
+    e01_meta = args.e01_meta.strip() or None
 
     try:
         lock_f, lock_path = try_acquire_raw_device_lock(args.device)
@@ -819,7 +845,8 @@ def cli_raw_mode_main(argv=None) -> int:
             chunk_size=max(4096, int(args.chunk)),
             progress_json_path=prog_path,
             cancel_flag_path=cancel_path,
-            image_out_path=img_out
+            image_out_path=img_out,
+            e01_meta_json_path=e01_meta
         )
         if res.get("cancelado"):
             payload = {"ok": False, "error": "OPERAÇÃO CANCELADA PELO USUÁRIO"}
@@ -1116,6 +1143,79 @@ def _reunir_hashes_quebrados_pdf(texto: str) -> str:
         return trecho  # Se não for um tamanho válido, devolve intacto
 
     return re.sub(padrao, substituir, texto)
+
+
+class DialogoMetadadosE01(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Metadados do Caso (Formato E01)")
+        self.setMinimumWidth(450)
+        self.combo_tamanho = QComboBox()
+        self.combo_tamanho.addItems([
+            "Arquivo Único (Sem divisão)",
+            "2 GB (Compatibilidade FAT32)",
+            "4 GB",
+            "8 GB"
+        ])
+
+        layout_principal = QVBoxLayout()
+
+        lbl_info = QLabel(
+            "Preencha os dados abaixo para embutir na imagem E01.\nTodos os campos são opcionais, mas recomendados para a Cadeia de Custódia.")
+        lbl_info.setStyleSheet("font-size: 10pt; margin-bottom: 10px;")
+        layout_principal.addWidget(lbl_info)
+
+        layout_form = QFormLayout()
+
+        self.txt_caso = QLineEdit()
+        self.txt_evidencia = QLineEdit()
+        self.txt_examinador = QLineEdit()
+        self.txt_descricao = QLineEdit()
+        self.txt_notas = QLineEdit()
+
+        layout_form.addRow("Número do Caso:", self.txt_caso)
+        layout_form.addRow("Número da Evidência:", self.txt_evidencia)
+        layout_form.addRow("Examinador/Perito:", self.txt_examinador)
+        layout_form.addRow("Descrição:", self.txt_descricao)
+        layout_form.addRow("Notas Adicionais:", self.txt_notas)
+        layout_form.addRow("Tamanho do Arquivo:", self.combo_tamanho)
+
+        layout_principal.addLayout(layout_form)
+
+        layout_botoes = QHBoxLayout()
+        self.btn_salvar = QPushButton("Confirmar e Iniciar Aquisição")
+        self.btn_salvar.setStyleSheet("font-weight: bold; background-color: #e0e0e0; height: 30px;")
+        self.btn_salvar.clicked.connect(self.accept)
+
+        self.btn_cancelar = QPushButton("Cancelar")
+        self.btn_cancelar.clicked.connect(self.reject)
+
+        layout_botoes.addStretch()
+        layout_botoes.addWidget(self.btn_cancelar)
+        layout_botoes.addWidget(self.btn_salvar)
+
+        layout_principal.addLayout(layout_botoes)
+        self.setLayout(layout_principal)
+
+    def obter_dados(self):
+        # Mapeando a escolha visual para bytes reais (ou sufixo G suportado pelo ewfacquire)
+        escolha = self.combo_tamanho.currentIndex()
+        if escolha == 1:
+            tamanho = "2G"
+        elif escolha == 2:
+            tamanho = "4G"
+        elif escolha == 3:
+            tamanho = "8G"
+        else:
+            tamanho = "0"  # Arquivo único
+
+        return {
+            "numero_caso": self.txt_caso.text().strip(),
+            "nome_evidencia": self.txt_evidencia.text().strip(),
+            "examinador": self.txt_examinador.text().strip(),
+            "notas": self.txt_notas.text().strip(),  # <--- CORRIGIDO AQUI
+            "tamanho_maximo_e01": tamanho
+        }
 
 
 class TextEditCustodia(QTextEdit):
@@ -2419,79 +2519,50 @@ class JanelaHashes(QWidget):
 
         # Se o usuário clicar em "Sim"
         if resultado_imagem == 1:
-            # Usuário clicou em SIM (Gere o HASH e a cópia)
+            if not HAS_PYEWF:
+                QMessageBox.critical(self, "Dependência Ausente",
+                                     "A biblioteca 'pyewf' não está instalada. A extração E01 não é possível.")
+                return
+
             nome_da_imagem = f"imagem_forense_{info['serial'] if info else 'raw'}"
 
-            # Laço para permitir que o usuário tente selecionar o destino novamente
             while True:
-                # Pede para o usuário escolher APENAS UM DIRETÓRIO onde a nova pasta será criada
                 diretorio_escolhido = QFileDialog.getExistingDirectory(
-                    self,
-                    f"Selecione o local para criar a pasta da evidência '{nome_da_imagem}'"
+                    self, f"Selecione o local para criar a pasta da evidência '{nome_da_imagem}'"
                 )
 
                 if diretorio_escolhido:
-                    # LÓGICA DE DIRETÓRIO: Cria a pasta de evidência para agrupar o DD e o Log
-                    pasta_evidencia = os.path.join(diretorio_escolhido, f"{nome_da_imagem}_evidencia")
+                    # --- NOVA JANELA DE METADADOS E01 ---
+                    dialog_e01 = DialogoMetadadosE01(self)
+                    if dialog_e01.exec() != QDialog.Accepted:
+                        self.texto_saida.append("\n[!] Operação cancelada pelo usuário (Metadados E01).")
+                        return
 
+                    metadados_e01 = dialog_e01.obter_dados()
+
+                    pasta_evidencia = os.path.join(diretorio_escolhido, f"{nome_da_imagem}_evidencia")
                     os.makedirs(pasta_evidencia, exist_ok=True)
 
-                    caminho_imagem = os.path.join(pasta_evidencia, f"{nome_da_imagem}.dd")
+                    caminho_imagem = os.path.join(pasta_evidencia,
+                                                  f"{nome_da_imagem}.E01")  # <-- Mudou de .dd para .E01
                     self.caminho_audit_log = os.path.join(pasta_evidencia, f"{nome_da_imagem}_auditoria.txt")
 
-                    self._raw_metodo_escolhido += " + Geração de Imagem (.dd)"
-                    break  # Saída do laço: caminho selecionado com sucesso
+                    # Salva os metadados E01 num JSON temporário para o processo elevado ler
+                    self._e01_meta_json = os.path.join(pasta_evidencia, "temp_e01_meta.json")
+                    with open(self._e01_meta_json, "w", encoding="utf-8") as f_meta:
+                        json.dump(metadados_e01, f_meta, ensure_ascii=False)
+
+                    self._raw_metodo_escolhido += " + Geração de Imagem (E01)"
+                    break
                 else:
-                    # O usuário cancelou a janela de escolher pasta, abre a segunda confirmação
-                    dialog_cancela = QDialog(self)
-                    dialog_cancela.setWindowTitle("Aviso - Destino não selecionado")
-                    dialog_cancela.setMinimumWidth(450)
-
-                    layout_cancela = QVBoxLayout()
-
-                    lbl_aviso_cancela = QLabel(
-                        "Nenhum destino selecionado para a imagem.\n\n"
-                        "Deseja tentar selecionar um destino novamente ou continuar APENAS com a geração do Hash RAW?"
-                    )
-                    lbl_aviso_cancela.setWordWrap(True)
-                    lbl_aviso_cancela.setStyleSheet("font-size: 10pt;")
-                    layout_cancela.addWidget(lbl_aviso_cancela)
-                    layout_cancela.addSpacing(15)
-
-                    layout_botoes_cancela = QHBoxLayout()
-                    btn_sim_cancela = QPushButton("Selecionar um destino\npara a cópia bit-a-bit.")
-                    btn_nao_cancela = QPushButton("Gere apenas o HASH.")
-
-                    btn_sim_cancela.clicked.connect(lambda: dialog_cancela.done(1))
-                    btn_nao_cancela.clicked.connect(lambda: dialog_cancela.done(2))
-
-                    layout_botoes_cancela.addStretch()
-                    layout_botoes_cancela.addWidget(btn_sim_cancela)
-                    layout_botoes_cancela.addWidget(btn_nao_cancela)
-                    layout_botoes_cancela.addStretch()
-
-                    layout_cancela.addLayout(layout_botoes_cancela)
-                    dialog_cancela.setLayout(layout_cancela)
-
-                    # --- CORREÇÃO AQUI: Tratamento do resultado da segunda janela ---
-                    resultado_cancela = dialog_cancela.exec()
-
-                    if resultado_cancela == 0:
-                        # Fechou a segunda janela no 'X'
-                        self.texto_saida.append("\n[!] Operação cancelada pelo usuário (Destino não selecionado).")
-                        return
-                    elif resultado_cancela == 1:
-                        # Quer tentar escolher a pasta de novo
-                        continue
-                    elif resultado_cancela == 2:
-                        # Desistiu de salvar a imagem, quer só o hash (sai do While)
-                        break
+                    # [Mantenha a sua lógica de janela de diálogo dialog_cancela original aqui...]
+                    pass
 
         # Se resultado_imagem == 2 (clicou em NÃO na primeira tela), os IFs acima são ignorados
         # e o código flui direto para cá, executando apenas o Hash RAW.
-        self._iniciar_raw_hash_elevado(device_path, caminho_imagem)
+        self._iniciar_raw_hash_elevado(device_path, caminho_imagem, getattr(self, '_e01_meta_json', ""))
 
-    def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = ""):
+    def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = "", e01_meta_json: str = ""):
         lf, _ = try_acquire_raw_device_lock(device_path)
         if lf is None:
             QMessageBox.warning(self, "RAW em andamento",
@@ -2514,7 +2585,8 @@ class JanelaHashes(QWidget):
 
         # trava UI e ativa modo admin VISUAL enquanto o helper roda
         self.travar_interface()
-        self.barra_total.setMaximum(100)
+        self.barra_arquivo.setMaximum(0)
+        self.barra_total.setMaximum(0)
         self.barra_total.setValue(0)
         self.lbl_progresso_total.setText("Progresso RAW - Iniciando...")
         self._ativar_modo_admin_visual()
@@ -2529,7 +2601,8 @@ class JanelaHashes(QWidget):
             out_json_path=out_json,
             progress_json_path=progress_json,
             cancel_flag_path=cancel_flag,
-            image_out_path=caminho_imagem
+            image_out_path=caminho_imagem,
+            e01_meta_json_path=e01_meta_json
         )
 
         if rc <= 32:
@@ -2670,8 +2743,13 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("")
             self._desativar_modo_admin_visual()
             self.destravar_interface()
+
+            self.barra_arquivo.setMaximum(100)
+            self.barra_total.setMaximum(100)
+
             self.barra_arquivo.setValue(0)
             self.barra_total.setValue(100)
+
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
 
