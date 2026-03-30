@@ -77,6 +77,14 @@ Para lidar com extrações massivas (Terabytes de dados), a ferramenta foi redes
 
 ---
 
+## ⚠️ Aviso Legal e Isenção de Responsabilidade (Disclaimer)
+
+Esta é uma ferramenta desenvolvida com propósitos acadêmicos, forenses e de pesquisa. O autor **não se responsabiliza** por quaisquer danos, perdas de dados ou consequências jurídicas advindas do uso deste software. 
+
+Se você for utilizar este extrator em investigações oficiais, auditorias ou na elaboração de laudos periciais judiciais, **a conferência e a validação técnica dos resultados gerados são de sua inteira responsabilidade**. Cabe exclusivamente ao perito, assistente técnico ou investigador atestar a exatidão das informações extraídas e garantir a correta manutenção da cadeia de custódia antes de anexar qualquer evidência a processos legais.
+
+___
+
 ## 🛠️ Instruções de Compilação e Ambiente (Para Desenvolvedores)
 
 O executável oficial deste projeto é gerado utilizando o **Nuitka** com o compilador **MSVC** da Microsoft, visando estabilidade e redução drástica de falsos positivos (como o *Wacatac.C!ml*) comuns em empacotadores Python no Windows Defender.
@@ -103,6 +111,22 @@ O executável oficial deste projeto é gerado utilizando o **Nuitka** com o comp
 
 O Nuitka embutirá nativamente os metadados da instituição (ERS-IC/SP-NIC) na compilação, e a pasta final pronta para uso será gerada em src/extrator_hashes_metadados.dist. O uso da flag --standalone (em vez de --onefile) é intencional para evitar bloqueios heurísticos de antivírus.
 
+___
+
+## 📝 Como citar este software (ABNT)
+
+Se você utilizar o **Extrator de Hashes e Metadados Forenses** em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte citação:
+
+> SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.2.1. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso].
+
 ---
+
+## ⚖️ Licença
+
+Este projeto é distribuído sob uma licença restrita para uso acadêmico, institucional e forense. O uso comercial, a venda ou a integração em plataformas pagas são expressamente proibidos sem autorização prévia.
+
+Para ler os termos completos, consulte o arquivo [LICENSE](https://github.com/eduardo-rsilva/extrator_hashes_metadados?tab=License-1-ov-file).
+
+___
 
 **Feedback e sugestões de novas extensões e funcionalidades são super bem-vindos.**
