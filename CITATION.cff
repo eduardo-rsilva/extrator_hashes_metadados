@@ -3,9 +3,7 @@
 
 cff-version: 1.2.0
 title: Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-message: >-
-  Se você usar este software, por favor cite-o usando
-  os metadados deste arquivo.
+message: "Se você utilizar este software, por favor, cite-o usando os formatos nativos do GitHub (APA/BibTeX) ou a norma ABNT abaixo: SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.2.1. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso]."
 type: software
 authors:
   - given-names: Eduardo
