@@ -1,0 +1,50 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
+message: >-
+  Se você usar este software, por favor cite-o usando
+  os metadados deste arquivo.
+type: software
+authors:
+  - given-names: Eduardo
+    family-names: Rodrigues da Silva
+    email: rodrigues.ers@policiacientifica.sp.gov.br
+    orcid: 'https://orcid.org/0000-0002-3509-9085'
+repository-code: >-
+  https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases
+abstract: >-
+  Ferramenta pericial desenvolvida para agilizar a triagem
+  inicial e análise de evidências digitais, além de permitir
+  a Aquisição Forense (Bit-a-bit) de unidades lógicas e
+  físicas. A ideia é ter um "canivete suíço" offline e
+  portátil que faça o trabalho pesado de extração de dados
+  de forma rápida, segura e em lote, bastando arrastar e
+  soltar pastas ou arquivos na interface.
+keywords:
+  - hashing
+  - hash-generator
+  - hash
+  - cálculo de hash
+  - metadata-extraction
+  - metadata-extractor
+  - gerador de hashes
+  - extração de metadados
+  - extrator de metadados
+  - file-analysis
+  - análise de arquivos
+  - digital-forensics
+  - forense digital
+  - cybersecurity
+  - cibersegurança
+  - segurança cibernética
+  - information-security
+  - segurança da informação
+  - data-integrity
+  - integridade de dados
+  - OSINT
+  - inteligência de fontes abertas
+commit: 063d4d2902d63e15cdf09c129409fda9f442d450
+version: v.4.2.1
+date-released: '2026-03-05'
