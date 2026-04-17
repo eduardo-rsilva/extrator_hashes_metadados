@@ -4014,29 +4014,25 @@ class JanelaHashes(QWidget):
         if conteudo.strip() and conteudo.strip() != MENSAGEM_INICIAL:
             QApplication.clipboard().setText(conteudo)
             self.btn_copiar.setText("Copiado!")
-            QApplication.processEvents()
-            import time
-            time.sleep(1)
-            self.btn_copiar.setText("Copiar Relatório")
+
+            # Agenda a restauração do texto do botão para daqui a 1000ms (1 segundo)
+            # usando o relógio interno do PySide6, SEM congelar o programa.
+            QTimer.singleShot(1000, lambda: self.btn_copiar.setText("Copiar Relatório"))
 
     def salvar_relatorio(self):
         conteudo = self.texto_saida.toPlainText()
 
-        # Evita salvar se a tela estiver vazia ou só com a mensagem inicial
         if not conteudo.strip() or conteudo.strip() == MENSAGEM_INICIAL:
             QMessageBox.warning(self, "Aviso", "Não há relatório para ser salvo.")
             return
 
-        # Pega a data e hora atuais para formatar o nome do arquivo
         agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Define o nome padrão dependendo se os metadados foram exigidos
         if self.chk_metadados.isChecked():
             nome_padrao = f"hashes_e_metadados_{agora}.txt"
         else:
             nome_padrao = f"hashes_{agora}.txt"
 
-        # Abre a janela do sistema para o usuário escolher a pasta de destino
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Relatório",
@@ -4044,20 +4040,17 @@ class JanelaHashes(QWidget):
             "Arquivo de Texto (*.txt)"
         )
 
-        # Se o usuário escolheu um caminho e não cancelou a janela
         if caminho_salvar:
             try:
-                # Salva usando UTF-8 para garantir que acentos e emojis (como as lixeiras, relógios e avisos) fiquem perfeitos
                 with open(caminho_salvar, 'w', encoding='utf-8') as f:
                     f.write(conteudo)
 
                 # Feedback visual rápido de sucesso no botão
                 texto_original = self.btn_salvar.text()
                 self.btn_salvar.setText("Salvo com sucesso!")
-                QApplication.processEvents()
-                import time
-                time.sleep(1.5)
-                self.btn_salvar.setText(texto_original)
+
+                # Agenda a mudança de volta para o texto original após 1500 milissegundos
+                QTimer.singleShot(1500, lambda: self.btn_salvar.setText(texto_original))
 
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o relatório:\n{e}")
