@@ -1263,8 +1263,23 @@ class TextEditCustodia(QTextEdit):
 
             # 5. ARQUIVOS DE TEXTO COMUNS (TXT, CSV)
             else:
-                with open(caminho, 'r', encoding='utf-8', errors='replace') as f:
-                    texto_extraido = f.read()
+                codificacoes_para_tentar = ['utf-8', 'utf-16', 'cp1252', 'latin-1']
+                texto_lido = False
+
+                for codificacao in codificacoes_para_tentar:
+                    try:
+                        # Tenta ler estritamente com a codificação atual da lista
+                        with open(caminho, 'r', encoding=codificacao) as f:
+                            texto_extraido = f.read()
+                        texto_lido = True
+                        break  # Se leu sem erro, quebra o loop
+                    except UnicodeDecodeError:
+                        continue  # Se deu erro de conversão, vai para a próxima codificação
+
+                # Se todas as tentativas falharem, faz a leitura forçada substituindo os erros
+                if not texto_lido:
+                    with open(caminho, 'r', encoding='utf-8', errors='replace') as f:
+                        texto_extraido = f.read()
 
             self.setPlainText(texto_extraido)
             # Imprime no console (se aberto) que o carregamento foi bem sucedido
