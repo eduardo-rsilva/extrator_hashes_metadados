@@ -1920,6 +1920,12 @@ class JanelaHashes(QWidget):
             for algo, chk in self.chk_hashes.items():
                 chk.setChecked(hash_states.get(algo, algo in ["SHA-256", "SHA-512"]))
 
+        # --- Salvar em tempo real ---
+        self.chk_metadados.toggled.connect(self.salvar_estado_atual)
+        self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
+        for chk in self.chk_hashes.values():
+            chk.toggled.connect(self.salvar_estado_atual)
+
     def checar_atualizacoes(self):
         """Checa na API do GitHub se há uma nova Release publicada"""
         url = f"https://api.github.com/repos/{USUARIO}/{REPOSITORIO}/releases/latest"
@@ -2719,14 +2725,20 @@ class JanelaHashes(QWidget):
             if DEBUG_MESSAGES:
                 print("[DEBUG] Nenhuma operação RAW em andamento para cancelar.")
 
-    def closeEvent(self, event):
-        """Salva as configurações atuais e limpa rastros ao fechar a janela."""
+    def salvar_estado_atual(self, *args):
+        """Salva as configurações atuais imediatamente após qualquer alteração."""
         config = {
             'chk_metadados': self.chk_metadados.isChecked(),
             'chk_subdiretorios': self.chk_subdiretorios.isChecked(),
             'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()}
         }
         salvar_config(config)
+
+    def closeEvent(self, event):
+        """Salva as configurações atuais e limpa rastros ao fechar a janela."""
+
+        # Usa a função centralizada de salvamento de configurações
+        self.salvar_estado_atual()
 
         # --- LIMPEZA DE RASTROS AO FECHAR ---
         self.limpar_arquivos_temporarios()
