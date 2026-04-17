@@ -2967,6 +2967,34 @@ class JanelaHashes(QWidget):
         layout_licenca.addWidget(texto_licenca_ui)
         abas.addTab(aba_licenca, "Licença e Termos de Uso")
 
+        # ==============================================================
+        # ABA 3: COMO CITAR (ABNT)
+        # ==============================================================
+        aba_citar = QWidget()
+        layout_citar = QVBoxLayout(aba_citar)
+        layout_citar.setContentsMargins(20, 20, 20, 20)  # Margens para o texto não colar no bordo
+
+        texto_citar_ui = QTextEdit()
+        texto_citar_ui.setReadOnly(True)
+        texto_citar_ui.setStyleSheet("background-color: transparent; border: none; font-size: 10pt;")
+
+        # Montagem dinâmica da citação usando as constantes do topo do ficheiro
+        conteudo_citar_html = (
+            "<h3>📝 Como citar este software (ABNT)</h3>"
+            "<p>Se utilizar o <b>Extrator de Hashes e Metadados Forenses</b> em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte referência:</p>"
+            "<br>"
+            f"<div style='background-color: #f4f4f4; border-left: 5px solid #005a9e; padding: 15px; font-family: Consolas, monospace; color: #333; line-height: 140%;'>"
+            f"SILVA, Eduardo R. <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b>. Versão {VERSAO_APP}. "
+            f"São Paulo, SP: GitHub, 2026. Disponível em: &lt;{LINK_GITHUB}/releases&gt;. "
+            f"Acesso em: [Data de Acesso]."
+            f"</div>"
+            "<br><br>"
+        )
+
+        texto_citar_ui.setHtml(conteudo_citar_html)
+        layout_citar.addWidget(texto_citar_ui)
+        abas.addTab(aba_citar, "Como Citar")
+
         # --- RODAPÉ ---
         layout_botoes = QHBoxLayout()
         btn_audit = QPushButton("📂 Baixar Código Fonte para Auditoria (.py)")
