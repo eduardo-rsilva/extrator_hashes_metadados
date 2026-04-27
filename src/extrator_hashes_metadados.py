@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.2.2
+Versão: 4.2.3
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.2.2"
+VERSAO_APP = "4.2.3"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -2892,7 +2892,7 @@ class JanelaHashes(QWidget):
         texto_sobre.setReadOnly(True)
         texto_sobre.setStyleSheet("background-color: #ffffff; font-size: 10pt; border: none;")
 
-        # Descrição geral das funcionalidades da versão (Exatamente o seu HTML)
+        # Descrição geral das funcionalidades da versão
         conteudo_html = (
             "<p>Ferramenta pericial desenvolvida para extração rápida de hashes criptográficos e metadados de uma vasta gama de arquivos, "
             "além de permitir a <b>Aquisição Forense (Bit-a-bit)</b> de unidades lógicas e físicas, incluindo:</p>"
@@ -2932,6 +2932,7 @@ class JanelaHashes(QWidget):
             "<li><b>Detecção de Lavagem de Metadados (Metadata Stripping):</b> Análise heurística que identifica padrões de nomes de arquivos gerados pelo WhatsApp, Telegram, Instagram, Facebook e Twitter, emitindo alertas sobre metadados originais destruídos pela plataforma.</li>"
             "<li><b>Detecção NTFS ADS:</b> Varredura automática e em profundidade por Alternate Data Streams (dados ocultos em partições NTFS), identificando <i>Mark of the Web</i> e gerando comandos de extração para o PowerShell caso payloads maliciosos grandes sejam detectados.</li>"
             "<li><b>Entropia de Shannon:</b> Cálculo de aleatoriedade para detecção de arquivos criptografados, compactados ou ofuscados (Packed).</li>"
+            "<li><b>Detecção de Arquivos Duplicados (Triagem Otimizada):</b> Identifica e agrupa automaticamente arquivos idênticos processados em lote. O motor de comparação prioriza o cruzamento de algoritmos criptográficos robustos (como SHA-256 e SHA-512), utilizando o CRC32 apenas como recurso final na ausência destes, o que garante alta precisão técnica e mitiga o risco de falsos positivos por colisão.</li>"
             "<li><b>Metadados Avançados:</b> Extração de coordenadas GPS (com links para mapas), datas internas de criação, marcas de dispositivos e rastreios de autoria/edição de software.</li>"
             "<li><b>Validação de Assinatura e Binários:</b> Checagem de certificados Authenticode em executáveis (EXE/DLL/SYS) e extração do Data/Hora exata de compilação registrada no cabeçalho PE.</li>"
             "</ul>"
@@ -4212,6 +4213,7 @@ class JanelaHashes(QWidget):
 
         contagem_extensoes = {}
         arquivos_processados_qtd = 0
+        arquivos_por_hash = {}  # Dicionário para rastrear duplicatas
 
         for indice, arquivo in enumerate(lista_arquivos):
             if self.cancelar_operacao:
@@ -4235,6 +4237,20 @@ class JanelaHashes(QWidget):
                 else:
                     extensao = extensao[1:]
                 contagem_extensoes[extensao] = contagem_extensoes.get(extensao, 0) + 1
+
+                # --- RASTREAMENTO PARA DETECÇÃO DE DUPLICATAS ---
+                # Extrai os hashes para uma variável garantindo que seja um dicionário
+                hashes_calculados: dict = resultado.get('hashes', {})
+
+                # Cria uma chave única com os hashes gerados (ignora CRC32 se houver opções criptográficas para evitar colisão)
+                chave_agrupamento = tuple(sorted((k, v) for k, v in hashes_calculados.items() if k != "CRC32"))
+                if not chave_agrupamento:
+                    chave_agrupamento = tuple(sorted(hashes_calculados.items()))
+
+                if chave_agrupamento not in arquivos_por_hash:
+                    arquivos_por_hash[chave_agrupamento] = []
+                arquivos_por_hash[chave_agrupamento].append(arquivo)
+                # ------------------------------------------------
 
                 # 1. BLOCO BÁSICO E HASHES NO TOPO
                 self.texto_saida.append(f"Tamanho: {resultado['bytes']} bytes ({resultado['mb']:.2f} MB)")
@@ -4298,7 +4314,31 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"{qtd} arquivo(s) {ext}")
 
         self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
-        self.texto_saida.append("-" * 60)
+
+        # --- DETECÇÃO DE ARQUIVOS DUPLICADOS ---
+        # Só executa a detecção se houver pelo menos um algoritmo de hash selecionado
+        if algos_selecionados:
+            self.texto_saida.append(
+                "Arquivos idênticos entre si (CRC32 comparado apenas na ausência de algoritmos criptográficos):")
+
+            tem_duplicados = False
+            for chave_hash, lista_caminhos in arquivos_por_hash.items():
+                # Só considera duplicata se houver mais de 1 arquivo E a chave de hash não for vazia
+                if len(lista_caminhos) > 1 and chave_hash:
+                    tem_duplicados = True
+                    algoritmos_coincidentes = " + ".join([item[0] for item in chave_hash])
+                    algo_principal, valor_principal = chave_hash[-1]
+                    nome_hash = f"Idênticos em {algoritmos_coincidentes} ({algo_principal}: {valor_principal})"
+
+                    self.texto_saida.append(f"\n  [Grupo idêntico - {nome_hash}]")
+                    for caminho_dup in lista_caminhos:
+                        self.texto_saida.append(f"  ↳ {caminho_dup}")
+
+            if not tem_duplicados:
+                self.texto_saida.append("\n  ↳ não foram encontrados arquivos idênticos entre si")
+
+            self.texto_saida.append("\n" + "-" * 60)
+        # ---------------------------------------
 
         # --- RESUMO FINAL DA CADEIA DE CUSTÓDIA ---
         if validador:

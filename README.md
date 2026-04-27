@@ -1,4 +1,4 @@
-# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.2.2
+# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.2.3
 
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.
@@ -12,6 +12,7 @@ Além disso:
 * Utiliza **"Seleção Literal" (Anti-Redirecionamento)**, ignorando resoluções nativas do Windows para links simbólicos e junções.
 * O programa calcula a **Entropia de Shannon** de cada arquivo, ajudando a diferenciar arquivos comprimidos legítimos de dados ofuscados ou criptografados.
 * Detecta automaticamente **"arquivos vazios"** baseando-se em hashes universais de 0 bytes.
+* **Detecção de Arquivos Duplicados (Triagem Otimizada):** Identifica e agrupa automaticamente arquivos idênticos processados no mesmo lote. A verificação prioriza a combinação de todos os algoritmos criptográficos selecionados (SHA-256, SHA-512, MD5, etc.). O CRC32 é utilizado como critério de comparação apenas em último caso (na ausência da seleção de hashes criptográficos), visando mitigar o risco de falsos positivos por colisão e garantir maior rigor técnico à triagem.
 * Na nova modalidade de aquisição de discos, o cálculo dos hashes selecionados ocorre simultaneamente à leitura setor-por-setor (**On-the-Fly**).
 
 ---
@@ -117,7 +118,7 @@ ___
 
 Se você utilizar o **Extrator de Hashes e Metadados Forenses** em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte citação:
 
-> SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.2.2. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso].
+> SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.2.3. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso].
 
 ---
 
