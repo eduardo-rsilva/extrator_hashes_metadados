@@ -2201,10 +2201,29 @@ class JanelaHashes(QWidget):
         letter, root, dtype = combo.currentData()
         info = obter_info_volume(root)
 
-        # --- LIMPA A MENSAGEM INICIAL SE ELA FOR A ÚNICA COISA NA TELA ---
-        if self.texto_saida.toPlainText().strip() == MENSAGEM_INICIAL:
+        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES (RAW) ---
+        texto_atual = self.texto_saida.toPlainText().strip()
+        if texto_atual and texto_atual != MENSAGEM_INICIAL:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Resultados Anteriores Encontrados")
+            msg_box.setText("Já existem resultados de extrações anteriores na tela.")
+            msg_box.setInformativeText(
+                "Deseja adicionar os resultados da unidade RAW à lista atual ou limpar a tela antes de começar?")
+            msg_box.setIcon(QMessageBox.Icon.Question)
+
+            btn_adicionar = msg_box.addButton("Adicionar (Manter histórico)", QMessageBox.ButtonRole.AcceptRole)
+            btn_limpar = msg_box.addButton("Limpar tela e substituir", QMessageBox.ButtonRole.DestructiveRole)
+            btn_cancelar = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == btn_cancelar:
+                return  # Aborta a aquisição RAW antes de pedir elevação de privilégio
+            elif msg_box.clickedButton() == btn_limpar:
+                self.texto_saida.clear()
+        else:
             self.texto_saida.clear()
-        # -----------------------------------------------------------------
+        # --------------------------------------------------
 
         if info:
             self.texto_saida.append("=== UNIDADE SELECIONADA (RAW) ===")
@@ -4150,10 +4169,33 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("Nenhum arquivo encontrado para processamento.\n")
             return
 
-        self.travar_interface()
+        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
+        texto_atual = self.texto_saida.toPlainText().strip()
+        # Checa se há texto e se não é apenas a mensagem inicial
+        if texto_atual and texto_atual != MENSAGEM_INICIAL:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Resultados Anteriores Encontrados")
+            msg_box.setText("Já existem resultados de extrações anteriores na tela.")
+            msg_box.setInformativeText(
+                "Deseja adicionar os novos resultados à lista atual ou limpar a tela antes de começar?")
+            msg_box.setIcon(QMessageBox.Icon.Question)
 
-        if self.texto_saida.toPlainText().strip() == MENSAGEM_INICIAL:
+            btn_adicionar = msg_box.addButton("Adicionar (Manter histórico)", QMessageBox.ButtonRole.AcceptRole)
+            btn_limpar = msg_box.addButton("Limpar tela e substituir", QMessageBox.ButtonRole.DestructiveRole)
+            btn_cancelar = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == btn_cancelar:
+                return  # Aborta a extração
+            elif msg_box.clickedButton() == btn_limpar:
+                self.texto_saida.clear()
+        else:
+            # Se for só a mensagem inicial (ou vazio), limpa direto sem perguntar
             self.texto_saida.clear()
+        # --------------------------------------------
+
+        self.travar_interface()
 
         if not algos_selecionados:
             self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
