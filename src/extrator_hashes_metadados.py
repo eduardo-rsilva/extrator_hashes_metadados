@@ -4125,13 +4125,6 @@ class JanelaHashes(QWidget):
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
         if not lista_arquivos:
             return
-
-        # Reseta as flags de vídeo para que o novo relatório seja limpo
-        self.video_teve_fps_geral = False
-        self.video_teve_fps_min_max = False
-
-        self.texto_saida.clear()
-
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
 
@@ -4141,6 +4134,10 @@ class JanelaHashes(QWidget):
         if total_arquivos == 0:
             self.texto_saida.append("Nenhum arquivo encontrado para processamento.\n")
             return
+
+        # Reseta as flags de detecção de fps em vídeos para o novo relatório
+        self.video_teve_fps_geral = False
+        self.video_teve_fps_min_max = False
 
         # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
         texto_atual = self.texto_saida.toPlainText().strip()
