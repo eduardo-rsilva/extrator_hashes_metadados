@@ -205,6 +205,12 @@ try:
 except ImportError:
     HAS_TINYTAG = False
 
+try:
+    from pymediainfo import MediaInfo
+    HAS_PYMEDIAINFO = True
+except ImportError:
+    HAS_PYMEDIAINFO = False
+
 # ------------------------------------------------------
 
 def get_base_dir() -> Path:
@@ -1640,6 +1646,9 @@ class JanelaHashes(QWidget):
         self.total_bytes_processar = 0
         self.tempo_inicio_total = 0
 
+        self.video_teve_fps_min_max = False
+        self.video_teve_fps_geral = False
+
         # Conecta o sinal emitido pela thread à função que altera a interface
         self.sinal_atualizacao.connect(self._exibir_alerta_atualizacao)
         # --- CHAMA A ROTINA DE CHECAGEM DE NOVA ATUALIZAÇÃO DE VERSÃO ---
@@ -2947,7 +2956,7 @@ class JanelaHashes(QWidget):
 
             "<h3>🔍 Análises Forenses Integradas:</h3>"
             "<ul>"
-            "<li><b>Extração Profunda de Mídia (ExifTool + Fallbacks):</b> Usa múltiplas engenharias em cascata (ExifTool, OpenCV, TinyTag, Pillow) para vasculhar dados de geolocalização com link para mapas, resoluções internas, taxa de bits (bitrate) e até edições/muxing em arquivos de mídia.</li>"
+            "<li><b>Extração Profunda de Mídia (MediaInfo + ExifTool):</b> Usa múltiplas engenharias em cascata (pymediainfo, ExifTool, OpenCV, TinyTag) para vasculhar dados de geolocalização com links para mapas, resoluções internas e edições. Especial destaque para a <b>Análise Avançada de FPS</b> em vídeos, que identifica vídeos gravados com Taxa de Quadros Variável (VFR), extraindo as taxas nominal, mínima e máxima direto dos cabeçalhos, além de cruzar a contagem de quadros físicos com a duração em milissegundos para obter a taxa média real do arquivo.</li>"
             "<li><b>Detecção de Lavagem de Metadados (Metadata Stripping):</b> Análise heurística que identifica padrões de nomes de arquivos gerados pelo WhatsApp, Telegram, Instagram, Facebook e Twitter, emitindo alertas sobre metadados originais destruídos pela plataforma.</li>"
             "<li><b>Detecção NTFS ADS:</b> Varredura automática e em profundidade por Alternate Data Streams (dados ocultos em partições NTFS), identificando <i>Mark of the Web</i> e gerando comandos de extração para o PowerShell caso payloads maliciosos grandes sejam detectados.</li>"
             "<li><b>Entropia de Shannon:</b> Cálculo de aleatoriedade para detecção de arquivos criptografados, compactados ou ofuscados (Packed).</li>"
@@ -3273,131 +3282,86 @@ class JanelaHashes(QWidget):
         # 2. VÍDEOS (Busca Abrangente Universal)
         elif extensao in FORMATOS_VIDEO:
 
-            # --- PARTE 1: OpenCV (Dados Estruturais) ---
-            if HAS_CV2:
+            # --- PARTE 1: MediaInfo (Dados Estruturais e FPS Exato) ---
+            if HAS_PYMEDIAINFO:
                 try:
-                    cap = cv2.VideoCapture(caminho_arquivo)
-                    if cap.isOpened():
-                        largura = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        altura = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        fps = cap.get(cv2.CAP_PROP_FPS)
-                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    media_info = MediaInfo.parse(caminho_arquivo)
+                    video_track = next((t for t in media_info.tracks if t.track_type == "Video"), None)
 
-                        if largura > 0 and altura > 0:
-                            metadados_extras.append(f"Resolução do Vídeo: {largura}x{altura}")
-                        if fps > 0:
-                            metadados_extras.append(f"FPS: {fps:.3f}")
-                            if total_frames > 0:
-                                # Adiciona a contagem exata de frames
-                                metadados_extras.append(f"Total de Frames: {total_frames}")
+                    if video_track:
+                        if video_track.width and video_track.height:
+                            metadados_extras.append(f"Resolução do Vídeo: {video_track.width}x{video_track.height}")
 
-                                # Calcula a duração com precisão de milissegundos
-                                duracao = total_frames / fps
-                                mins, secs = divmod(duracao, 60)
-                                horas, mins = divmod(mins, 60)
+                        fps = video_track.frame_rate
+                        if fps:
+                            metadados_extras.append(f"FPS Média/Base: {fps}")
 
-                                # Extrai a parte fracionária dos segundos e converte para milissegundos
-                                milisegundos = int(round((duracao - int(duracao)) * 1000))
+                        # Extração de FPS Variável e Nominal
+                        if video_track.frame_rate_nominal:
+                            metadados_extras.append(f"FPS Nominal: {video_track.frame_rate_nominal}")
+                        if video_track.minimum_frame_rate:
+                            metadados_extras.append(f"FPS Mínimo: {video_track.minimum_frame_rate}")
+                        if video_track.maximum_frame_rate:
+                            metadados_extras.append(f"FPS Máximo: {video_track.maximum_frame_rate}")
 
-                                metadados_extras.append(
-                                    f"Duração Calculada (via FPS): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
-                        cap.release()
+                        if video_track.frame_rate_nominal or fps:
+                            self.video_teve_fps_geral = True
+                        if video_track.minimum_frame_rate or video_track.maximum_frame_rate:
+                            self.video_teve_fps_min_max = True
+
+                        # Contagem de frames e duração
+                        total_frames = video_track.frame_count
+                        if total_frames:
+                            metadados_extras.append(f"Total de Frames: {total_frames}")
+
+                        duracao_ms = video_track.duration  # MediaInfo entrega em milissegundos
+                        if duracao_ms:
+                            duracao_segundos = float(duracao_ms) / 1000
+                            mins, secs = divmod(duracao_segundos, 60)
+                            horas, mins = divmod(mins, 60)
+                            milisegundos = int(round((duracao_segundos - int(duracao_segundos)) * 1000))
+                            metadados_extras.append(
+                                f"Duração Extraída (MediaInfo): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
+
+                            # cálculo da taxa média real
+                            if total_frames:
+                                fps_medio_real = int(total_frames) / duracao_segundos
+                                metadados_extras.append(f"FPS Calculado (Frames/Duração): {fps_medio_real:.3f}")
                     else:
-                        metadados_extras.append(
-                            "⚠️ OpenCV falhou ao abrir o vídeo (Formato não suportado nativamente ou arquivo corrompido).")
+                        metadados_extras.append("⚠️ MediaInfo não encontrou trilha de vídeo válida neste arquivo.")
                 except Exception as e:
-                    metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com OpenCV: {e}")
+                    metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com MediaInfo: {e}")
             else:
-                metadados_extras.append(
-                    "⚠️ Biblioteca OpenCV (cv2) ausente: Impossível extrair resolução e duração estimadas nativamente.")
+                # Fallback para OpenCV se o pymediainfo não estiver instalado
+                if HAS_CV2:
+                    try:
+                        cap = cv2.VideoCapture(caminho_arquivo)
+                        if cap.isOpened():
+                            largura = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                            altura = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                            fps = cap.get(cv2.CAP_PROP_FPS)
+                            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-            # --- PARTE 2: ExifTool (Metadados Dinâmicos) ---
-            caminho_exiftool = obter_caminho_exiftool()
-            if caminho_exiftool:
-                try:
-                    cmd = [caminho_exiftool, "-j", "-G", "-c", "%+.6f", caminho_arquivo]
-                    processo = subprocess.run(
-                        cmd, capture_output=True, text=True, timeout=15,
-                        creationflags=0x08000000 if os.name == 'nt' else 0
-                    )
-
-                    if processo.returncode == 0:
-                        dados_json = json.loads(processo.stdout)
-                        if dados_json:
-                            meta = dados_json[0]
-
-                            # Função auxiliar para buscar qualquer tag que termine com palavras-chave (ignora se é QuickTime, Matroska, RIFF, etc)
-                            def buscar_tag_dinamica(dicionario, sufixos):
-                                for chave, valor in dicionario.items():
-                                    if any(chave.endswith(f":{s}") or chave == s for s in sufixos):
-                                        return valor
-                                return None
-
-                            # 1. Data de Criação (Varre os nomes mais comuns em todos os formatos)
-                            data_criacao = buscar_tag_dinamica(meta,
-                                                               ['CreateDate', 'DateTimeOriginal', 'CreationDate',
-                                                                'MediaCreateDate', 'DateTime'])
-                            if data_criacao:
-                                if str(data_criacao).startswith("0000:00:00"):
+                            if largura > 0 and altura > 0:
+                                metadados_extras.append(f"Resolução do Vídeo: {largura}x{altura}")
+                            if fps > 0:
+                                metadados_extras.append(f"FPS (Aproximado/CV2): {fps:.3f}")
+                                if total_frames > 0:
+                                    metadados_extras.append(f"Total de Frames: {total_frames}")
+                                    duracao = total_frames / fps
+                                    mins, secs = divmod(duracao, 60)
+                                    horas, mins = divmod(mins, 60)
+                                    milisegundos = int(round((duracao - int(duracao)) * 1000))
                                     metadados_extras.append(
-                                        f"⏱️ Data de Criação (Interna): {data_criacao} [Zerada / Lavada]")
-                                else:
-                                    metadados_extras.append(f"⏱️ Data de Criação (Interna): {data_criacao}")
-
-                            # 2. Dispositivo de Gravação (Marca e Modelo)
-                            marca = buscar_tag_dinamica(meta, ['Make'])
-                            modelo = buscar_tag_dinamica(meta, ['Model', 'CameraModelName'])
-                            if modelo:
-                                disp = f"{marca} {modelo}" if marca else modelo
-                                metadados_extras.append(f"📷 Dispositivo de Gravação: {disp.strip()}")
-
-                            # 3. Coordenadas GPS (Otimizado com Link)
-                            gps = buscar_tag_dinamica(meta, ['GPSPosition', 'GPSCoordinates'])
-                            if gps:
-                                try:
-                                    partes = gps.split(',')
-                                    if len(partes) == 2:
-                                        lat = partes[0].strip()
-                                        lon = partes[1].strip()
-                                        link_maps = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-                                        metadados_extras.append(f"📍 GPS (Vídeo): {lat}, {lon}")
-                                        metadados_extras.append(f"   ↳ Visualizar no Mapa: {link_maps}")
-                                    else:
-                                        metadados_extras.append(f"📍 GPS (Vídeo): {gps}")
-                                except Exception:
-                                    metadados_extras.append(f"📍 GPS (Vídeo): {gps}")
-
-                            # 4. Software de Edição / Criação
-                            software = buscar_tag_dinamica(meta,
-                                                           ['Software', 'CreatorTool', 'WritingApp', 'MuxingApp'])
-                            if software:
-                                metadados_extras.append(f"💻 Software/Muxer: {software}")
-
-                            # 5. --- VERIFICAÇÃO DE FAIXAS DE MÍDIA ---
-                            tem_audio = any('audio' in k.lower() for k in meta.keys())
-                            tem_video = any('video' in k.lower() or 'image' in k.lower() for k in meta.keys())
-
-                            faixas = []
-                            if tem_video: faixas.append("Vídeo 🎬")
-                            if tem_audio: faixas.append("Áudio 🎵")
-
-                            if faixas:
-                                metadados_extras.append(f"Faixas Presentes no Arquivo: {' + '.join(faixas)}")
-                            else:
-                                metadados_extras.append(
-                                    "Faixas Presentes no Arquivo: Nenhuma faixa estruturada detectada.")
-                    else:
-                        erro_oculto = processo.stderr.strip() if processo.stderr else "Falha interna."
-                        metadados_extras.append(f"⚠️ ExifTool falhou ao executar. Erro: {erro_oculto}")
-
-                except subprocess.TimeoutExpired:
-                    metadados_extras.append("⚠️ Metadados avançados abortados: Timeout do ExifTool (>15s).")
-                except Exception as e:
-                    metadados_extras.append(f"⚠️ Erro ao ler metadados com ExifTool: {e}")
-            else:
-                pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
-                metadados_extras.append(
-                    f"⚠️ ExifTool ausente (Esperado: '{pasta_esperada}'). Metadados internos indisponíveis.")
+                                        f"Duração Calculada (via FPS): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
+                            cap.release()
+                        else:
+                            metadados_extras.append("⚠️ OpenCV falhou ao abrir o vídeo.")
+                    except Exception as e:
+                        metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com OpenCV: {e}")
+                else:
+                    metadados_extras.append(
+                        "⚠️ Bibliotecas MediaInfo e OpenCV ausentes: Impossível extrair resolução e duração estimadas.")
 
         # 3. PDFs
         elif extensao in FORMATOS_PDF:
@@ -4159,6 +4123,15 @@ class JanelaHashes(QWidget):
         self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia)
 
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
+        if not lista_arquivos:
+            return
+
+        # Reseta as flags de vídeo para que o novo relatório seja limpo
+        self.video_teve_fps_geral = False
+        self.video_teve_fps_min_max = False
+
+        self.texto_saida.clear()
+
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
 
@@ -4348,6 +4321,23 @@ class JanelaHashes(QWidget):
             scrollbar = self.texto_saida.verticalScrollBar()
             scrollbar.setValue(scrollbar.maximum())
             QApplication.processEvents()
+
+        # Adiciona a legenda de FPS na tela se houver vídeos
+        legenda_fps_tela = ""
+        if self.video_teve_fps_geral:
+            legenda_fps_tela += "\n=== NOTAS SOBRE TAXA DE QUADROS (FPS) ===\n"
+            legenda_fps_tela += "- FPS Média/Base: É o número de quadros por segundo informado pelo reprodutor/cabeçalho oficial do arquivo.\n"
+            legenda_fps_tela += "- FPS Calculado (Frames/Duração): É a média matemática exata obtida ao dividir o número total de quadros pela duração do vídeo.\n"
+
+        if self.video_teve_fps_min_max:
+            legenda_fps_tela += "- FPS Mínimo: Indica o menor número de quadros registrados em um segundo (comum em vídeos com Taxa de Quadros Variável [VFR], quando a câmera grava cenas mais estáticas).\n"
+            legenda_fps_tela += "- FPS Máximo: Indica o maior número de quadros registrados em um segundo (a câmera acelerou a captura para compensar movimentação rápida no vídeo [VFR]).\n"
+
+        if legenda_fps_tela:
+            self.texto_saida.append(legenda_fps_tela)
+
+        self.btn_copiar.setEnabled(True)
+        self.btn_salvar.setEnabled(True)
 
         self.texto_saida.append("Resumo do conteúdo:")
 

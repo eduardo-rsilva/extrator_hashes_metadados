@@ -37,8 +37,9 @@ Um diferencial crítico é o **bloqueio automático de arquivos "Apenas Online"*
 ---
 
 ## 📸 Extração Profunda de Metadados Multimídia
-Trabalhando em conjunto com o **ExifTool**, **OpenCV** e **Pillow**, a extração de mídia é agressiva:
-* **Fotos e Vídeos:** Extrai resolução, FPS, fabricante/modelo, data de criação interna e **coordenadas GPS** formatadas com link direto para o Google Maps.
+Trabalhando em conjunto com o **pymediainfo**, **ExifTool**, **OpenCV** e **Pillow**, a extração de mídia é agressiva:
+* **Fotos e Vídeos:** Extrai fabricante/modelo, data de criação interna, e **coordenadas GPS** formatadas com link direto para o Google Maps. Para vídeos, realiza a **Análise Avançada de Taxa de Quadros**, discriminando vídeos com Taxa de Quadros Variável (VFR) através da leitura exata do FPS nominal, mínimo e máximo gravados no cabeçalho.
+* **Validação de Duração:** Calcula o *FPS Matemático/Real* dividindo a quantidade exata de quadros contabilizados fisicamente no arquivo pela duração estrutural extraída em milissegundos, revelando a verdadeira fluidez do vídeo independentemente de cabeçalhos genéricos.
 * **Análise de Redes Sociais:** Detecta padrões de nomes (WhatsApp, Telegram, Facebook) e emite um alerta pericial sobre o **metadata stripping** (lavagem de metadados).
 * **Áudio:** Utiliza uma extração primária hiper-rápida (**TinyTag**) com fallback via ExifTool, obtendo duração exata, bitrate e artista.
 
