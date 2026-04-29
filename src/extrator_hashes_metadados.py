@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.2.3
+Versão: 4.2.4
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.2.3"
+VERSAO_APP = "4.2.4"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
