@@ -4348,8 +4348,8 @@ class JanelaHashes(QWidget):
         self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
 
         # --- DETECÇÃO DE ARQUIVOS DUPLICADOS ---
-        # Só executa a detecção se houver pelo menos um algoritmo de hash selecionado
-        if algos_selecionados:
+        # Só executa a detecção se houver mais de 1 arquivo E pelo menos um algoritmo de hash selecionado
+        if algos_selecionados and arquivos_processados_qtd > 1:
             self.texto_saida.append(
                 "Arquivos idênticos entre si (CRC32 comparado apenas na ausência de algoritmos criptográficos):")
 
