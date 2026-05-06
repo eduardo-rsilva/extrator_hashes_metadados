@@ -3809,28 +3809,45 @@ class JanelaHashes(QWidget):
     def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados):
         try:
             # --- PROTEÇÃO FORENSE: BLOQUEIO DE ARQUIVOS EM NUVEM E ACESSO ---
-            # Inicializa stat_info fora do IF para reaproveitá-lo abaixo
             stat_info = os.lstat(caminho_arquivo)
 
             if os.name == 'nt':
                 try:
-                    # Usa lstat (em vez de stat) para ler apenas a superfície, sem resolver symlinks/nuvem
+                    # 1. BLOQUEIO PADRÃO MICROSOFT (OneDrive, Dropbox, iCloud)
                     if hasattr(stat_info, 'st_file_attributes'):
                         atributos = stat_info.st_file_attributes
 
-                        # 0x400000 = FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS (Baixa da nuvem ao abrir)
-                        # 0x1000   = FILE_ATTRIBUTE_OFFLINE (Armazenamento remoto/fita)
-                        if (atributos & 0x400000) or (atributos & 0x1000):
+                        # Máscara estendida de proteção em Nuvem
+                        # 0x400000 = RECALL_ON_DATA_ACCESS
+                        # 0x1000   = OFFLINE
+                        # 0x100000 = UNPINNED
+                        # 0x40000  = RECALL_ON_OPEN
+                        if (atributos & 0x400000) or (atributos & 0x1000) or (atributos & 0x100000) or (
+                                atributos & 0x40000):
                             return {
                                 'sucesso': False,
                                 'erro': 'ARQUIVO EM NUVEM DETECTADO: Arquivo "Apenas Online" (ex: OneDrive). Leitura bloqueada para evitar download e alteração da evidência local.'
                             }
                 except OSError as e:
-                    # Captura erros reais de sistema de arquivos (ex: Caminho muito longo, Permissão Negada na raiz)
-                    return {
-                        'sucesso': False,
-                        'erro': f'ACESSO NEGADO PELO S.O.: Não foi possível ler os atributos do arquivo no disco ({e}).'
-                    }
+                    return {'sucesso': False, 'erro': f'ACESSO NEGADO PELO S.O.: {e}'}
+
+                # 2. BLOQUEIO DE DISCO VIRTUAL VFS (Google Drive em modo Streaming)
+                try:
+                    drive = os.path.splitdrive(caminho_arquivo)[0] + "\\"
+                    if len(drive) >= 3:  # Garante que é uma letra de drive válida (ex: H:\)
+                        info_vol = obter_info_volume(drive)
+                        if info_vol:
+                            rotulo = info_vol.get('rotulo', '').lower()
+                            fs = info_vol.get('sistema_arquivos', '').upper()
+
+                            # O Google Drive oculta o status offline real criando um File System virtual (CBFS/FAT32).
+                            if 'google drive' in rotulo or 'cbfs' in fs:
+                                return {
+                                    'sucesso': False,
+                                    'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): O Google Drive em modo Streaming oculta o status offline do Windows. Leitura bloqueada preventivamente para evitar hidratação (download) forçada.'
+                                }
+                except Exception:
+                    pass
             # -------------------------------------------------------------------
 
             # Reaproveita as informações já extraídas com segurança pelo os.lstat()
