@@ -4099,16 +4099,22 @@ class JanelaHashes(QWidget):
         # -----------------------------------------------------
 
         for caminho in caminhos_iniciais:
+            # 1. Normaliza o caminho vindo da interface (converte / para \)
+            caminho = os.path.normpath(caminho)
+
             if os.path.isfile(caminho):
                 arquivos_encontrados.append(caminho)
             elif os.path.isdir(caminho):
                 if incluir_sub:
                     for raiz, _, arquivos in os.walk(caminho):
                         for arquivo in arquivos:
-                            arquivos_encontrados.append(os.path.join(raiz, arquivo))
+                            # 2. Normaliza os caminhos encontrados nas subpastas
+                            caminho_completo = os.path.normpath(os.path.join(raiz, arquivo))
+                            arquivos_encontrados.append(caminho_completo)
                 else:
                     for item in os.listdir(caminho):
-                        caminho_completo = os.path.join(caminho, item)
+                        # 3. Normaliza os caminhos na raiz da pasta selecionada
+                        caminho_completo = os.path.normpath(os.path.join(caminho, item))
                         if os.path.isfile(caminho_completo):
                             arquivos_encontrados.append(caminho_completo)
 
