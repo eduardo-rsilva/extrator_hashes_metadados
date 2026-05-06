@@ -3809,12 +3809,12 @@ class JanelaHashes(QWidget):
     def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados):
         try:
             # --- PROTEÇÃO FORENSE: BLOQUEIO DE ARQUIVOS EM NUVEM E ACESSO ---
+            # Inicializa stat_info fora do IF para reaproveitá-lo abaixo
+            stat_info = os.lstat(caminho_arquivo)
+
             if os.name == 'nt':
                 try:
-                    # Lê os atributos do Windows sem acionar a abertura do conteúdo do arquivo
-                    stat_info = os.stat(caminho_arquivo)
-
-                    # Substitui o 'pass' silencioso por uma checagem elegante e segura
+                    # Usa lstat (em vez de stat) para ler apenas a superfície, sem resolver symlinks/nuvem
                     if hasattr(stat_info, 'st_file_attributes'):
                         atributos = stat_info.st_file_attributes
 
@@ -3833,9 +3833,10 @@ class JanelaHashes(QWidget):
                     }
             # -------------------------------------------------------------------
 
-            tamanho_bytes = os.path.getsize(caminho_arquivo)
+            # Reaproveita as informações já extraídas com segurança pelo os.lstat()
+            tamanho_bytes = stat_info.st_size
             tamanho_mb = tamanho_bytes / (1024 * 1024)
-            data_modificacao_raw = os.path.getmtime(caminho_arquivo)
+            data_modificacao_raw = stat_info.st_mtime
             data_modificacao = datetime.datetime.fromtimestamp(data_modificacao_raw).strftime('%d/%m/%Y %H:%M:%S')
 
             objetos_hash = {}
@@ -4206,7 +4207,8 @@ class JanelaHashes(QWidget):
         self.total_bytes_processar = 0
         for arq in lista_arquivos:
             try:
-                self.total_bytes_processar += os.path.getsize(arq)
+                # Usa lstat para NÃO engatilhar downloads acidentais do OneDrive na triagem
+                self.total_bytes_processar += os.lstat(arq).st_size
             except OSError:
                 pass  # Ignora arquivos inacessíveis no pré-cálculo
 
