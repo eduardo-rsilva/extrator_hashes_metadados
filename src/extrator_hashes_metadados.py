@@ -4090,39 +4090,56 @@ class JanelaHashes(QWidget):
             self.coletar_e_processar([diretorio])
 
     def coletar_e_processar(self, caminhos_iniciais):
+        import stat  # Importado aqui para garantir o uso seguro dos atributos
+
         arquivos_encontrados = []
         incluir_sub = self.chk_subdiretorios.isChecked()
 
         # --- VERIFICAÇÃO: É a raiz de um Pendrive/HD? ---
         info_drive = None
         if len(caminhos_iniciais) == 1:
-            # Pega o caminho exato e normaliza (transforma barras invertidas, etc.)
+            # Pega o caminho exato e normaliza
             caminho_origem = os.path.abspath(caminhos_iniciais[0])
 
-            # Checa se é diretório e se o "pai" dele é ele mesmo (ex: E:\ == E:\)
-            if os.path.isdir(caminho_origem) and os.path.dirname(caminho_origem) == caminho_origem:
-                info_drive = obter_info_volume(caminho_origem)
+            try:
+                # 1. Usa o lstat seguro em vez do falho os.path.isdir()
+                st_origem = os.lstat(caminho_origem)
+                if stat.S_ISDIR(st_origem.st_mode) and os.path.dirname(caminho_origem) == caminho_origem:
+                    info_drive = obter_info_volume(caminho_origem)
+            except OSError:
+                pass
         # -----------------------------------------------------
 
         for caminho in caminhos_iniciais:
-            # 1. Normaliza o caminho vindo da interface (converte / para \)
+            # Normaliza o caminho vindo da interface
             caminho = os.path.normpath(caminho)
 
-            if os.path.isfile(caminho):
+            try:
+                # 2. Lê a "casca" do item SEM engatilhar o download em nuvem
+                st_caminho = os.lstat(caminho)
+            except OSError:
+                continue  # Pula silenciosamente se não tiver permissão para ler
+
+            # 3. Usa o stat seguro para decidir se é arquivo ou pasta
+            if stat.S_ISREG(st_caminho.st_mode):
                 arquivos_encontrados.append(caminho)
-            elif os.path.isdir(caminho):
+            elif stat.S_ISDIR(st_caminho.st_mode):
                 if incluir_sub:
                     for raiz, _, arquivos in os.walk(caminho):
                         for arquivo in arquivos:
-                            # 2. Normaliza os caminhos encontrados nas subpastas
+                            # os.walk já é seguro nativamente ao separar as listas
                             caminho_completo = os.path.normpath(os.path.join(raiz, arquivo))
                             arquivos_encontrados.append(caminho_completo)
                 else:
                     for item in os.listdir(caminho):
-                        # 3. Normaliza os caminhos na raiz da pasta selecionada
                         caminho_completo = os.path.normpath(os.path.join(caminho, item))
-                        if os.path.isfile(caminho_completo):
-                            arquivos_encontrados.append(caminho_completo)
+                        try:
+                            # 4. Proteção contra download de arquivo em nuvem ao olhar o que tem dentro da pasta raiz
+                            st_item = os.lstat(caminho_completo)
+                            if stat.S_ISREG(st_item.st_mode):
+                                arquivos_encontrados.append(caminho_completo)
+                        except OSError:
+                            continue
 
         # --- Captura o texto colado da Cadeia de Custódia ---
         texto_custodia = ""
