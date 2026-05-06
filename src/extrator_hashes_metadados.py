@@ -4054,14 +4054,18 @@ class JanelaHashes(QWidget):
     def selecionar_arquivo(self):
         if self.processando: return
 
-        # O argumento options=QFileDialog.Option.DontResolveSymlinks impede que o Windows
-        # redirecione atalhos (.lnk) para o seu arquivo de destino original.
+        # Combina o bloqueio de atalhos (DontResolveSymlinks) com o bloqueio da janela
+        # nativa do Windows (DontUseNativeDialog) para impedir que o clique em "Abrir"
+        # faça o download automático de arquivos em nuvem (OneDrive/Google Drive).
+        # noinspection PyTypeChecker
+        opcoes = QFileDialog.Option.DontResolveSymlinks | QFileDialog.Option.DontUseNativeDialog
+
         caminhos, _ = QFileDialog.getOpenFileNames(
             self,
             "Selecione um ou mais arquivos",
             dir="",
             filter="Todos os Arquivos (*)",
-            options=QFileDialog.Option.DontResolveSymlinks
+            options=opcoes
         )
 
         if caminhos:
@@ -4070,9 +4074,10 @@ class JanelaHashes(QWidget):
     def selecionar_diretorio(self):
         if self.processando: return
 
-        # Combina as regras para garantir que apenas a pasta exata clicada seja retornada,
-        # ignorando atalhos de pasta (.lnk) ou junções NTFS.
-        opcoes = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+        # Adicionado o DontUseNativeDialog para consistência visual com a seleção de arquivos
+        # e para evitar que a navegação do Explorer tente gerar thumbnails de evidências em nuvem.
+        # noinspection PyTypeChecker
+        opcoes = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks | QFileDialog.Option.DontUseNativeDialog
 
         diretorio = QFileDialog.getExistingDirectory(
             self,
