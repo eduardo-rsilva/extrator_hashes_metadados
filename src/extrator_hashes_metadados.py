@@ -4214,7 +4214,8 @@ class JanelaHashes(QWidget):
         self.tempo_inicio_total = time.time()
         self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)
 
-        self.texto_saida.append(f"Processando {total_arquivos} arquivo(s)...\n")
+        palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
+        self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
 
         # --- IMPRIME AS INFOS DA UNIDADE APENAS SE FOR RAIZ ---
         if info_drive:
@@ -4346,9 +4347,11 @@ class JanelaHashes(QWidget):
 
         extensoes_ordenadas = sorted(contagem_extensoes.items(), key=lambda item: item[1], reverse=True)
         for ext, qtd in extensoes_ordenadas:
-            self.texto_saida.append(f"{qtd} arquivo(s) {ext}")
+            palavra_arq_ext = "arquivo" if qtd == 1 else "arquivos"
+            self.texto_saida.append(f"{qtd} {palavra_arq_ext} {ext}")
 
-        self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} arquivo(s)\n")
+        palavra_arq_total = "arquivo" if arquivos_processados_qtd == 1 else "arquivos"
+        self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} {palavra_arq_total}\n")
 
         # --- DETECÇÃO DE ARQUIVOS DUPLICADOS ---
         # Só executa a detecção se houver mais de 1 arquivo E pelo menos um algoritmo de hash selecionado
