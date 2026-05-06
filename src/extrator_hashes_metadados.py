@@ -4106,8 +4106,8 @@ class JanelaHashes(QWidget):
 
         caminhos, _ = QFileDialog.getOpenFileNames(
             self,
-            "Selecione um ou mais arquivos",
-            dir="",
+            "Seleção Segura (Interface isolada anti-download) - Escolha o(s) arquivo(s)",
+            dir=os.environ.get("SystemDrive", "C:") + "\\",
             filter="Todos os Arquivos (*)",
             options=opcoes
         )
@@ -4125,8 +4125,8 @@ class JanelaHashes(QWidget):
 
         diretorio = QFileDialog.getExistingDirectory(
             self,
-            "Selecione um diretório",
-            dir="",
+            "Seleção Segura (Interface isolada anti-download) - Escolha o diretório",
+            dir=os.environ.get("SystemDrive", "C:") + "\\",
             options=opcoes
         )
 
