@@ -3809,6 +3809,7 @@ class JanelaHashes(QWidget):
     def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados):
         try:
             # --- PROTEÇÃO FORENSE: BLOQUEIO DE ARQUIVOS EM NUVEM E ACESSO ---
+            # Usa o lstat seguro no lugar do stat antigo
             stat_info = os.lstat(caminho_arquivo)
 
             if os.name == 'nt':
@@ -3817,11 +3818,6 @@ class JanelaHashes(QWidget):
                     if hasattr(stat_info, 'st_file_attributes'):
                         atributos = stat_info.st_file_attributes
 
-                        # Máscara estendida de proteção em Nuvem
-                        # 0x400000 = RECALL_ON_DATA_ACCESS
-                        # 0x1000   = OFFLINE
-                        # 0x100000 = UNPINNED
-                        # 0x40000  = RECALL_ON_OPEN
                         if (atributos & 0x400000) or (atributos & 0x1000) or (atributos & 0x100000) or (
                                 atributos & 0x40000):
                             return {
@@ -3834,23 +3830,54 @@ class JanelaHashes(QWidget):
                 # 2. BLOQUEIO DE DISCO VIRTUAL VFS (Google Drive em modo Streaming)
                 try:
                     drive = os.path.splitdrive(caminho_arquivo)[0] + "\\"
-                    if len(drive) >= 3:  # Garante que é uma letra de drive válida (ex: H:\)
+                    if len(drive) >= 3:
                         info_vol = obter_info_volume(drive)
                         if info_vol:
                             rotulo = info_vol.get('rotulo', '').lower()
                             fs = info_vol.get('sistema_arquivos', '').upper()
 
-                            # O Google Drive oculta o status offline real criando um File System virtual (CBFS/FAT32).
                             if 'google drive' in rotulo or 'cbfs' in fs:
-                                return {
-                                    'sucesso': False,
-                                    'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): O Google Drive em modo Streaming oculta o status offline do Windows. Leitura bloqueada preventivamente para evitar hidratação (download) forçada.'
-                                }
+                                # Checa se já perguntamos pro usuário nesta sessão
+                                if getattr(self, 'ignorar_google_drive', None) is False:
+                                    return {
+                                        'sucesso': False,
+                                        'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): Proteção mantida pelo perito. Leitura bloqueada preventivamente.'
+                                    }
+                                elif getattr(self, 'ignorar_google_drive', None) is None:
+                                    # Pausa a interface para dar o alerta forense ao perito
+                                    msg_box = QMessageBox(self)
+                                    msg_box.setWindowTitle("Risco Forense - Google Drive Detectado")
+                                    msg_box.setText("<b>Foi detectada uma origem de disco virtual do Google Drive.</b>")
+                                    msg_box.setInformativeText(
+                                        "O driver de disco virtual do Google Drive oculta o status real do arquivo. Se a evidência "
+                                        "não estiver totalmente baixada no seu cache local, o Extrator forçará o download "
+                                        "automático da internet durante a leitura, gerando tráfego de rede indesejado.\n\n"
+                                        "Como Perito, deseja ignorar a proteção de nuvem e extrair os hashes assim mesmo "
+                                        "(assumindo o risco de download)?"
+                                    )
+                                    msg_box.setIcon(QMessageBox.Icon.Warning)
+
+                                    btn_sim = msg_box.addButton("Sim, ignorar proteção e extrair",
+                                                                QMessageBox.ButtonRole.AcceptRole)
+                                    btn_nao = msg_box.addButton("Não, manter bloqueio seguro",
+                                                                QMessageBox.ButtonRole.RejectRole)
+
+                                    msg_box.exec()
+
+                                    if msg_box.clickedButton() == btn_sim:
+                                        self.ignorar_google_drive = True
+                                    else:
+                                        self.ignorar_google_drive = False
+                                        return {
+                                            'sucesso': False,
+                                            'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): Proteção mantida pelo perito. Leitura bloqueada preventivamente.'
+                                        }
+                                # Se self.ignorar_google_drive for True, ele passa reto aqui e extrai o arquivo
                 except Exception:
                     pass
             # -------------------------------------------------------------------
 
-            # Reaproveita as informações já extraídas com segurança pelo os.lstat()
+            # Reaproveita as informações já extraídas de forma segura com o os.lstat()
             tamanho_bytes = stat_info.st_size
             tamanho_mb = tamanho_bytes / (1024 * 1024)
             data_modificacao_raw = stat_info.st_mtime
@@ -4173,6 +4200,9 @@ class JanelaHashes(QWidget):
             return
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
+
+        # Reseta a escolha do usuário sobre o Google Drive para cada nova extração
+        self.ignorar_google_drive = None
 
         # Verifica se o usuário quer extrair metadados extras
         extrair_meta = self.chk_metadados.isChecked()
