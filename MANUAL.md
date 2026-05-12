@@ -11,10 +11,10 @@ A forma mais rápida de utilizar o programa é através da técnica de "arrastar
 * **Ação:** Arraste seus arquivos ou diretórios para qualquer área da janela principal.
 * **Segurança:** O software aplicará automaticamente o **File Lock** para impedir que outros processos alterem o arquivo enquanto o hash é calculado.
 
-<figure>
-  <img src="imgs/config_drag_drop.PNG" alt="Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados" style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados</i></figcaption>
-</figure>
+    <figure>
+      <img src="imgs/config_drag_drop.PNG" alt="Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados</i></figcaption>
+    </figure>
 
 <br>
 
@@ -26,42 +26,44 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 
 1.  **Acesso:** Clique em **Selecionar Unidade (RAW)**.
 
-<figure>
-  <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade" style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Seletor de Unidade</i></figcaption>
-</figure>
+    <figure>
+      <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor de Unidade</i></figcaption>
+    </figure>
 
 <br>
 
 2.  **Elevação de Privilégio:** O sistema solicitará acesso de Administrador (UAC) para interagir diretamente com o hardware.
 
-<figure>
-  <img src="imgs/elevacao_UAC.PNG" alt="Mensagem solicitando elevação de administrador (UAC)" style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Mensagem solicitando elevação de administrador (UAC)</i></figcaption>
-</figure>
+    <figure>
+      <img src="imgs/elevacao_UAC.PNG" alt="Mensagem solicitando elevação de administrador (UAC)" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Mensagem solicitando elevação de administrador (UAC)</i></figcaption>
+    </figure>
 
 <br>
 
 3.  **Metodologia:** Escolha entre **Disco Físico Inteiro** (captura MBR/GPT e espaço não alocado) ou apenas o **Volume Lógico**.
 
-<figure>
-  <img src="imgs/seletor_tipo_extracao.PNG" alt="Seletor do tipo de extração." style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Seletor do tipo de extração.</i></figcaption>
-</figure>
+    <figure>
+      <img src="imgs/seletor_tipo_extracao.PNG" alt="Seletor do tipo de extração." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor do tipo de extração.</i></figcaption>
+    </figure>
+
 <br>
 
 4.  **Imagem Forense:** Você pode optar por gerar simultaneamente uma imagem no formato **.dd** e um log de auditoria física.
-<figure>
-  <img src="imgs/hash_com_imagem.PNG" alt="Seletor para aquisição simultânea de cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Seletor para aquisição simultânea de cópia bit-bit-bit.</i></figcaption>
-</figure>
 
-<br>
+    <figure>
+      <img src="imgs/hash_com_imagem.PNG" alt="Seletor para aquisição simultânea de cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor para aquisição simultânea de cópia bit-bit-bit.</i></figcaption>
+    </figure>
 
-<figure>
-  <img src="imgs/tela_modo_admin.PNG" alt="Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha.</i></figcaption>
-</figure>
+    <br>
+
+    <figure>
+      <img src="imgs/tela_modo_admin.PNG" alt="Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha.</i></figcaption>
+    </figure>
 
 <br>
 
@@ -74,15 +76,15 @@ O extrator permite auditar listagens de hashes recebidas em laudos de terceiros 
 * **Análise Reversa:** O software buscará automaticamente no texto o hash do arquivo que está sendo processado, ignorando artefatos de formatação e espaços invisíveis.
 * **Resultado:** O log indicará **✅ CONFERE** ou emitirá alertas se o hash bater mas o nome do arquivo for divergente.
 
-<figure>
-  <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
-  <figcaption align="center"><i>Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida.</i></figcaption>
-</figure>
+    <figure>
+      <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida.</i></figcaption>
+    </figure>
 
 <br>
 
 ---
-
+    
 ## 4. Analisando Metadados e Alertas Periciais
 Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração profunda através de diversas bibliotecas forenses:
 
