@@ -59,6 +59,8 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
     </figure>
 
     <br>
+    
+    <br>
 
     <figure>
       <img src="imgs/tela_modo_admin.PNG" alt="Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
