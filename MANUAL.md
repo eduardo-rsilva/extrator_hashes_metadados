@@ -25,14 +25,14 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 
 1.  **Acesso:** Clique em **Selecionar Unidade (RAW)**.
 <figure>
-  <img src="imgs/seletor_unidade.png" alt="Seletor de Unidade" style="border: 1px solid black;" width="100%">
+  <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade" style="border: 1px solid black;" width="100%">
   <figcaption align="center"><i>Seletor de Unidade</i></figcaption>
 </figure>
 <br>
 
 2.  **Elevação de Privilégio:** O sistema solicitará acesso de Administrador (UAC) para interagir diretamente com o hardware.
 <figure>
-  <img src="imgs/elevacao_UAC.png" alt="Mensagem solicitando elevação de administrador (UAC)" style="border: 1px solid black;" width="100%">
+  <img src="imgs/elevacao_UAC.PNG" alt="Mensagem solicitando elevação de administrador (UAC)" style="border: 1px solid black;" width="100%">
   <figcaption align="center"><i>Mensagem solicitando elevação de administrador (UAC)</i></figcaption>
 </figure>
 <br>
