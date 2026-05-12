@@ -1,4 +1,4 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados Forenses (v.4.3.0)
+# 📖 Guia de Operação - Extrator de Hashes e Metadados Forenses
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
