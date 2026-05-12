@@ -1,6 +1,32 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados Forenses
+# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
+
+---
+
+## 0. Primeiros Passos: Download, Extração e Execução
+
+O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil. Isso significa que não é necessário instalá-lo no sistema: basta baixar o arquivo, descompactá-lo e executar o programa.
+
+### Como Baixar
+1. Acesse diretamente a página de downloads do projeto: [Releases no GitHub](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases).
+2. Encontre a versão mais recente (marcada com a etiqueta verde **Latest**).
+3. Na seção **Assets** (Ativos), clique para baixar o arquivo `.zip` do programa (ex: `Extrator_ERS-IC-SP-NIC_v1.0.zip`).
+> **Importante:** não baixe os arquivos `Source code`.
+>
+> **Importante:** o programa requer um sistema operacional Windows de **64 bits**.
+
+### Como Descompactar
+1. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
+2. Clique com o botão direito do mouse sobre o arquivo e selecione **"Extrair Tudo..."**.
+3. Escolha uma pasta de destino e conclua a extração.
+> **Importante:** descompacte o arquivo antes de executar o programa. Ele não funciona diretamente a partir do arquivo compactado.
+
+### Como Rodar o Programa
+1. Abra a pasta onde os arquivos foram extraídos.
+2. Localize o arquivo executável principal: `extrator_hashes_metadados.exe`.
+3. Dê um clique duplo sobre ele para abrir a interface gráfica.
+> **Aviso:** não mova o executável para fora da pasta extraída, pois ele depende dos demais arquivos que estão no mesmo diretório. Se desejar facilitar o acesso, crie um atalho para a Área de Trabalho em vez de mover o arquivo.
 
 ---
 
