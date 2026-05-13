@@ -7,12 +7,13 @@ Este manual orienta o usuário sobre como utilizar as funcionalidades da ferrame
 ## 0. Primeiros Passos: Download, Extração e Execução
 
 O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil. Isso significa que não é necessário instalá-lo no sistema: basta baixar o arquivo, descompactá-lo e executar o programa.
+> **DICA:** Este programa pode ser executado a partir de unidades móveis, como _pendrives_..
 
 ### Como Baixar
 1. Acesse diretamente a página de downloads do projeto: [Releases no GitHub](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases).
 2. Encontre a versão mais recente (marcada com a etiqueta verde **Latest**).
-3. Na seção **Assets** (Ativos), clique para baixar o arquivo `.zip` do programa (ex: `Extrator_ERS-IC-SP-NIC_v1.0.zip`).
-> **Importante:** não baixe os arquivos `Source code`.
+3. Na seção **Assets**, clique para baixar o arquivo `.zip` do programa (ex: `Extrator_ERS-IC-SP-NIC_v1.0.zip`).
+> **Importante:** não baixe os arquivos `Source code` se seu interesse for apenas em usar o programa.
 >
 > **Importante:** o programa requer um sistema operacional Windows de **64 bits**.
 
@@ -26,7 +27,7 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 1. Abra a pasta onde os arquivos foram extraídos.
 2. Localize o arquivo executável principal: `extrator_hashes_metadados.exe`.
 3. Dê um clique duplo sobre ele para abrir a interface gráfica.
-> **Aviso:** não mova o executável para fora da pasta extraída, pois ele depende dos demais arquivos que estão no mesmo diretório. Se desejar facilitar o acesso, crie um atalho para a Área de Trabalho em vez de mover o arquivo.
+> **AVISO:** não mova o executável para fora da pasta extraída, pois ele depende dos demais arquivos que o acompanham no mesmo diretório. Se desejar facilitar o acesso, crie um atalho (botão direito sobre o arquivo e "Criar atalho") e copie-o para a Área de Trabalho em vez de mover o arquivo.
 
 ---
 
@@ -34,15 +35,26 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 A forma mais rápida de utilizar o programa é através da técnica de "arrastar e soltar" (Drag & Drop).
 
 * **Configuração:** Selecione os algoritmos de hash desejados no painel superior (SHA-256 e SHA-512 são recomendados e vêm marcados por padrão).
-* **Ação:** Arraste seus arquivos ou diretórios para qualquer área da janela principal.
-* **Segurança:** O software aplicará automaticamente o **File Lock** para impedir que outros processos alterem o arquivo enquanto o hash é calculado.
+* **Incluir Subdiretórios:** Selecione esse campo se quiser analisar todos os arquivos contidos em todos os subdiretórios contidos no diretório selecionado.
 
     <figure>
-      <img src="imgs/config_drag_drop.PNG" alt="Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados" style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Interface principal destacando a área de seleção de configurações e a área para drag-and-drop de arquivos a serem analisados</i></figcaption>
+      <img src="imgs/config_drag_drop.PNG" alt="Área de seleção de configurações." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Área de seleção de configurações.</i></figcaption>
     </figure>
 
 <br>
+
+* **Ação:** Arraste seus arquivos ou diretórios para qualquer área da janela principal.
+    > **DICA:** se for arrastado o ícone da unidade completa (ex.: F:, G: etc), o relatório de hash também incluirá o "serial number" daquela unidade.
+
+    <figure>
+      <img src="imgs/drag_drop.PNG" alt="Interface principal destacando a área para drag-and-drop de arquivos a serem analisados" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Interface principal destacando a área para drag-and-drop de arquivos a serem analisados</i></figcaption>
+    </figure>
+
+<br>
+
+* **Segurança:** O software aplicará automaticamente o **File Lock** para impedir que outros processos alterem o arquivo enquanto o hash é calculado.
 
 ---
 
@@ -53,8 +65,8 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 1.  **Acesso:** Clique em **Selecionar Unidade (RAW)**.
 
     <figure>
-      <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade" style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Seletor de Unidade</i></figcaption>
+      <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade para HASH RAW." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor de Unidade para HASH RAW.</i></figcaption>
     </figure>
 
 <br>
@@ -62,8 +74,8 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 2.  **Elevação de Privilégio:** O sistema solicitará acesso de Administrador (UAC) para interagir diretamente com o hardware.
 
     <figure>
-      <img src="imgs/elevacao_UAC.PNG" alt="Mensagem solicitando elevação de administrador (UAC)" style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Mensagem solicitando elevação de administrador (UAC)</i></figcaption>
+      <img src="imgs/elevacao_UAC.PNG" alt="Mensagem solicitando elevação para privilégios de administrador (UAC)." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Mensagem solicitando elevação para privilégios de administrador (UAC).</i></figcaption>
     </figure>
 
 <br>
@@ -77,7 +89,7 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 
 <br>
 
-4.  **Imagem Forense:** Você pode optar por gerar simultaneamente uma imagem no formato **.dd** e um log de auditoria física.
+4.  **Imagem Forense:** Você pode optar por gerar o hash da unidade enquanto simultaneamente gera uma imagem (cópia bit-a-bit) no formato **.dd** .
 
     <figure>
       <img src="imgs/hash_com_imagem.PNG" alt="Seletor para aquisição simultânea de cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
@@ -89,8 +101,8 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
     <br>
 
     <figure>
-      <img src="imgs/tela_modo_admin.PNG" alt="Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Quando o modo administrador está ativado, há um demarcador visual para isso: interface gráfica na cor vermelha.</i></figcaption>
+      <img src="imgs/tela_modo_admin.PNG" alt="Quando o MODO ADMINISTRADOR está ativado, há um demarcador visual evidente para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Quando o MODO ADMINISTRADOR está ativado, há um demarcador visual evidente para isso: interface gráfica na cor vermelha.</i></figcaption>
     </figure>
 
 <br>
@@ -100,7 +112,7 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 ## 3. Validação da Cadeia de Custódia
 O extrator permite auditar listagens de hashes recebidas em laudos de terceiros ou documentos de custódia.
 
-* **Como operar:** Arraste o arquivo de referência (PDF, DOCX, XLSX ou TXT) para a caixa superior "Validar Cadeia de Custódia".
+* **Como operar:** Arraste o arquivo de referência (PDF, DOCX, XLSX ou TXT) para a caixa superior "Validar Cadeia de Custódia". Você também pode copiar e colar o contéudo nesse mesmo campo.
 * **Análise Reversa:** O software buscará automaticamente no texto o hash do arquivo que está sendo processado, ignorando artefatos de formatação e espaços invisíveis.
 * **Resultado:** O log indicará **✅ CONFERE** ou emitirá alertas se o hash bater mas o nome do arquivo for divergente.
 
@@ -121,11 +133,41 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
 * **Redes Sociais:** Identifica se o arquivo foi "lavado" (*metadata stripping*) por plataformas como WhatsApp, Telegram ou Facebook.
 * **Entropia:** Valores de Entropia de Shannon acima de 7.9 indicam alta probabilidade de criptografia ou arquivos *packed*.
 
+    <figure>
+      <img src="imgs/incluir_metadados.PNG" alt="Seletor para inclusão de metadados." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor para inclusão de metadados.</i></figcaption>
+    </figure>
+
+<br>
+
 ---
 
 ## 5. Finalização e Relatórios
 Ao término do processamento, revise o resumo final para consolidar a perícia:
 
 * **Arquivos Duplicados:** O programa agrupa automaticamente arquivos idênticos baseando-se no cruzamento de hashes criptográficos.
-* **Exportação:** Clique em **Salvar Relatório em TXT** para arquivar os resultados. O tempo exato de execução e o ETA são registrados no log.
+
+    <figure>
+      <img src="imgs/arquivos_duplicados.PNG" alt="O relatório agrupa os arquivos duplicados." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>O relatório agrupa os arquivos duplicados.</i></figcaption>
+    </figure>
+
+<br>
+
+* **Exportação:** Clique em **Salvar Relatório em TXT** para arquivar os resultados ou em **Copiar Relatório (Ctrl+C)** e transfira esse conteúdo usando "Ctrl+V" em algum documento de texto. O tempo de execução é registrado no log.
+
+    <figure>
+      <img src="imgs/copiar_relatorio.PNG" alt="Botões para salvar ou copíar o relatório gerado." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Botões para salvar ou copíar o relatório gerado.</i></figcaption>
+    </figure>
+
+<br>
+
 * **Auditoria:** O relatório inclui a assinatura SHA-256 do código-fonte utilizado, garantindo a transparência do algoritmo.
+
+    <figure>
+      <img src="imgs/assinatura_cod_fonte.PNG" alt="Assinatura digital do código-fonte que acompanha o pacote do programa." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Assinatura digital do código-fonte que acompanha o pacote do programa.</i></figcaption>
+    </figure>
+
+<br>
