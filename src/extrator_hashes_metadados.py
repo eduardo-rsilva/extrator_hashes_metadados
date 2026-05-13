@@ -3298,6 +3298,9 @@ class JanelaHashes(QWidget):
                     media_info = MediaInfo.parse(caminho_arquivo)
                     video_track = next((t for t in media_info.tracks if t.track_type == "Video"), None)
 
+                    if not video_track:
+                        metadados_extras.append("⚠️ MediaInfo não encontrou trilha de vídeo válida neste arquivo.")
+
                     if video_track:
                         if video_track.width and video_track.height:
                             metadados_extras.append(f"Resolução do Vídeo: {video_track.width}x{video_track.height}")
@@ -3337,8 +3340,74 @@ class JanelaHashes(QWidget):
                             if total_frames:
                                 fps_medio_real = int(total_frames) / duracao_segundos
                                 metadados_extras.append(f"FPS Calculado (Frames/Duração): {fps_medio_real:.3f}")
-                    else:
-                        metadados_extras.append("⚠️ MediaInfo não encontrou trilha de vídeo válida neste arquivo.")
+
+                        # --- Campos adicionais da trilha de vídeo ---
+                        if video_track.format:
+                            metadados_extras.append(f"Formato do Codec de Vídeo: {video_track.format}")
+                        if video_track.color_space:
+                            metadados_extras.append(f"Espaço de Cor: {video_track.color_space}")
+                        if video_track.chroma_subsampling:
+                            metadados_extras.append(f"Subamostragem Cromática: {video_track.chroma_subsampling}")
+                        if video_track.scan_type:
+                            metadados_extras.append(f"Tipo de Varredura: {video_track.scan_type}")
+                        if video_track.track_id:
+                            metadados_extras.append(f"ID da Trilha de Vídeo: {video_track.track_id}")
+
+                    # --- Trilha General (Container) ---
+                    general_track = next((t for t in media_info.tracks if t.track_type == "General"), None)
+                    if general_track:
+                        if general_track.format:
+                            metadados_extras.append(f"Formato do Container: {general_track.format}")
+                        if general_track.overall_bit_rate:
+                            metadados_extras.append(f"Taxa de Bits Global: {general_track.overall_bit_rate}bps")
+                        if general_track.encoded_date:
+                            metadados_extras.append(f"Data de Codificação (MediaInfo): {general_track.encoded_date}")
+                        if general_track.recorded_date:
+                            metadados_extras.append(f"Data de Gravação (MediaInfo): {general_track.recorded_date}")
+
+                        # --- Campos customizados de fabricante (Android, DVR, etc.) ---
+                        for attr, valor in general_track.__dict__.items():
+                            if valor and isinstance(valor, str) and (
+                                    attr.startswith('com_') or
+                                    attr.startswith('com.') or
+                                    'manufacturer' in attr.lower() or
+                                    'model' in attr.lower() or
+                                    'product' in attr.lower() or
+                                    'vendor' in attr.lower() or
+                                    'brand' in attr.lower() or
+                                    'serial' in attr.lower() or
+                                    'sn' in attr.lower()
+                            ):
+                                # Limpa o nome do atributo: com_android_model → com.android.model
+                                nome_limpo = attr.replace('_', '.', 1) if attr.startswith('com_') else attr
+                                # Tenta reconstruir a notação com pontos
+                                if attr.startswith('com_'):
+                                    partes = attr.split('_', 2)  # ['com', 'android', 'model'] ou ['com', 'xiaomi', 'product_marketna']
+                                    if len(partes) >= 3:
+                                        # Verifica se há mais underscores no terceiro segmento (ex: product_marketna → product.marketna)
+                                        sub = partes[2].replace('_', '.', 1) if '_' in partes[2] else partes[2]
+                                        nome_limpo = f"{partes[0]}.{partes[1]}.{sub}"
+                                metadados_extras.append(f"📱 Dispositivo (MediaInfo): {nome_limpo} = {valor}")
+
+                    # --- Trilha de Áudio ---
+                    audio_track = next((t for t in media_info.tracks if t.track_type == "Audio"), None)
+                    if audio_track:
+                        if audio_track.format:
+                            metadados_extras.append(f"Codec de Áudio (MediaInfo): {audio_track.format}")
+                        if audio_track.channels:
+                            canais = "Mono" if int(audio_track.channels) == 1 else "Estéreo" if int(audio_track.channels) == 2 else f"{audio_track.channels} canais"
+                            metadados_extras.append(f"Canais de Áudio: {canais}")
+                        if audio_track.sampling_rate:
+                            metadados_extras.append(f"Sample Rate: {audio_track.sampling_rate}Hz")
+                        if audio_track.bit_rate:
+                            metadados_extras.append(f"Bitrate de Áudio: {audio_track.bit_rate}bps")
+                        if audio_track.track_id:
+                            metadados_extras.append(f"ID da Trilha de Áudio: {audio_track.track_id}")
+
+                        # --- Múltiplas Trilhas (câmera + gravador, etc.) ---
+                        total_trilhas = len(media_info.tracks)
+                        if total_trilhas > 3:  # General + Video + Audio = 3 é o normal
+                            metadados_extras.append(f"⚠️ Múltiplas Trilhas Detectadas: {total_trilhas} trilhas no total(possível gravação com múltiplas fontes)")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com MediaInfo: {e}")
             else:
@@ -3372,6 +3441,172 @@ class JanelaHashes(QWidget):
                 else:
                     metadados_extras.append(
                         "⚠️ Bibliotecas MediaInfo e OpenCV ausentes: Impossível extrair resolução e duração estimadas.")
+
+            # --- PARTE 2: ExifTool (Metadados Forenses de Vídeo) ---
+            caminho_exiftool = obter_caminho_exiftool()
+            if caminho_exiftool:
+                try:
+                    # -c "%+.6f" para GPS em graus decimais, igual ao bloco de imagens
+                    cmd = [caminho_exiftool, "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+                    processo = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=20,
+                        creationflags=0x08000000 if os.name == 'nt' else 0
+                    )
+
+                    if processo.returncode == 0:
+                        dados_json = json.loads(processo.stdout)
+                        if dados_json:
+                            meta = dados_json[0]
+                            exif_video_telemetria = False
+
+                            # --- Data/Hora de Criação e Modificação ---
+                            data_criacao = meta.get('QuickTime:CreateDate') or meta.get('QuickTime:ContentCreateDate')
+                            data_modificacao = meta.get('QuickTime:ModifyDate')
+                            if data_criacao:
+                                fuso = meta.get('QuickTime:LocationInformation') or meta.get('XMP:Timezone')
+                                if fuso:
+                                    metadados_extras.append(f"⏱️ Data de Criação do Vídeo: {data_criacao}(Fuso: {fuso})")
+                                else:
+                                    metadados_extras.append(f"⏱️ Data de Criação do Vídeo: {data_criacao}")
+                                exif_video_telemetria = True
+                            if data_modificacao and data_modificacao != data_criacao:
+                                metadados_extras.append(f"⏱️ Data de Modificação do Vídeo: {data_modificacao}")
+                                exif_video_telemetria = True
+
+                            # --- Dispositivo (Marca/Modelo) ---
+                            make = meta.get('QuickTime:Make')
+                            model = meta.get('QuickTime:Model')
+                            if model:
+                                disp = f"{make} {model}" if make else model
+                                metadados_extras.append(f"📱 Dispositivo (ExifTool):{disp.strip()}")
+                                exif_video_telemetria = True
+
+                            # --- Software de Edição ---
+                            software = meta.get('QuickTime:Software') or meta.get('XMP:CreatorTool')
+                            if software:
+                                metadados_extras.append(f"💻 Software/Editor: {software}")
+                                exif_video_telemetria = True
+
+                            # --- Codec de Vídeo e Áudio ---
+                            video_codec = meta.get('QuickTime:VideoCodec') or meta.get('RIFF:VideoCodec')
+                            audio_codec = meta.get('QuickTime:AudioCodec') or meta.get('RIFF:AudioCodec')
+                            if video_codec:
+                                metadados_extras.append(f"Codec de Vídeo (ExifTool): {video_codec}")
+                                exif_video_telemetria = True
+                            if audio_codec:
+                                metadados_extras.append(f"Codec de Áudio (ExifTool): {audio_codec}")
+                                exif_video_telemetria = True
+
+                            # --- Taxa de Bits ---
+                            avg_bitrate = meta.get('QuickTime:AvgBitrate') or meta.get('RIFF:AvgBitRate')
+                            if avg_bitrate:
+                                metadados_extras.append(f"Taxa de Bits Média (ExifTool): {avg_bitrate}")
+                                exif_video_telemetria = True
+
+                            # --- Rotação (Portrait vs Landscape) ---
+                            rotation = meta.get('QuickTime:Rotation') or meta.get('Track1:Rotation')
+                            if rotation:
+                                metadados_extras.append(f"Rotação do Vídeo: {rotation}°")
+                                exif_video_telemetria = True
+
+                            # --- GPS Embutido ---
+                            gps_lat = meta.get('Composite:GPSLatitude')
+                            gps_lon = meta.get('Composite:GPSLongitude')
+                            if gps_lat and gps_lon:
+                                try:
+                                    lat_float = float(gps_lat)
+                                    lon_float = float(gps_lon)
+                                    link_maps = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
+                                    metadados_extras.append(f"📍 GPS (Latitude, Longitude): {lat_float: .6f}, {lon_float: .6f}")
+                                    metadados_extras.append(f" ↳ Visualizar no Mapa: {link_maps}")
+                                    exif_video_telemetria = True
+                                except ValueError:
+                                    metadados_extras.append(f"📍 GPS (Bruto): {gps_lat}, {gps_lon}")
+
+                            # --- Altitude GPS ---
+                            gps_alt = meta.get('QuickTime:GPSAltitude')
+                            if gps_alt:
+                                metadados_extras.append(f"📏 Altitude GPS: {gps_alt} m")
+                                exif_video_telemetria = True
+
+                            # --- Velocidade GPS ---
+                            gps_speed = meta.get('QuickTime:GPSSpeed')
+                            if gps_speed:
+                                metadados_extras.append(f"🏎️ Velocidade GPS: {gps_speed}")
+                                exif_video_telemetria = True
+
+                            # --- Content Identifier (UUID do vídeo — iPhone/Live Photo) ---
+                            content_id = meta.get('QuickTime:ContentIdentifier')
+                            if content_id:
+                                metadados_extras.append(f"🆔 Content Identifier (UUID): {content_id}")
+                                exif_video_telemetria = True
+
+                            # --- Número de Série do Dispositivo ---
+                            serial = (meta.get('QuickTime:CameraSerialNumber')
+                                      or meta.get('XMP:CameraSerialNumber')
+                                      or meta.get('QuickTime:UniqueID')
+                                      or meta.get('DJI:DeviceSerialNumber'))
+                            if serial:
+                                metadados_extras.append(f"🔢 Número de Série do Dispositivo: {serial}")
+                                exif_video_telemetria = True
+
+                            # --- Indicação de Metadata Stripping ---
+                            if not data_criacao and not model:
+                                metadados_extras.append("⚠️ Metadados de autoria e data ausentes — possível remoção intencional de metadados(metadata stripping).")
+                                exif_video_telemetria = True
+
+                            # --- Palavras-chave de DVR/Câmera de Vigilância ---
+                            metadados_str = ' '.join(str(v).lower() for v in meta.values() if v)
+                            dvr_keywords = ['hikvision', 'dahua', 'intelbras', 'standalone', 'dvr', 'nvr']
+                            dvr_detectado = [kw for kw in dvr_keywords if kw in metadados_str]
+                            if dvr_detectado:
+                                metadados_extras.append(f"🎥 Indício de Câmera de Vigilância/DVR detectado: {', '.join(dvr_detectado)}")
+                                exif_video_telemetria = True
+
+                            # --- Drone Telemetry ---
+                            for chave, valor in meta.items():
+                                chave_lower = chave.lower()
+                                if 'drone' in chave_lower or 'gimbal' in chave_lower:
+                                    metadados_extras.append(f"🚁 Telemetria de Drone: {chave.split(':')[-1]} = {valor}")
+                                    exif_video_telemetria = True
+
+                            # --- Campos adicionais de identificação de câmera/DVR ---
+                            comment = meta.get('QuickTime:Comment') or meta.get('RIFF:Comment')
+                            if comment:
+                                metadados_extras.append(f"Comentário do Vídeo: {comment}")
+                                exif_video_telemetria = True
+
+                            description = meta.get('QuickTime:Description')
+                            if description:
+                                metadados_extras.append(f"Descrição do Vídeo: {description}")
+                                exif_video_telemetria = True
+
+                            producer = meta.get('QuickTime:Producer') or meta.get('XMP:Producer')
+                            if producer:
+                                metadados_extras.append(f"Produtor do Vídeo: {producer}")
+                                exif_video_telemetria = True
+
+                            vendor = meta.get('QuickTime:Vendor')
+                            if vendor:
+                                metadados_extras.append(f"Fabricante (Vendor): {vendor}")
+                                exif_video_telemetria = True
+
+                            # RIFF:Software — comum em DVRs que geram AVI
+                            riff_software = meta.get('RIFF:Software')
+                            if riff_software and not software:  # evita duplicar se já capturou via QuickTime:Software
+                                metadados_extras.append(f"Software do Container (RIFF): {riff_software}")
+                                exif_video_telemetria = True
+
+                            if not exif_video_telemetria:
+                                metadados_extras.append("ℹ️ ExifTool analisou o vídeo, mas não encontrou metadados forenses adicionais(GPS, dispositivo, data de criação).")
+
+                except subprocess.TimeoutExpired:
+                    metadados_extras.append("⚠️ Leitura de vídeo via ExifTool abortada (>20s).")
+                except Exception as e:
+                    metadados_extras.append(f"⚠️ Erro ao ler metadados forenses do vídeo com ExifTool: {e}")
+            else:
+                pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
+                metadados_extras.append(f"⚠️ ExifTool ausente: Não foi possível extrair GPS, dispositivo e data de criação do vídeo.Pasta esperada: '{pasta_esperada}'.")
 
         # 3. PDFs
         elif extensao in FORMATOS_PDF:
