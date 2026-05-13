@@ -3264,6 +3264,18 @@ class JanelaHashes(QWidget):
                                     # Fallback se vier algum formato estranho
                                     metadados_extras.append(f"📍 GPS (Bruto): {gps_lat}, {gps_lon}")
 
+                            # --- Orientação da Imagem ---
+                            orientacao = meta.get('EXIF:Orientation') or meta.get('IFD0:Orientation')
+                            if orientacao:
+                                orientacoes = {
+                                    '1': 'Normal', '2': 'Espelhado horizontal', '3': 'Rotacionado 180°',
+                                    '4': 'Espelhado vertical', '5': 'Rotacionado 90° CCW + Espelhado horizontal',
+                                    '6': 'Rotacionado 90° CW', '7': 'Rotacionado 90° CW + Espelhado horizontal',
+                                    '8': 'Rotacionado 90° CCW'
+                                }
+                                desc = orientacoes.get(str(orientacao), f'Código {orientacao}')
+                                metadados_extras.append(f"🔄 Orientação (EXIF): {orientacao} — {desc}")
+
                 except subprocess.TimeoutExpired:
                     metadados_extras.append(f"⚠️ ExifTool abortado: Timeout ao ler imagem (mais de {str(max_wait_time)}s).")
                 except Exception as e:
@@ -3504,9 +3516,10 @@ class JanelaHashes(QWidget):
                                 exif_video_telemetria = True
 
                             # --- Rotação (Portrait vs Landscape) ---
-                            rotation = meta.get('QuickTime:Rotation') or meta.get('Track1:Rotation')
+                            rotation = (meta.get('Composite:Rotation') or meta.get('QuickTime:Rotation')
+                                        or meta.get('Track1:Rotation') or meta.get('RIFF:Rotation'))
                             if rotation:
-                                metadados_extras.append(f"Rotação do Vídeo: {rotation}°")
+                                metadados_extras.append(f"🔄 Rotação do Vídeo: {rotation}°")
                                 exif_video_telemetria = True
 
                             # --- GPS Embutido ---
