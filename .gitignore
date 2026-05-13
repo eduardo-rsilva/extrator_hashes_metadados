@@ -24,6 +24,7 @@ extrator_hashes_metadados.dist/
 ewftools-x64/
 exiftool-13.51_32/
 exiftool-13.51_64/
+exe/
 *.spec
 ewftools-x64.zip
 config.dat
