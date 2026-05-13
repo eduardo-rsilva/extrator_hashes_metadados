@@ -1722,6 +1722,10 @@ class JanelaHashes(QWidget):
         self.btn_formatos.clicked.connect(self.mostrar_formatos)
         layout_controles.addWidget(self.btn_formatos)
 
+        self.btn_manual_online = QPushButton("Manual Online")
+        self.btn_manual_online.clicked.connect(self.abrir_manual_online)
+        layout_controles.addWidget(self.btn_manual_online)
+
         self.btn_sobre = QPushButton("Sobre")
         self.btn_sobre.clicked.connect(self.mostrar_sobre)
         layout_controles.addWidget(self.btn_sobre)
@@ -3059,6 +3063,10 @@ class JanelaHashes(QWidget):
         dialog.setLayout(layout_principal)
         dialog.exec()
 
+    def abrir_manual_online(self):
+        import webbrowser
+        webbrowser.open("https://github.com/eduardo-rsilva/extrator_hashes_metadados/blob/master/MANUAL.md")
+
     def mostrar_formatos(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Formatos Suportados para Metadados Básicos")
@@ -3108,6 +3116,7 @@ class JanelaHashes(QWidget):
         self.btn_copiar.setEnabled(False)
         self.btn_formatos.setEnabled(False)
         self.btn_sobre.setEnabled(False)
+        self.btn_manual_online.setEnabled(False)
         self.setAcceptDrops(False)
         self.btn_salvar.setEnabled(False)
         self.texto_referencia.setEnabled(False)
@@ -3127,6 +3136,7 @@ class JanelaHashes(QWidget):
         self.btn_copiar.setEnabled(True)
         self.btn_formatos.setEnabled(True)
         self.btn_sobre.setEnabled(True)
+        self.btn_manual_online.setEnabled(True)
         self.setAcceptDrops(True)
         self.btn_salvar.setEnabled(True)
         self.texto_referencia.setEnabled(True)
