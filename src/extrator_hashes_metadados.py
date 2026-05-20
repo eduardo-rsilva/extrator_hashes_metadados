@@ -3314,8 +3314,21 @@ class JanelaHashes(QWidget):
                         metadados_extras.append("⚠️ MediaInfo não encontrou trilha de vídeo válida neste arquivo.")
 
                     if video_track:
+                        # 1. Captura a resolução padrão (oficial)
                         if video_track.width and video_track.height:
-                            metadados_extras.append(f"Resolução do Vídeo: {video_track.width}x{video_track.height}")
+                            metadados_extras.append(
+                                f"Resolução de exibição: {video_track.width}x{video_track.height} pixels")
+
+                        # 2. Busca a resolução armazenada (Mod16). Se não existir, assume a padrão.
+                        w_stored = getattr(video_track, 'stored_width', video_track.width) or video_track.width
+                        h_stored = getattr(video_track, 'stored_height', video_track.height) or video_track.height
+
+                        # 3. Compara as duas como texto. Se houver qualquer diferença, exibe a segunda linha.
+                        if str(w_stored) != str(video_track.width) or str(h_stored) != str(video_track.height):
+                            metadados_extras.append(f"Resolução codificada real: {w_stored}x{h_stored} pixels")
+                            metadados_extras.append(
+                                "  ↳ Nota técnica: alguns decodificadores podem usar alinhamento interno adicional além do tamanho codificado; esse valor depende da ferramenta e não é uma propriedade universal do arquivo."
+                            )
 
                         fps = video_track.frame_rate
                         if fps:
