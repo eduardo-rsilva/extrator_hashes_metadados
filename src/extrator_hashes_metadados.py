@@ -3535,6 +3535,45 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"🔄 Rotação do Vídeo: {rotation}°")
                                 exif_video_telemetria = True
 
+                            # --- Espelhamento de Vídeo (Matrix Structure) ---
+                            matrix = meta.get('QuickTime:MatrixStructure') or meta.get('Track1:MatrixStructure')
+                            if matrix:
+                                try:
+                                    # O ExifTool pode retornar a matriz como uma string "a b u c d v x y w" ou como lista
+                                    if isinstance(matrix, str):
+                                        valores_matriz = [float(v) for v in matrix.replace(',', ' ').split() if
+                                                          v.strip()]
+                                    elif isinstance(matrix, list):
+                                        valores_matriz = [float(v) for v in matrix]
+                                    else:
+                                        valores_matriz = []
+
+                                    # A matriz de vídeo padrão possui 9 valores.
+                                    # O índice 0 é a escala X e o índice 4 é a escala Y.
+                                    if len(valores_matriz) >= 5:
+                                        escala_x = valores_matriz[0]
+                                        escala_y = valores_matriz[4]
+
+                                        espelhamentos = []
+                                        # Escalas negativas indicam a inversão dos pixels naquele eixo
+                                        if escala_x < 0:
+                                            espelhamentos.append("Horizontal")
+                                        if escala_y < 0:
+                                            espelhamentos.append("Vertical")
+
+                                        if espelhamentos:
+                                            tipo_espelhamento = " + ".join(espelhamentos)
+                                            metadados_extras.append(
+                                                f"🪞 Espelhamento Detectado (Vídeo): Sim ({tipo_espelhamento})")
+                                        else:
+                                            metadados_extras.append(
+                                                "🪞 Espelhamento Detectado (Vídeo): Não (Orientação nativa/original)")
+
+                                        exif_video_telemetria = True
+                                except Exception as e:
+                                    # Falha silenciosa para não quebrar a extração se a matriz vier num formato exótico
+                                    pass
+
                             # --- GPS Embutido ---
                             gps_lat = meta.get('Composite:GPSLatitude')
                             gps_lon = meta.get('Composite:GPSLongitude')
