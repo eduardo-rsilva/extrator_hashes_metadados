@@ -3256,12 +3256,11 @@ class JanelaHashes(QWidget):
                     # O parâmetro -c "%+.6f" força o GPS a sair em graus decimais prontos para mapas.
                     cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
 
-
-
                     processo = subprocess.run(
                         cmd,
                         capture_output=True,
-                        text=True,
+                        encoding='utf-8',
+                        errors='replace',
                         timeout=max_wait_time,
                         creationflags=0x08000000 if os.name == 'nt' else 0
                     )
@@ -3598,7 +3597,7 @@ class JanelaHashes(QWidget):
                     # -c "%+.6f" para GPS em graus decimais, igual ao bloco de imagens
                     cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
                     processo = subprocess.run(
-                        cmd, capture_output=True, text=True, timeout=20,
+                        cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=20,
                         creationflags=0x08000000 if os.name == 'nt' else 0
                     )
 
@@ -4153,7 +4152,7 @@ class JanelaHashes(QWidget):
                     try:
                         cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
                         processo = subprocess.run(
-                            cmd, capture_output=True, text=True, timeout=15,
+                            cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
                             creationflags=0x08000000 if os.name == 'nt' else 0
                         )
 
@@ -4213,7 +4212,7 @@ class JanelaHashes(QWidget):
             if caminho_exiftool:
                 try:
                     cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
-                    processo = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
+                    processo = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
                                               creationflags=0x08000000 if os.name == 'nt' else 0)
 
                     if processo.returncode == 0:
