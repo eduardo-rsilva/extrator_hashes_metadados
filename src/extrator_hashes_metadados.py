@@ -1828,8 +1828,25 @@ class JanelaHashes(QWidget):
         layout_hashes.addStretch()
 
         layout_hashes.addWidget(QLabel("Análise:"))
-        layout_hashes.addWidget(self.chk_metadados)
 
+        # --- BLOCO VERTICAL PARA EMPILHAR AS OPÇÕES ---
+        layout_opcoes_metadados = QVBoxLayout()
+        layout_opcoes_metadados.setSpacing(2)  # Espaçamento entre as duas checkboxes
+
+        # 1. Adiciona a checkbox básica (que já foi criada e configurada lá na Linha 1 do seu código)
+        layout_opcoes_metadados.addWidget(self.chk_metadados)
+
+        # 2. Cria e adiciona a nova checkbox de Raw Dump
+        self.chk_metadados_raw = QCheckBox("Incluir TODOS os metadados (Raw Dump)")
+        self.chk_metadados_raw.setChecked(False)
+        self.chk_metadados_raw.setToolTip(
+            "Anexa o dicionário completo e bruto de metadados extraídos\npelas bibliotecas ao final do relatório de cada arquivo.")
+        self.chk_metadados_raw.installEventFilter(self)
+        layout_opcoes_metadados.addWidget(self.chk_metadados_raw)
+
+        # 3. Adiciona esse "pacote" vertical dentro do layout horizontal dos hashes
+        layout_hashes.addLayout(layout_opcoes_metadados)
+        # ---------------------------------------------------
 
         layout_principal.addLayout(layout_hashes)
 
@@ -1979,6 +1996,8 @@ class JanelaHashes(QWidget):
         if config:
             # Restaura estado do checkbox de metadados
             self.chk_metadados.setChecked(config.get('chk_metadados', True))
+            # Restaura o Raw Dump (Padrão: False) <---
+            self.chk_metadados_raw.setChecked(config.get('chk_metadados_raw', False))
             # Restaura estado do checkbox de subdiretórios
             self.chk_subdiretorios.setChecked(config.get('chk_subdiretorios', True))
             # Restaura estados dos algoritmos
@@ -1988,6 +2007,7 @@ class JanelaHashes(QWidget):
 
         # --- Salvar em tempo real ---
         self.chk_metadados.toggled.connect(self.salvar_estado_atual)
+        self.chk_metadados_raw.toggled.connect(self.salvar_estado_atual)
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
@@ -2814,6 +2834,7 @@ class JanelaHashes(QWidget):
         """Salva as configurações atuais imediatamente após qualquer alteração."""
         config = {
             'chk_metadados': self.chk_metadados.isChecked(),
+            'chk_metadados_raw': self.chk_metadados_raw.isChecked(),
             'chk_subdiretorios': self.chk_subdiretorios.isChecked(),
             'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()}
         }
@@ -3150,6 +3171,7 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.setEnabled(False)
         self.btn_unidade_raw.setEnabled(False)
         self.chk_metadados.setEnabled(False)
+        self.chk_metadados_raw.setEnabled(False)
         self.btn_limpar.setEnabled(False)
         self.btn_copiar.setEnabled(False)
         self.btn_formatos.setEnabled(False)
@@ -3170,6 +3192,7 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.setEnabled(True)
         self.btn_unidade_raw.setEnabled(True)
         self.chk_metadados.setEnabled(True)
+        self.chk_metadados_raw.setEnabled(True)
         self.btn_limpar.setEnabled(True)
         self.btn_copiar.setEnabled(True)
         self.btn_formatos.setEnabled(True)
@@ -3184,9 +3207,10 @@ class JanelaHashes(QWidget):
             chk.setEnabled(True)
 
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
-    def obter_metadados_avancados(self, caminho_arquivo):
+    def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False):
         """Distribui o arquivo para o extrator correto baseado na extensão."""
         metadados_extras = []
+        raw_dump = []
         extensao = caminho_arquivo.lower().split('.')[-1]
 
         # --- DETECÇÃO DE ADS (Roda para todos os arquivos) ---
@@ -3230,7 +3254,9 @@ class JanelaHashes(QWidget):
             if caminho_exiftool:
                 try:
                     # O parâmetro -c "%+.6f" força o GPS a sair em graus decimais prontos para mapas.
-                    cmd = [caminho_exiftool, "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+
+
 
                     processo = subprocess.run(
                         cmd,
@@ -3244,6 +3270,10 @@ class JanelaHashes(QWidget):
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            if extrair_raw:
+                                raw_dump.append("\n=== EXIFTOOL (RAW) ===")
+                                for key_raw, val_raw in meta.items():
+                                    raw_dump.append(f"{key_raw}: {val_raw}")
                             usou_exiftool = True
 
                             # Resolução e Formato
@@ -3346,6 +3376,13 @@ class JanelaHashes(QWidget):
             if HAS_PYMEDIAINFO:
                 try:
                     media_info = MediaInfo.parse(caminho_arquivo)
+                    if extrair_raw:
+                        raw_dump.append("\n=== MEDIAINFO (RAW) ===")
+                        for track_raw in media_info.tracks:
+                            raw_dump.append(f"--- Trilha: {track_raw.track_type} ---")
+                            for key_raw, val_raw in track_raw.to_data().items():
+                                if val_raw is not None:
+                                    raw_dump.append(f"{key_raw}: {val_raw}")
                     video_track = next((t for t in media_info.tracks if t.track_type == "Video"), None)
 
                     if not video_track:
@@ -3559,7 +3596,7 @@ class JanelaHashes(QWidget):
             if caminho_exiftool:
                 try:
                     # -c "%+.6f" para GPS em graus decimais, igual ao bloco de imagens
-                    cmd = [caminho_exiftool, "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
                     processo = subprocess.run(
                         cmd, capture_output=True, text=True, timeout=20,
                         creationflags=0x08000000 if os.name == 'nt' else 0
@@ -3569,6 +3606,10 @@ class JanelaHashes(QWidget):
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            if extrair_raw:
+                                raw_dump.append("\n=== EXIFTOOL (RAW) ===")
+                                for key_raw, val_raw in meta.items():
+                                    raw_dump.append(f"{key_raw}: {val_raw}")
                             exif_video_telemetria = False
 
                             # --- Data/Hora de Criação e Modificação ---
@@ -3767,6 +3808,10 @@ class JanelaHashes(QWidget):
                     reader = PdfReader(caminho_arquivo)
                     metadados_extras.append(f"Total de Páginas: {len(reader.pages)}")
                     meta = reader.metadata
+                    if extrair_raw and meta:
+                        raw_dump.append("\n=== PYPDF (RAW) ===")
+                        for key_raw, val_raw in meta.items():
+                            raw_dump.append(f"{key_raw}: {val_raw}")
 
                     extraiu_algo = False
                     if meta:
@@ -3885,6 +3930,9 @@ class JanelaHashes(QWidget):
 
                         # A forma mais segura e à prova de falhas: extrair tudo como Dicionário (JSON)
                         dados = lnk.get_json()
+                        if extrair_raw and dados:
+                            raw_dump.append("\n=== LNKPARSE3 (RAW JSON) ===")
+                            raw_dump.extend(json.dumps(dados, indent=2, ensure_ascii=False).splitlines())
 
                         # 1. Caminhos Locais e Dados do Disco (Pendrive/HD)
                         info_link = dados.get('link_info', {})
@@ -3961,6 +4009,12 @@ class JanelaHashes(QWidget):
             if HAS_PEFILE:
                 try:
                     pe = pefile.PE(caminho_arquivo)
+                    if extrair_raw:
+                        raw_dump.append("\n=== PEFILE (RAW INFO) ===")
+                        try:
+                            raw_dump.extend([linha.strip() for linha in pe.dump_info() if linha.strip()])
+                        except Exception:
+                            pass
 
                     # O TimeDateStamp é obrigatório e gravado em UTC no momento da compilação
                     timestamp = pe.FILE_HEADER.TimeDateStamp
@@ -4097,7 +4151,7 @@ class JanelaHashes(QWidget):
                 caminho_exiftool = obter_caminho_exiftool()
                 if caminho_exiftool:
                     try:
-                        cmd = [caminho_exiftool, "-j", "-G", caminho_arquivo]
+                        cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
                         processo = subprocess.run(
                             cmd, capture_output=True, text=True, timeout=15,
                             creationflags=0x08000000 if os.name == 'nt' else 0
@@ -4107,6 +4161,10 @@ class JanelaHashes(QWidget):
                             dados_json = json.loads(processo.stdout)
                             if dados_json:
                                 meta = dados_json[0]
+                                if extrair_raw:
+                                    raw_dump.append("\n=== EXIFTOOL (RAW) ===")
+                                    for key_raw, val_raw in meta.items():
+                                        raw_dump.append(f"{key_raw}: {val_raw}")
                                 extraiu_pelo_exiftool = False
 
                                 # Duração (ExifTool converte formatos estranhos para texto, ex: "0:01:23")
@@ -4154,7 +4212,7 @@ class JanelaHashes(QWidget):
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
                 try:
-                    cmd = [caminho_exiftool, "-j", "-G", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
                     processo = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
                                               creationflags=0x08000000 if os.name == 'nt' else 0)
 
@@ -4162,6 +4220,10 @@ class JanelaHashes(QWidget):
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            if extrair_raw:
+                                raw_dump.append("\n=== EXIFTOOL (RAW) ===")
+                                for key_raw, val_raw in meta.items():
+                                    raw_dump.append(f"{key_raw}: {val_raw}")
                             extraiu_algo = False
 
                             # Tenta puxar comentários de ZIPs ou Torrents
@@ -4200,6 +4262,12 @@ class JanelaHashes(QWidget):
                 pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
                 metadados_extras.append(
                     f"⚠️ ExifTool ausente: Não foi possível extrair metadados estruturais, criadores ou comentários do arquivo compactado/documento. Pasta esperada: '{pasta_esperada}'.")
+
+        # --- MONTAGEM DO RAW DUMP NO FINAL DO RELATÓRIO DO ARQUIVO ---
+        if extrair_raw and raw_dump:
+            metadados_extras.append("")
+            metadados_extras.append("=== TODOS OS METADADOS (RAW DUMP) ===")
+            metadados_extras.extend(raw_dump)
 
         return metadados_extras
 
@@ -4603,6 +4671,7 @@ class JanelaHashes(QWidget):
 
         # Verifica se o usuário quer extrair metadados extras
         extrair_meta = self.chk_metadados.isChecked()
+        extrair_raw = getattr(self, 'chk_metadados_raw', None) and self.chk_metadados_raw.isChecked()
 
         if total_arquivos == 0:
             self.texto_saida.append("Nenhum arquivo encontrado para processamento.\n")
@@ -4760,9 +4829,9 @@ class JanelaHashes(QWidget):
                 # --- Força a interface a mostrar a primeira parte ANTES de ler metadados pesados
                 QApplication.processEvents()
 
-                # --- INSERÇÃO DOS METADADOS EXTRAS AQUI (SE MARCADO) ---
-                if extrair_meta:
-                    metadados_midia = self.obter_metadados_avancados(arquivo)
+                # --- INSERÇÃO DOS METADADOS EXTRAS AQUI ---
+                if extrair_meta or extrair_raw:
+                    metadados_midia = self.obter_metadados_avancados(arquivo, extrair_raw=extrair_raw)
                     for meta in metadados_midia:
                         self.texto_saida.append(meta)
                 # --------------------------------------------------------
