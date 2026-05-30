@@ -1058,8 +1058,9 @@ def detectar_ads_windows(caminho_arquivo):
 
     return streams_ocultos
 
+
 def obter_info_volume(caminho):
-    """Obtém o rótulo (Label), Serial e Sistema de Arquivos da unidade selecionada."""
+    """Obtém o rótulo (Label), Serial, Sistema de Arquivos e Capacidade da unidade selecionada."""
     if os.name != 'nt':
         return None
 
@@ -1075,6 +1076,8 @@ def obter_info_volume(caminho):
         file_system_flags = wintypes.DWORD()
 
         kernel32 = ctypes.windll.kernel32
+
+        # 1. Tenta obter Rótulo, Serial e FS
         sucesso = kernel32.GetVolumeInformationW(
             ctypes.c_wchar_p(drive),
             volume_name_buffer,
@@ -1086,6 +1089,35 @@ def obter_info_volume(caminho):
             ctypes.sizeof(file_system_name_buffer)
         )
 
+        # 2. Tenta obter o tamanho total da unidade
+        total_bytes = ctypes.c_ulonglong(0)
+        free_bytes_caller = ctypes.c_ulonglong(0)
+        free_bytes_total = ctypes.c_ulonglong(0)
+
+        sucesso_tamanho = kernel32.GetDiskFreeSpaceExW(
+            ctypes.c_wchar_p(drive),
+            ctypes.byref(free_bytes_caller),
+            ctypes.byref(total_bytes),
+            ctypes.byref(free_bytes_total)
+        )
+
+        # Identifica se é uma mídia óptica (DRIVE_CDROM = 5)
+        tipo_unidade = kernel32.GetDriveTypeW(ctypes.c_wchar_p(drive))
+
+        # Formata o texto de capacidade
+        if sucesso_tamanho and total_bytes.value > 0:
+            tamanho_bytes = total_bytes.value
+            tamanho_gb = tamanho_bytes / (1024 ** 3)
+
+            if tipo_unidade == 5:
+                # Tratamento especial forense para mídias ópticas
+                str_capacidade = f"{tamanho_gb:.2f} GB ({tamanho_bytes} bytes) [Nota: Em mídias ópticas, este é o tamanho da sessão gravada, não a capacidade física do disco]"
+            else:
+                str_capacidade = f"{tamanho_gb:.2f} GB ({tamanho_bytes} bytes)".replace(".", ",")
+        else:
+            str_capacidade = "[Indisponível - Mídia vazia, corrompida ou formato inacessível pelo Windows]"
+
+        # 3. Monta o dicionário de retorno
         if sucesso:
             # Formata o serial no padrão clássico hexadecimal do Windows (XXXX-XXXX)
             serial_hex = f"{serial_number.value:08X}"
@@ -1095,7 +1127,8 @@ def obter_info_volume(caminho):
                 'unidade': drive,
                 'rotulo': volume_name_buffer.value or "[Sem Rótulo]",
                 'serial': serial_formatado,
-                'sistema_arquivos': file_system_name_buffer.value
+                'sistema_arquivos': file_system_name_buffer.value,
+                'capacidade': str_capacidade
             }
     except Exception:
         pass
@@ -4605,6 +4638,7 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"  ↳ Rótulo (Label): {info_drive['rotulo']}")
             self.texto_saida.append(f"  ↳ Serial do Volume: {info_drive['serial']}")
             self.texto_saida.append(f"  ↳ Formato (FS): {info_drive['sistema_arquivos']}")
+            self.texto_saida.append(f"  ↳ Capacidade Total: {info_drive.get('capacidade', 'Não identificada')}")
             self.texto_saida.append("")  # Linha em branco para separar
         # ------------------------------------------------------
 
