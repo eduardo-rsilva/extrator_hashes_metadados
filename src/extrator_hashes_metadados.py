@@ -1109,11 +1109,16 @@ def obter_info_volume(caminho):
             tamanho_bytes = total_bytes.value
             tamanho_gb = tamanho_bytes / (1024 ** 3)
 
+            # Formata os números no padrão brasileiro
+            # (GB com vírgula no decimal, Bytes com pontos de milhar)
+            gb_str = f"{tamanho_gb:.2f}".replace(".", ",")
+            bytes_str = f"{tamanho_bytes:,}".replace(",", ".")
+
             if tipo_unidade == 5:
                 # Tratamento especial forense para mídias ópticas
-                str_capacidade = f"{tamanho_gb:.2f} GB ({tamanho_bytes} bytes) [Nota: Em mídias ópticas, este é o tamanho da sessão gravada, não a capacidade física do disco]"
+                str_capacidade = f"{gb_str} GB ({bytes_str} bytes) [Nota: Em mídias ópticas, este é o tamanho da sessão gravada, não a capacidade física do disco]"
             else:
-                str_capacidade = f"{tamanho_gb:.2f} GB ({tamanho_bytes} bytes)".replace(".", ",")
+                str_capacidade = f"{gb_str} GB ({bytes_str} bytes)"
         else:
             str_capacidade = "[Indisponível - Mídia vazia, corrompida ou formato inacessível pelo Windows]"
 
