@@ -3352,6 +3352,48 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(
                                 f"Resolução de exibição: {video_track.width}x{video_track.height} pixels")
 
+                        # --- Razão de Proporção (Display e Pixel Aspect Ratio) ---
+                        dar = getattr(video_track, "display_aspect_ratio", None) or getattr(video_track,
+                                                                                            "other_display_aspect_ratio",
+                                                                                            None)
+                        par = getattr(video_track, "pixel_aspect_ratio", None) or getattr(video_track,
+                                                                                          "other_pixel_aspect_ratio",
+                                                                                          None)
+
+                        if isinstance(dar, list):
+                            dar = dar[0] if dar else None
+                        if isinstance(par, list):
+                            par = par[0] if par else None
+
+                        if dar:
+                            dar_str = str(dar).strip()
+                            # Só faz a tradução se o valor ainda não vier no formato "16:9"
+                            if ":" not in dar_str:
+                                try:
+                                    dar_float = float(dar_str)
+                                    # Verifica as faixas matemáticas mais comuns
+                                    if 1.77 <= dar_float <= 1.78:
+                                        dar_str = f"16:9 (Widescreen) — Valor registrado: {dar_str}"
+                                    elif 1.33 <= dar_float <= 1.34:
+                                        dar_str = f"4:3 (Tela clássica) — Valor registrado: {dar_str}"
+                                    elif 0.56 <= dar_float <= 0.57:
+                                        dar_str = f"9:16 (Vertical/Smartphone) — Valor registrado: {dar_str}"
+                                    elif dar_float == 0.75:
+                                        dar_str = f"3:4 (Vertical clássico) — Valor registrado: {dar_str}"
+                                    elif dar_float == 1.0:
+                                        dar_str = f"1:1 (Quadrado) — Valor registrado: {dar_str}"
+                                    elif 2.33 <= dar_float <= 2.40:
+                                        dar_str = f"2.35:1 / 21:9 (Formato Cinema) — Valor registrado: {dar_str}"
+                                except ValueError:
+                                    pass  # Mantém o dar_str original se não for possível converter para float
+
+                            metadados_extras.append(f"Razão de Proporção (Display Aspect Ratio): {dar_str}")
+
+                        # Filtra PAR 1.0 (pixels quadrados padrão) para não poluir o laudo, exibe apenas anamórficos
+                        if par and str(par).strip() not in ("1", "1.0", "1.00", "1.000"):
+                            metadados_extras.append(
+                                f"Razão do Pixel (PAR): {par} (Vídeo com pixels anamórficos/esticados)")
+
                         # 2. Busca a resolução armazenada (Mod16). Se não existir, assume a padrão.
                         w_stored = getattr(video_track, 'stored_width', video_track.width) or video_track.width
                         h_stored = getattr(video_track, 'stored_height', video_track.height) or video_track.height
@@ -3481,6 +3523,13 @@ class JanelaHashes(QWidget):
 
                             if largura > 0 and altura > 0:
                                 metadados_extras.append(f"Resolução do Vídeo: {largura}x{altura}")
+
+                                # Cálculo matemático da Razão de Proporção
+                                divisor = math.gcd(largura, altura)
+                                razao_w = largura // divisor
+                                razao_h = altura // divisor
+                                metadados_extras.append(f"Razão de Proporção (Calculada): {razao_w}:{razao_h}")
+
                             if fps > 0:
                                 metadados_extras.append(f"FPS (Aproximado/CV2): {fps:.3f}")
                                 if total_frames > 0:
