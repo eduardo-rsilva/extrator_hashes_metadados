@@ -3,7 +3,7 @@
 
 cff-version: 1.2.0
 title: Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-message: "Se você utilizar este software, por favor, cite-o usando os formatos nativos do GitHub (APA/BibTeX) ou a norma ABNT abaixo: SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.4.0. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso]."
+message: "Se você utilizar este software, por favor, cite-o usando os formatos nativos do GitHub (APA/BibTeX) ou a norma ABNT abaixo: SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.5.0. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso]."
 type: software
 authors:
   - given-names: Eduardo
@@ -44,5 +44,5 @@ keywords:
   - OSINT
   - inteligência de fontes abertas
 commit: 063d4d2902d63e15cdf09c129409fda9f442d450
-version: v.4.4.0
+version: v.4.5.0
 date-released: '2026-03-05'
