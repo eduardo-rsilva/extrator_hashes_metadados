@@ -36,6 +36,7 @@ A forma mais rápida de utilizar o programa é através da técnica de "arrastar
 
 * **Configuração:** Selecione os algoritmos de hash desejados no painel superior (SHA-256 e SHA-512 são recomendados e vêm marcados por padrão).
 * **Incluir Subdiretórios:** Selecione esse campo se quiser analisar todos os arquivos contidos em todos os subdiretórios contidos no diretório selecionado.
+* **Seleção de Metadados:** Selecione "Metadados Básicos", que é uma seleção dos metadados mais utilizados, ou "TODOS os metadados (Raw Dump)" para ver todos os itens disponíveis encontrados.
 
     <figure>
       <img src="imgs/config_drag_drop.PNG" alt="Área de seleção de configurações." style="border: 1px solid black;" width="100%">
@@ -126,7 +127,7 @@ O extrator permite auditar listagens de hashes recebidas em laudos de terceiros 
 ---
     
 ## 4. Analisando Metadados e Alertas Periciais
-Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração profunda através de diversas bibliotecas forenses:
+Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração dos metadados mais utilizados através de diversas bibliotecas forenses. A opção "TODOS os metadados (Raw Dump)" vai listar todos os itens disponíveis encontrados:
 
 * **Multimídia:** Coordenadas GPS (com link para mapas), marcas de câmeras e análise avançada de FPS (taxa de quadros) em vídeos.
 * **ADS (NTFS):** O programa alerta sobre dados ocultos em fluxos de dados alternativos e fornece comandos PowerShell prontos para extração de payloads.
