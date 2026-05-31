@@ -22,8 +22,7 @@ venv/
 extrator_hashes_metadados.build/
 extrator_hashes_metadados.dist/
 ewftools-x64/
-exiftool-13.51_32/
-exiftool-13.51_64/
+exiftool-13.59_64/
 exe/
 materiais para testes/
 *.spec

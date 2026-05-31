@@ -852,7 +852,7 @@ def obter_caminho_exiftool():
     Retorna o caminho do ExifTool (exclusivo para 64 bits).
     Procura tanto no diretório base do script quanto um nível acima.
     """
-    pasta_exiftool = "exiftool-13.51_64"
+    pasta_exiftool = "exiftool-13.59_64"
     nome_executavel = "exiftool.exe"
 
     # Define os possíveis locais de busca (dentro da pasta .dist ou na raiz do projeto)
@@ -3350,7 +3350,7 @@ class JanelaHashes(QWidget):
 
             else:
                 # SE O EXIFTOOL NÃO FOR ENCONTRADO, AVISA IMEDIATAMENTE.
-                pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
+                pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
                 metadados_extras.append(
                     f"⚠️ ExifTool ausente: O programa exige a pasta '{pasta_esperada}' no diretório do executável para extrair GPS e datas reais.")
 
@@ -3797,7 +3797,7 @@ class JanelaHashes(QWidget):
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao ler metadados forenses do vídeo com ExifTool: {e}")
             else:
-                pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
+                pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
                 metadados_extras.append(f"⚠️ ExifTool ausente: Não foi possível extrair GPS, dispositivo e data de criação do vídeo.Pasta esperada: '{pasta_esperada}'.")
 
         # 3. PDFs
@@ -4258,7 +4258,7 @@ class JanelaHashes(QWidget):
                         f"⚠️ Erro inesperado ao processar arquivo compactado/documento com ExifTool: {e}")
             else:
                 # SE O EXIFTOOL NÃO FOR ENCONTRADO, AVISA IMEDIATAMENTE.
-                pasta_esperada = "exiftool-13.51_64" if sys.maxsize > 2 ** 32 else "exiftool-13.51_32"
+                pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
                 metadados_extras.append(
                     f"⚠️ ExifTool ausente: Não foi possível extrair metadados estruturais, criadores ou comentários do arquivo compactado/documento. Pasta esperada: '{pasta_esperada}'.")
 

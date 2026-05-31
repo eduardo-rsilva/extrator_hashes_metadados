@@ -7,9 +7,9 @@ import hashlib
 from src.extrator_hashes_metadados import VERSAO_APP
 
 # ===== ANTES DE COMPILAR O EXECUTÁVEL =====
-# 1) descompactar exiftool-13.51_64.zip dentro de src/
+# 1) descompactar exiftool-13.59_64.zip dentro de src/
 
-# 2) renomear o arquivo exiftool-13.51_64/exiftool(-k).exe como exiftool-13.51_64/exiftool.exe
+# 2) renomear o arquivo exiftool-13.59_64/exiftool(-k).exe como exiftool-13.59_64/exiftool.exe
 
 # 3) rodar no terminal: compilar.bat
 
@@ -65,8 +65,8 @@ subprocess.run(nuitka_command, check=True)
 print("Compilação concluída!")
 
 # ===== CÓPIA DA PASTA DO EXIFTOOL =====
-origem_exiftool = "src/exiftool-13.51_64"
-destino_exiftool = os.path.join("src", "extrator_hashes_metadados.dist", "exiftool-13.51_64")
+origem_exiftool = "src/exiftool-13.59_64"
+destino_exiftool = os.path.join("src", "extrator_hashes_metadados.dist", "exiftool-13.59_64")
 
 print(f"Copiando {origem_exiftool} para {destino_exiftool}...")
 if os.path.exists(destino_exiftool):
