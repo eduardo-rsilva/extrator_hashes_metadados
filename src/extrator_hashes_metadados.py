@@ -1844,6 +1844,9 @@ class JanelaHashes(QWidget):
         self.chk_metadados_raw.installEventFilter(self)
         layout_opcoes_metadados.addWidget(self.chk_metadados_raw)
 
+        self.chk_metadados.clicked.connect(self._garantir_exclusividade_basico)
+        self.chk_metadados_raw.clicked.connect(self._garantir_exclusividade_raw)
+
         # 3. Adiciona esse "pacote" vertical dentro do layout horizontal dos hashes
         layout_hashes.addLayout(layout_opcoes_metadados)
         # ---------------------------------------------------
@@ -1998,6 +2001,10 @@ class JanelaHashes(QWidget):
             self.chk_metadados.setChecked(config.get('chk_metadados', True))
             # Restaura o Raw Dump (Padrão: False) <---
             self.chk_metadados_raw.setChecked(config.get('chk_metadados_raw', False))
+            # Garante que não iniciem ambas marcadas pelo cache antigo
+            if self.chk_metadados.isChecked() and self.chk_metadados_raw.isChecked():
+                self.chk_metadados_raw.setChecked(False)
+
             # Restaura estado do checkbox de subdiretórios
             self.chk_subdiretorios.setChecked(config.get('chk_subdiretorios', True))
             # Restaura estados dos algoritmos
@@ -2011,6 +2018,14 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
+
+    def _garantir_exclusividade_basico(self, checked):
+        if checked:
+            self.chk_metadados_raw.setChecked(False)
+
+    def _garantir_exclusividade_raw(self, checked):
+        if checked:
+            self.chk_metadados.setChecked(False)
 
     def checar_atualizacoes(self):
         """Checa na API do GitHub se há uma nova Release publicada"""
