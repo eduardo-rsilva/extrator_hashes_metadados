@@ -114,7 +114,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                                QPushButton, QCheckBox, QTextEdit, QFileDialog,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
                                QTabWidget, QFrame, QGroupBox)
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QTextCursor
 from PySide6.QtCore import QTimer, QEvent, Signal, Qt
 
 # imports para hash bit a bit
@@ -4028,7 +4028,10 @@ class JanelaHashes(QWidget):
                     if extrair_raw:
                         raw_dump.append("\n=== PEFILE (RAW INFO) ===")
                         try:
-                            raw_dump.extend([linha.strip() for linha in pe.dump_info() if linha.strip()])
+                            # Junta as centenas de milhares de linhas num único bloco gigante de texto
+                            linhas_limpas = [linha.strip() for linha in pe.dump_info().splitlines() if linha.strip()]
+                            bloco_gigante = "\n".join(linhas_limpas)
+                            raw_dump.append(bloco_gigante)
                         except Exception:
                             pass
 
@@ -4847,9 +4850,29 @@ class JanelaHashes(QWidget):
 
                 # --- INSERÇÃO DOS METADADOS EXTRAS AQUI ---
                 if extrair_meta or extrair_raw:
+
+                    # 1. Avisa o usuário ANTES de iniciar a extração (assume que pode demorar)
+                    if extrair_raw:
+                        self.texto_saida.append("⏳ AVISO: Renderizando Raw Dump massivo... A interface pode pausar por alguns instantes mostrando a mensagem 'Não está respondendo'.")
+                        self.texto_saida.repaint()
+                        QApplication.processEvents()
+
+                    # 2. Chamada da função pesada (o "congelamento" da interface poderá ocorrer aqui)
                     metadados_midia = self.obter_metadados_avancados(arquivo, extrair_raw=extrair_raw)
-                    for meta in metadados_midia:
-                        self.texto_saida.append(meta)
+
+                    # 3. O processamento terminou e a mensagem de aviso é apagada
+                    if extrair_raw:
+                        cursor = self.texto_saida.textCursor()
+                        cursor.movePosition(QTextCursor.End)
+                        cursor.select(QTextCursor.BlockUnderCursor)
+                        cursor.removeSelectedText()
+                        cursor.deletePreviousChar()
+                        self.texto_saida.setTextCursor(cursor)
+
+                    # 4. Inserção do resultado final num bloco único (evitando que o QTextEdit trave)
+                    if metadados_midia:
+                        texto_gigante = "\n".join(metadados_midia)
+                        self.texto_saida.append(texto_gigante)
                 # --------------------------------------------------------
 
                 # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA ---
