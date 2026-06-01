@@ -3322,8 +3322,7 @@ class JanelaHashes(QWidget):
             # --- TENTATIVA 1: ExifTool (Forense e Completo) ---
             if caminho_exiftool:
                 try:
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c",
-                           "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-a", "-ee", "-api", "largefilesupport=1", "-c", "%+.6f", caminho_arquivo]
 
                     processo = subprocess.run(
                         cmd,
@@ -3662,8 +3661,7 @@ class JanelaHashes(QWidget):
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
                 try:
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c",
-                           "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-a", "-ee", "-api", "largefilesupport=1", "-c", "%+.6f", caminho_arquivo]
                     processo = subprocess.run(
                         cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=20,
                         creationflags=0x08000000 if os.name == 'nt' else 0
@@ -4221,8 +4219,7 @@ class JanelaHashes(QWidget):
                 caminho_exiftool = obter_caminho_exiftool()
                 if caminho_exiftool:
                     try:
-                        cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G",
-                               caminho_arquivo]
+                        cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-a", "-ee", "-api", "largefilesupport=1", "-c", "%+.6f", caminho_arquivo]
                         processo = subprocess.run(
                             cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
                             creationflags=0x08000000 if os.name == 'nt' else 0
@@ -4287,8 +4284,7 @@ class JanelaHashes(QWidget):
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
                 try:
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G",
-                           caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-a", "-ee", "-api", "largefilesupport=1", "-c", "%+.6f", caminho_arquivo]
                     processo = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace',
                                               timeout=15,
                                               creationflags=0x08000000 if os.name == 'nt' else 0)
@@ -4347,8 +4343,7 @@ class JanelaHashes(QWidget):
             caminho_exiftool_complementar = obter_caminho_exiftool()
             if caminho_exiftool_complementar:
                 try:
-                    cmd_comp = [caminho_exiftool_complementar, "-charset", "filename=latin", "-charset", "utf8",
-                                "-j", "-G", caminho_arquivo]
+                    cmd_comp = [caminho_exiftool_complementar, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-a", "-ee", "-api", "largefilesupport=1", "-c", "%+.6f", caminho_arquivo]
                     proc_comp = subprocess.run(
                         cmd_comp, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
                         creationflags=0x08000000 if os.name == 'nt' else 0
