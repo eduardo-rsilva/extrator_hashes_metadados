@@ -1,4 +1,4 @@
-# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.5.3
+# Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.5.4
 
 > 💡 **Dúvidas de operação?** Acesse o [**Manual do Usuário (MANUAL.md)**](./MANUAL.md) para instruções com capturas de tela.
 
@@ -123,7 +123,7 @@ ___
 
 Se você utilizar o **Extrator de Hashes e Metadados Forenses** em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte citação:
 
-> SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.5.3. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso].
+> SILVA, Eduardo R. **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)**. Versão 4.5.4. São Paulo, SP: GitHub, 2026. Disponível em: <https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases>. Acesso em: [Data de Acesso].
 
 ---
 
