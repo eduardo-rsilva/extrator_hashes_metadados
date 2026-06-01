@@ -3230,6 +3230,9 @@ class JanelaHashes(QWidget):
         raw_dump = []
         extensao = caminho_arquivo.lower().split('.')[-1]
 
+        # Flag para controlar o ExifTool Universal no final da função
+        exiftool_executado = False
+
         # --- DETECÇÃO DE ADS (Roda para todos os arquivos) ---
         streams = detectar_ads_windows(caminho_arquivo)
         if streams:
@@ -3270,8 +3273,8 @@ class JanelaHashes(QWidget):
             # --- TENTATIVA 1: ExifTool (Forense e Completo) ---
             if caminho_exiftool:
                 try:
-                    # O parâmetro -c "%+.6f" força o GPS a sair em graus decimais prontos para mapas.
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c",
+                           "%+.6f", caminho_arquivo]
 
                     processo = subprocess.run(
                         cmd,
@@ -3286,13 +3289,13 @@ class JanelaHashes(QWidget):
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            exiftool_executado = True
                             if extrair_raw:
                                 raw_dump.append("\n=== EXIFTOOL (RAW) ===")
                                 for key_raw, val_raw in meta.items():
                                     raw_dump.append(f"{key_raw}: {val_raw}")
                             usou_exiftool = True
 
-                            # Resolução e Formato
                             largura = meta.get('File:ImageWidth') or meta.get('Composite:ImageWidth') or meta.get(
                                 'EXIF:ExifImageWidth')
                             altura = meta.get('File:ImageHeight') or meta.get('Composite:ImageHeight') or meta.get(
@@ -3311,7 +3314,6 @@ class JanelaHashes(QWidget):
                             else:
                                 metadados_extras.append("DPI: Não especificado (Padrão: 96x96)")
 
-                            # Dados Forenses (Dispositivo e Data)
                             marca = meta.get('IFD0:Make') or meta.get('EXIF:Make')
                             modelo = meta.get('IFD0:Model') or meta.get('EXIF:Model')
                             if modelo:
@@ -3332,12 +3334,10 @@ class JanelaHashes(QWidget):
                             if software:
                                 metadados_extras.append(f"💻 Software/Editor: {software}")
 
-                            # Coordenadas GPS
                             gps_lat = meta.get('Composite:GPSLatitude')
                             gps_lon = meta.get('Composite:GPSLongitude')
                             if gps_lat and gps_lon:
                                 try:
-                                    # Como passamos -c "%+.6f", o valor já vem como string pronta "+23.553889"
                                     lat_float = float(gps_lat)
                                     lon_float = float(gps_lon)
                                     link_maps = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
@@ -3345,10 +3345,8 @@ class JanelaHashes(QWidget):
                                         f"📍 GPS (Latitude, Longitude): {lat_float:.6f}, {lon_float:.6f}")
                                     metadados_extras.append(f"   ↳ Visualizar no Mapa: {link_maps}")
                                 except ValueError:
-                                    # Fallback se vier algum formato estranho
                                     metadados_extras.append(f"📍 GPS (Bruto): {gps_lat}, {gps_lon}")
 
-                            # --- Orientação da Imagem ---
                             orientacao = meta.get('EXIF:Orientation') or meta.get('IFD0:Orientation')
                             if orientacao:
                                 orientacoes = {
@@ -3360,30 +3358,45 @@ class JanelaHashes(QWidget):
                                 desc = orientacoes.get(str(orientacao), f'Código {orientacao}')
                                 metadados_extras.append(f"🔄 Orientação (EXIF): {orientacao} — {desc}")
 
+
                 except subprocess.TimeoutExpired:
-                    metadados_extras.append(f"⚠️ ExifTool abortado: Timeout ao ler imagem (mais de {str(max_wait_time)}s).")
+                    nome_arq = os.path.basename(caminho_arquivo)
+                    metadados_extras.append(f"⚠️ EXIFTOOL ABORTADO: Tempo limite de {max_wait_time}s excedido (Prevenção de travamento).")
+                    metadados_extras.append("   ↳ O arquivo é muito grande ou complexo para processamento em lote.")
+                    metadados_extras.append("   ↳ ORIENTAÇÃO PERICIAL: Realize a extração manualmente. Abra o CMD/PowerShell na pasta do arquivo e execute:")
+                    metadados_extras.append(f"   ↳ Comando: exiftool -j -G \"{nome_arq}\" > dump_metadados.json")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao ler metadados da imagem com ExifTool: {e}")
 
             else:
-                # SE O EXIFTOOL NÃO FOR ENCONTRADO, AVISA IMEDIATAMENTE.
                 pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
                 metadados_extras.append(
                     f"⚠️ ExifTool ausente: O programa exige a pasta '{pasta_esperada}' no diretório do executável para extrair GPS e datas reais.")
 
-            # --- TENTATIVA 2: Fallback para o Pillow (Se o ExifTool falhar ou não existir) ---
-            if not usou_exiftool:
+            # --- TENTATIVA 2: Fallback ou Complementar para o Pillow ---
+            if not usou_exiftool or extrair_raw:
                 if HAS_PIL:
                     try:
                         with Image.open(caminho_arquivo) as img:
-                            metadados_extras.append(f"Resolução (Pillow): {img.width}x{img.height} pixels")
-                            metadados_extras.append(f"Formato (Pillow): {img.format}")
-                            metadados_extras.append(f"Modo de Cor: {img.mode}")
+                            if not usou_exiftool:
+                                metadados_extras.append(f"Resolução (Pillow): {img.width}x{img.height} pixels")
+                                metadados_extras.append(f"Formato (Pillow): {img.format}")
+                                metadados_extras.append(f"Modo de Cor: {img.mode}")
+
+                            if extrair_raw:
+                                raw_dump.append("\n=== PILLOW / PIL (RAW) ===")
+                                for k, v in img.info.items():
+                                    if isinstance(v, (str, int, float, tuple)):
+                                        raw_dump.append(f"{k}: {v}")
+                                    else:
+                                        raw_dump.append(f"{k}: [Dados Binários / Estrutura Complexa]")
                     except Exception as e:
-                        metadados_extras.append(f"⚠️ Erro ao ler metadados com Pillow: {e}")
+                        if not usou_exiftool:
+                            metadados_extras.append(f"⚠️ Erro ao ler metadados com Pillow: {e}")
                 else:
-                    metadados_extras.append(
-                        "⚠️ Biblioteca Pillow (PIL) ausente: Não foi possível realizar a leitura secundária da imagem.")
+                    if not usou_exiftool:
+                        metadados_extras.append(
+                            "⚠️ Biblioteca Pillow (PIL) ausente: Não foi possível realizar a leitura secundária da imagem.")
 
         # 2. VÍDEOS (Busca Abrangente Universal)
         elif extensao in FORMATOS_VIDEO:
@@ -3405,12 +3418,10 @@ class JanelaHashes(QWidget):
                         metadados_extras.append("⚠️ MediaInfo não encontrou trilha de vídeo válida neste arquivo.")
 
                     if video_track:
-                        # 1. Captura a resolução padrão (oficial)
                         if video_track.width and video_track.height:
                             metadados_extras.append(
                                 f"Resolução de exibição: {video_track.width}x{video_track.height} pixels")
 
-                        # --- Razão de Proporção (Display e Pixel Aspect Ratio) ---
                         dar = getattr(video_track, "display_aspect_ratio", None) or getattr(video_track,
                                                                                             "other_display_aspect_ratio",
                                                                                             None)
@@ -3425,11 +3436,9 @@ class JanelaHashes(QWidget):
 
                         if dar:
                             dar_str = str(dar).strip()
-                            # Só faz a tradução se o valor ainda não vier no formato "16:9"
                             if ":" not in dar_str:
                                 try:
                                     dar_float = float(dar_str)
-                                    # Verifica as faixas matemáticas mais comuns
                                     if 1.77 <= dar_float <= 1.78:
                                         dar_str = f"16:9 (Widescreen) — Valor registrado: {dar_str}"
                                     elif 1.33 <= dar_float <= 1.34:
@@ -3443,31 +3452,25 @@ class JanelaHashes(QWidget):
                                     elif 2.33 <= dar_float <= 2.40:
                                         dar_str = f"2.35:1 / 21:9 (Formato Cinema) — Valor registrado: {dar_str}"
                                 except ValueError:
-                                    pass  # Mantém o dar_str original se não for possível converter para float
-
+                                    pass
                             metadados_extras.append(f"Razão de Proporção (Display Aspect Ratio): {dar_str}")
 
-                        # Filtra PAR 1.0 (pixels quadrados padrão) para não poluir o laudo, exibe apenas anamórficos
                         if par and str(par).strip() not in ("1", "1.0", "1.00", "1.000"):
                             metadados_extras.append(
                                 f"Razão do Pixel (PAR): {par} (Vídeo com pixels anamórficos/esticados)")
 
-                        # 2. Busca a resolução armazenada (Mod16). Se não existir, assume a padrão.
                         w_stored = getattr(video_track, 'stored_width', video_track.width) or video_track.width
                         h_stored = getattr(video_track, 'stored_height', video_track.height) or video_track.height
 
-                        # 3. Compara as duas como texto. Se houver qualquer diferença, exibe a segunda linha.
                         if str(w_stored) != str(video_track.width) or str(h_stored) != str(video_track.height):
                             metadados_extras.append(f"Resolução codificada real: {w_stored}x{h_stored} pixels")
                             metadados_extras.append(
-                                "  ↳ Nota técnica: alguns decodificadores podem usar alinhamento interno adicional além do tamanho codificado; esse valor depende da ferramenta e não é uma propriedade universal do arquivo."
-                            )
+                                "  ↳ Nota técnica: alguns decodificadores podem usar alinhamento interno adicional além do tamanho codificado; esse valor depende da ferramenta e não é uma propriedade universal do arquivo.")
 
                         fps = video_track.frame_rate
                         if fps:
                             metadados_extras.append(f"FPS Média/Base: {fps}")
 
-                        # Extração de FPS Variável e Nominal
                         if video_track.frame_rate_nominal:
                             metadados_extras.append(f"FPS Nominal: {video_track.frame_rate_nominal}")
                         if video_track.minimum_frame_rate:
@@ -3480,12 +3483,11 @@ class JanelaHashes(QWidget):
                         if video_track.minimum_frame_rate or video_track.maximum_frame_rate:
                             self.video_teve_fps_min_max = True
 
-                        # Contagem de frames e duração
                         total_frames = video_track.frame_count
                         if total_frames:
                             metadados_extras.append(f"Total de Frames: {total_frames}")
 
-                        duracao_ms = video_track.duration  # MediaInfo entrega em milissegundos
+                        duracao_ms = video_track.duration
                         if duracao_ms:
                             duracao_segundos = float(duracao_ms) / 1000
                             mins, secs = divmod(duracao_segundos, 60)
@@ -3494,12 +3496,10 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(
                                 f"Duração Extraída (MediaInfo): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
 
-                            # cálculo da taxa média real
                             if total_frames:
                                 fps_medio_real = int(total_frames) / duracao_segundos
                                 metadados_extras.append(f"FPS Calculado (Frames/Duração): {fps_medio_real:.3f}")
 
-                        # --- Campos adicionais da trilha de vídeo ---
                         if video_track.format:
                             metadados_extras.append(f"Formato do Codec de Vídeo: {video_track.format}")
                         if video_track.color_space:
@@ -3511,7 +3511,6 @@ class JanelaHashes(QWidget):
                         if video_track.track_id:
                             metadados_extras.append(f"ID da Trilha de Vídeo: {video_track.track_id}")
 
-                    # --- Trilha General (Container) ---
                     general_track = next((t for t in media_info.tracks if t.track_type == "General"), None)
                     if general_track:
                         if general_track.format:
@@ -3519,41 +3518,33 @@ class JanelaHashes(QWidget):
                         if general_track.overall_bit_rate:
                             metadados_extras.append(f"Taxa de Bits Global: {general_track.overall_bit_rate}bps")
                         if general_track.encoded_date:
-                            metadados_extras.append(f"Data de Codificação (MediaInfo): {general_track.encoded_date}")
+                            metadados_extras.append(
+                                f"Data de Codificação (MediaInfo): {general_track.encoded_date}")
                         if general_track.recorded_date:
                             metadados_extras.append(f"Data de Gravação (MediaInfo): {general_track.recorded_date}")
 
-                        # --- Campos customizados de fabricante (Android, DVR, etc.) ---
                         for attr, valor in general_track.__dict__.items():
                             if valor and isinstance(valor, str) and (
-                                    attr.startswith('com_') or
-                                    attr.startswith('com.') or
-                                    'manufacturer' in attr.lower() or
-                                    'model' in attr.lower() or
-                                    'product' in attr.lower() or
-                                    'vendor' in attr.lower() or
-                                    'brand' in attr.lower() or
-                                    'serial' in attr.lower() or
-                                    'sn' in attr.lower()
+                                    attr.startswith('com_') or attr.startswith('com.') or
+                                    'manufacturer' in attr.lower() or 'model' in attr.lower() or
+                                    'product' in attr.lower() or 'vendor' in attr.lower() or
+                                    'brand' in attr.lower() or 'serial' in attr.lower() or 'sn' in attr.lower()
                             ):
-                                # Limpa o nome do atributo: com_android_model → com.android.model
                                 nome_limpo = attr.replace('_', '.', 1) if attr.startswith('com_') else attr
-                                # Tenta reconstruir a notação com pontos
                                 if attr.startswith('com_'):
-                                    partes = attr.split('_', 2)  # ['com', 'android', 'model'] ou ['com', 'xiaomi', 'product_marketna']
+                                    partes = attr.split('_', 2)
                                     if len(partes) >= 3:
-                                        # Verifica se há mais underscores no terceiro segmento (ex: product_marketna → product.marketna)
                                         sub = partes[2].replace('_', '.', 1) if '_' in partes[2] else partes[2]
                                         nome_limpo = f"{partes[0]}.{partes[1]}.{sub}"
                                 metadados_extras.append(f"📱 Dispositivo (MediaInfo): {nome_limpo} = {valor}")
 
-                    # --- Trilha de Áudio ---
                     audio_track = next((t for t in media_info.tracks if t.track_type == "Audio"), None)
                     if audio_track:
                         if audio_track.format:
                             metadados_extras.append(f"Codec de Áudio (MediaInfo): {audio_track.format}")
                         if audio_track.channels:
-                            canais = "Mono" if int(audio_track.channels) == 1 else "Estéreo" if int(audio_track.channels) == 2 else f"{audio_track.channels} canais"
+                            canais = "Mono" if int(audio_track.channels) == 1 else "Estéreo" if int(
+                                audio_track.channels) == 2 else f"{audio_track.channels} canais"
                             metadados_extras.append(f"Canais de Áudio: {canais}")
                         if audio_track.sampling_rate:
                             metadados_extras.append(f"Sample Rate: {audio_track.sampling_rate}Hz")
@@ -3562,14 +3553,15 @@ class JanelaHashes(QWidget):
                         if audio_track.track_id:
                             metadados_extras.append(f"ID da Trilha de Áudio: {audio_track.track_id}")
 
-                        # --- Múltiplas Trilhas (câmera + gravador, etc.) ---
                         total_trilhas = len(media_info.tracks)
-                        if total_trilhas > 3:  # General + Video + Audio = 3 é o normal
-                            metadados_extras.append(f"⚠️ Múltiplas Trilhas Detectadas: {total_trilhas} trilhas no total(possível gravação com múltiplas fontes)")
+                        if total_trilhas > 3:
+                            metadados_extras.append(
+                                f"⚠️ Múltiplas Trilhas Detectadas: {total_trilhas} trilhas no total(possível gravação com múltiplas fontes)")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com MediaInfo: {e}")
-            else:
-                # Fallback para OpenCV se o pymediainfo não estiver instalado
+
+            # --- PARTE 1.5: OpenCV Fallback ou Complementar ---
+            if not HAS_PYMEDIAINFO or extrair_raw:
                 if HAS_CV2:
                     try:
                         cap = cv2.VideoCapture(caminho_arquivo)
@@ -3579,40 +3571,50 @@ class JanelaHashes(QWidget):
                             fps = cap.get(cv2.CAP_PROP_FPS)
                             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-                            if largura > 0 and altura > 0:
-                                metadados_extras.append(f"Resolução do Vídeo: {largura}x{altura}")
+                            if extrair_raw:
+                                raw_dump.append("\n=== OPENCV (RAW) ===")
+                                raw_dump.append(f"CAP_PROP_FRAME_WIDTH: {largura}")
+                                raw_dump.append(f"CAP_PROP_FRAME_HEIGHT: {altura}")
+                                raw_dump.append(f"CAP_PROP_FPS: {fps}")
+                                raw_dump.append(f"CAP_PROP_FRAME_COUNT: {total_frames}")
+                                raw_dump.append(f"CAP_PROP_FORMAT: {cap.get(cv2.CAP_PROP_FORMAT)}")
 
-                                # Cálculo matemático da Razão de Proporção
-                                divisor = math.gcd(largura, altura)
-                                razao_w = largura // divisor
-                                razao_h = altura // divisor
-                                metadados_extras.append(f"Razão de Proporção (Calculada): {razao_w}:{razao_h}")
+                            if not HAS_PYMEDIAINFO:
+                                if largura > 0 and altura > 0:
+                                    metadados_extras.append(f"Resolução do Vídeo: {largura}x{altura}")
+                                    divisor = math.gcd(largura, altura)
+                                    razao_w = largura // divisor
+                                    razao_h = altura // divisor
+                                    metadados_extras.append(f"Razão de Proporção (Calculada): {razao_w}:{razao_h}")
 
-                            if fps > 0:
-                                metadados_extras.append(f"FPS (Aproximado/CV2): {fps:.3f}")
-                                if total_frames > 0:
-                                    metadados_extras.append(f"Total de Frames: {total_frames}")
-                                    duracao = total_frames / fps
-                                    mins, secs = divmod(duracao, 60)
-                                    horas, mins = divmod(mins, 60)
-                                    milisegundos = int(round((duracao - int(duracao)) * 1000))
-                                    metadados_extras.append(
-                                        f"Duração Calculada (via FPS): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
+                                if fps > 0:
+                                    metadados_extras.append(f"FPS (Aproximado/CV2): {fps:.3f}")
+                                    if total_frames > 0:
+                                        metadados_extras.append(f"Total de Frames: {total_frames}")
+                                        duracao = total_frames / fps
+                                        mins, secs = divmod(duracao, 60)
+                                        horas, mins = divmod(mins, 60)
+                                        milisegundos = int(round((duracao - int(duracao)) * 1000))
+                                        metadados_extras.append(
+                                            f"Duração Calculada (via FPS): {int(horas):02d}h{int(mins):02d}min{int(secs):02d},{milisegundos:03d}s")
                             cap.release()
                         else:
-                            metadados_extras.append("⚠️ OpenCV falhou ao abrir o vídeo.")
+                            if not HAS_PYMEDIAINFO:
+                                metadados_extras.append("⚠️ OpenCV falhou ao abrir o vídeo.")
                     except Exception as e:
-                        metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com OpenCV: {e}")
+                        if not HAS_PYMEDIAINFO:
+                            metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com OpenCV: {e}")
                 else:
-                    metadados_extras.append(
-                        "⚠️ Bibliotecas MediaInfo e OpenCV ausentes: Impossível extrair resolução e duração estimadas.")
+                    if not HAS_PYMEDIAINFO:
+                        metadados_extras.append(
+                            "⚠️ Bibliotecas MediaInfo e OpenCV ausentes: Impossível extrair resolução e duração estimadas.")
 
             # --- PARTE 2: ExifTool (Metadados Forenses de Vídeo) ---
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
                 try:
-                    # -c "%+.6f" para GPS em graus decimais, igual ao bloco de imagens
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c", "%+.6f", caminho_arquivo]
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", "-c",
+                           "%+.6f", caminho_arquivo]
                     processo = subprocess.run(
                         cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=20,
                         creationflags=0x08000000 if os.name == 'nt' else 0
@@ -3622,19 +3624,21 @@ class JanelaHashes(QWidget):
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            exiftool_executado = True
                             if extrair_raw:
                                 raw_dump.append("\n=== EXIFTOOL (RAW) ===")
                                 for key_raw, val_raw in meta.items():
                                     raw_dump.append(f"{key_raw}: {val_raw}")
                             exif_video_telemetria = False
 
-                            # --- Data/Hora de Criação e Modificação ---
-                            data_criacao = meta.get('QuickTime:CreateDate') or meta.get('QuickTime:ContentCreateDate')
+                            data_criacao = meta.get('QuickTime:CreateDate') or meta.get(
+                                'QuickTime:ContentCreateDate')
                             data_modificacao = meta.get('QuickTime:ModifyDate')
                             if data_criacao:
                                 fuso = meta.get('QuickTime:LocationInformation') or meta.get('XMP:Timezone')
                                 if fuso:
-                                    metadados_extras.append(f"⏱️ Data de Criação do Vídeo: {data_criacao}(Fuso: {fuso})")
+                                    metadados_extras.append(
+                                        f"⏱️ Data de Criação do Vídeo: {data_criacao}(Fuso: {fuso})")
                                 else:
                                     metadados_extras.append(f"⏱️ Data de Criação do Vídeo: {data_criacao}")
                                 exif_video_telemetria = True
@@ -3642,7 +3646,6 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"⏱️ Data de Modificação do Vídeo: {data_modificacao}")
                                 exif_video_telemetria = True
 
-                            # --- Dispositivo (Marca/Modelo) ---
                             make = meta.get('QuickTime:Make')
                             model = meta.get('QuickTime:Model')
                             if model:
@@ -3650,13 +3653,11 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"📱 Dispositivo (ExifTool):{disp.strip()}")
                                 exif_video_telemetria = True
 
-                            # --- Software de Edição ---
                             software = meta.get('QuickTime:Software') or meta.get('XMP:CreatorTool')
                             if software:
                                 metadados_extras.append(f"💻 Software/Editor: {software}")
                                 exif_video_telemetria = True
 
-                            # --- Codec de Vídeo e Áudio ---
                             video_codec = meta.get('QuickTime:VideoCodec') or meta.get('RIFF:VideoCodec')
                             audio_codec = meta.get('QuickTime:AudioCodec') or meta.get('RIFF:AudioCodec')
                             if video_codec:
@@ -3666,24 +3667,20 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"Codec de Áudio (ExifTool): {audio_codec}")
                                 exif_video_telemetria = True
 
-                            # --- Taxa de Bits ---
                             avg_bitrate = meta.get('QuickTime:AvgBitrate') or meta.get('RIFF:AvgBitRate')
                             if avg_bitrate:
                                 metadados_extras.append(f"Taxa de Bits Média (ExifTool): {avg_bitrate}")
                                 exif_video_telemetria = True
 
-                            # --- Rotação (Portrait vs Landscape) ---
-                            rotation = (meta.get('Composite:Rotation') or meta.get('QuickTime:Rotation')
-                                        or meta.get('Track1:Rotation') or meta.get('RIFF:Rotation'))
+                            rotation = (meta.get('Composite:Rotation') or meta.get(
+                                'QuickTime:Rotation') or meta.get('Track1:Rotation') or meta.get('RIFF:Rotation'))
                             if rotation:
                                 metadados_extras.append(f"🔄 Rotação do Vídeo: {rotation}°")
                                 exif_video_telemetria = True
 
-                            # --- Espelhamento de Vídeo (Matrix Structure) ---
                             matrix = meta.get('QuickTime:MatrixStructure') or meta.get('Track1:MatrixStructure')
                             if matrix:
                                 try:
-                                    # O ExifTool pode retornar a matriz como uma string "a b u c d v x y w" ou como lista
                                     if isinstance(matrix, str):
                                         valores_matriz = [float(v) for v in matrix.replace(',', ' ').split() if
                                                           v.strip()]
@@ -3692,18 +3689,12 @@ class JanelaHashes(QWidget):
                                     else:
                                         valores_matriz = []
 
-                                    # A matriz de vídeo padrão possui 9 valores.
-                                    # O índice 0 é a escala X e o índice 4 é a escala Y.
                                     if len(valores_matriz) >= 5:
                                         escala_x = valores_matriz[0]
                                         escala_y = valores_matriz[4]
-
                                         espelhamentos = []
-                                        # Escalas negativas indicam a inversão dos pixels naquele eixo
-                                        if escala_x < 0:
-                                            espelhamentos.append("Horizontal")
-                                        if escala_y < 0:
-                                            espelhamentos.append("Vertical")
+                                        if escala_x < 0: espelhamentos.append("Horizontal")
+                                        if escala_y < 0: espelhamentos.append("Vertical")
 
                                         if espelhamentos:
                                             tipo_espelhamento = " + ".join(espelhamentos)
@@ -3712,13 +3703,10 @@ class JanelaHashes(QWidget):
                                         else:
                                             metadados_extras.append(
                                                 "🪞 Espelhamento Detectado (Vídeo): Não (Orientação nativa/original)")
-
                                         exif_video_telemetria = True
-                                except Exception as e:
-                                    # Falha silenciosa para não quebrar a extração se a matriz vier num formato exótico
+                                except Exception:
                                     pass
 
-                            # --- GPS Embutido ---
                             gps_lat = meta.get('Composite:GPSLatitude')
                             gps_lon = meta.get('Composite:GPSLongitude')
                             if gps_lat and gps_lon:
@@ -3726,60 +3714,55 @@ class JanelaHashes(QWidget):
                                     lat_float = float(gps_lat)
                                     lon_float = float(gps_lon)
                                     link_maps = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
-                                    metadados_extras.append(f"📍 GPS (Latitude, Longitude): {lat_float: .6f}, {lon_float: .6f}")
+                                    metadados_extras.append(
+                                        f"📍 GPS (Latitude, Longitude): {lat_float: .6f}, {lon_float: .6f}")
                                     metadados_extras.append(f" ↳ Visualizar no Mapa: {link_maps}")
                                     exif_video_telemetria = True
                                 except ValueError:
                                     metadados_extras.append(f"📍 GPS (Bruto): {gps_lat}, {gps_lon}")
 
-                            # --- Altitude GPS ---
                             gps_alt = meta.get('QuickTime:GPSAltitude')
                             if gps_alt:
                                 metadados_extras.append(f"📏 Altitude GPS: {gps_alt} m")
                                 exif_video_telemetria = True
 
-                            # --- Velocidade GPS ---
                             gps_speed = meta.get('QuickTime:GPSSpeed')
                             if gps_speed:
                                 metadados_extras.append(f"🏎️ Velocidade GPS: {gps_speed}")
                                 exif_video_telemetria = True
 
-                            # --- Content Identifier (UUID do vídeo — iPhone/Live Photo) ---
                             content_id = meta.get('QuickTime:ContentIdentifier')
                             if content_id:
                                 metadados_extras.append(f"🆔 Content Identifier (UUID): {content_id}")
                                 exif_video_telemetria = True
 
-                            # --- Número de Série do Dispositivo ---
-                            serial = (meta.get('QuickTime:CameraSerialNumber')
-                                      or meta.get('XMP:CameraSerialNumber')
-                                      or meta.get('QuickTime:UniqueID')
-                                      or meta.get('DJI:DeviceSerialNumber'))
+                            serial = (meta.get('QuickTime:CameraSerialNumber') or meta.get(
+                                'XMP:CameraSerialNumber') or meta.get('QuickTime:UniqueID') or meta.get(
+                                'DJI:DeviceSerialNumber'))
                             if serial:
                                 metadados_extras.append(f"🔢 Número de Série do Dispositivo: {serial}")
                                 exif_video_telemetria = True
 
-                            # --- Indicação de Metadata Stripping ---
                             if not data_criacao and not model:
-                                metadados_extras.append("⚠️ Metadados de autoria e data ausentes — possível remoção intencional de metadados(metadata stripping).")
+                                metadados_extras.append(
+                                    "⚠️ Metadados de autoria e data ausentes — possível remoção intencional de metadados(metadata stripping).")
                                 exif_video_telemetria = True
 
-                            # --- Palavras-chave de DVR/Câmera de Vigilância ---
                             metadados_str = ' '.join(str(v).lower() for v in meta.values() if v)
                             dvr_keywords = ['hikvision', 'dahua', 'intelbras', 'standalone', 'dvr', 'nvr']
                             dvr_detectado = [kw for kw in dvr_keywords if kw in metadados_str]
                             if dvr_detectado:
-                                metadados_extras.append(f"🎥 Indício de Câmera de Vigilância/DVR detectado: {', '.join(dvr_detectado)}")
+                                metadados_extras.append(
+                                    f"🎥 Indício de Câmera de Vigilância/DVR detectado: {', '.join(dvr_detectado)}")
                                 exif_video_telemetria = True
 
-                            # --- Drone Telemetry ---
                             for chave, valor in meta.items():
                                 chave_lower = chave.lower()
                                 if 'drone' in chave_lower or 'gimbal' in chave_lower:
-                                    metadados_extras.append(f"🚁 Telemetria de Drone: {chave.split(':')[-1]} = {valor}")
+                                    metadados_extras.append(
+                                        f"🚁 Telemetria de Drone: {chave.split(':')[-1]} = {valor}")
                                     exif_video_telemetria = True
 
-                            # --- Campos adicionais de identificação de câmera/DVR ---
                             comment = meta.get('QuickTime:Comment') or meta.get('RIFF:Comment')
                             if comment:
                                 metadados_extras.append(f"Comentário do Vídeo: {comment}")
@@ -3800,22 +3783,28 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"Fabricante (Vendor): {vendor}")
                                 exif_video_telemetria = True
 
-                            # RIFF:Software — comum em DVRs que geram AVI
                             riff_software = meta.get('RIFF:Software')
-                            if riff_software and not software:  # evita duplicar se já capturou via QuickTime:Software
+                            if riff_software and not software:
                                 metadados_extras.append(f"Software do Container (RIFF): {riff_software}")
                                 exif_video_telemetria = True
 
                             if not exif_video_telemetria:
-                                metadados_extras.append("ℹ️ ExifTool analisou o vídeo, mas não encontrou metadados forenses adicionais(GPS, dispositivo, data de criação).")
+                                metadados_extras.append(
+                                    "ℹ️ ExifTool analisou o vídeo, mas não encontrou metadados forenses adicionais(GPS, dispositivo, data de criação).")
+
 
                 except subprocess.TimeoutExpired:
-                    metadados_extras.append("⚠️ Leitura de vídeo via ExifTool abortada (>20s).")
+                    nome_arq = os.path.basename(caminho_arquivo)
+                    metadados_extras.append("⚠️ EXIFTOOL ABORTADO: Tempo limite de 20s excedido (Prevenção de travamento).")
+                    metadados_extras.append("   ↳ O vídeo é muito extenso para processamento em lote.")
+                    metadados_extras.append("   ↳ ORIENTAÇÃO PERICIAL: Realize a extração manualmente. Abra o CMD/PowerShell na pasta do arquivo e execute:")
+                    metadados_extras.append(f"   ↳ Comando: exiftool -j -G \"{nome_arq}\" > dump_metadados.json")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao ler metadados forenses do vídeo com ExifTool: {e}")
             else:
                 pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
-                metadados_extras.append(f"⚠️ ExifTool ausente: Não foi possível extrair GPS, dispositivo e data de criação do vídeo.Pasta esperada: '{pasta_esperada}'.")
+                metadados_extras.append(
+                    f"⚠️ ExifTool ausente: Não foi possível extrair GPS, dispositivo e data de criação do vídeo.Pasta esperada: '{pasta_esperada}'.")
 
         # 3. PDFs
         elif extensao in FORMATOS_PDF:
@@ -3824,6 +3813,7 @@ class JanelaHashes(QWidget):
                     reader = PdfReader(caminho_arquivo)
                     metadados_extras.append(f"Total de Páginas: {len(reader.pages)}")
                     meta = reader.metadata
+
                     if extrair_raw and meta:
                         raw_dump.append("\n=== PYPDF (RAW) ===")
                         for key_raw, val_raw in meta.items():
@@ -3850,7 +3840,7 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "⚠️ Biblioteca pypdf ausente: Não foi possível extrair os metadados do PDF.")
 
-        # 4. PACOTE OFFICE (docx, xlsx, pptx) - Lendo direto do XML interno sem bibliotecas extras
+        # 4. PACOTE OFFICE (docx, xlsx, pptx)
         elif extensao in FORMATOS_OFFICE_XML:
             try:
                 with zipfile.ZipFile(caminho_arquivo, 'r') as z:
@@ -3859,7 +3849,6 @@ class JanelaHashes(QWidget):
                         root = ET.fromstring(conteudo_xml)
                         extraiu_algo = False
 
-                        # Namespaces usados nos arquivos Office
                         ns = {
                             'dc': 'http://purl.org/dc/elements/1.1/',
                             'cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties'
@@ -3879,13 +3868,19 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(f"Título Interno (Office): {titulo.text}")
                             extraiu_algo = True
 
+                        if extrair_raw:
+                            raw_dump.append("\n=== OFFICE CORE.XML (RAW) ===")
+                            for elem in root.iter():
+                                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                                if elem.text and elem.text.strip():
+                                    raw_dump.append(f"{tag}: {elem.text.strip()}")
+
                         if not extraiu_algo:
                             metadados_extras.append(
                                 "ℹ️ Metadados de autoria (Office XML) não localizados ou removidos.")
                     else:
                         metadados_extras.append(
                             "⚠️ Arquivo Office inválido: A estrutura XML esperada (docProps/core.xml) não foi encontrada.")
-
 
             except zipfile.BadZipFile:
                 metadados_extras.append(
@@ -3894,7 +3889,6 @@ class JanelaHashes(QWidget):
                 metadados_extras.append("⚠️ Erro ao ler Office: O XML de metadados está malformado ou corrompido.")
             except Exception as e:
                 metadados_extras.append(f"⚠️ Erro ao tentar processar metadados XML do Office: {e}")
-
 
         # 5. PACOTE OFFICE LEGADO (doc, xls, ppt)
         elif extensao in FORMATOS_OFFICE_LEGADO:
@@ -3905,7 +3899,6 @@ class JanelaHashes(QWidget):
                             meta = ole.get_metadata()
                             extraiu_algo = False
 
-                            # olefile pode retornar bytes ou strings. isto é tratado aqui
                             def decodificar(valor):
                                 if isinstance(valor, bytes):
                                     return valor.decode('utf-8', errors='ignore')
@@ -3925,11 +3918,18 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"Título Interno (Legacy): {titulo}")
                                 extraiu_algo = True
 
+                            if extrair_raw:
+                                raw_dump.append("\n=== OLEFILE METADATA (RAW) ===")
+                                for prop, val in meta.__dict__.items():
+                                    if val:
+                                        raw_dump.append(f"{prop}: {decodificar(val)}")
+
                             if not extraiu_algo:
                                 metadados_extras.append(
                                     "ℹ️ Metadados avançados (título, autoria) não localizados ou arquivo lavado.")
                     else:
-                        metadados_extras.append("⚠️ O arquivo possui extensão legada, mas não é um formato OLE válido.")
+                        metadados_extras.append(
+                            "⚠️ O arquivo possui extensão legada, mas não é um formato OLE válido.")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao ler o arquivo Office legado: {e}")
             else:
@@ -3944,13 +3944,11 @@ class JanelaHashes(QWidget):
                         lnk = LnkParse3.lnk_file(indata)
                         extraiu_algo = False
 
-                        # A forma mais segura e à prova de falhas: extrair tudo como Dicionário (JSON)
                         dados = lnk.get_json()
                         if extrair_raw and dados:
                             raw_dump.append("\n=== LNKPARSE3 (RAW JSON) ===")
                             raw_dump.extend(json.dumps(dados, indent=2, ensure_ascii=False).splitlines())
 
-                        # 1. Caminhos Locais e Dados do Disco (Pendrive/HD)
                         info_link = dados.get('link_info', {})
                         if info_link:
                             caminho_base = info_link.get('local_base_path')
@@ -3958,7 +3956,6 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"Caminho Alvo (Local): {caminho_base}")
                                 extraiu_algo = True
 
-                            # Os dados do disco ficam dentro de 'location_info'
                             loc_info = info_link.get('location_info', {})
                             if loc_info:
                                 vol_label = loc_info.get('volume_label')
@@ -3968,7 +3965,6 @@ class JanelaHashes(QWidget):
 
                                 serial = loc_info.get('drive_serial_number')
                                 if serial:
-                                    # Formata o serial para Hexadecimal maiúsculo se for número inteiro
                                     if isinstance(serial, int):
                                         serial_fmt = hex(serial).upper().replace('0X', '')
                                     else:
@@ -3976,7 +3972,6 @@ class JanelaHashes(QWidget):
                                     metadados_extras.append(f"Serial do Volume (Hex): {serial_fmt}")
                                     extraiu_algo = True
 
-                        # 2. Caminhos Relativos, Argumentos e Diretórios
                         info_dados = dados.get('data', {})
                         if info_dados:
                             caminho_relativo = info_dados.get('relative_path')
@@ -3999,7 +3994,6 @@ class JanelaHashes(QWidget):
                                 metadados_extras.append(f"Descrição/Nome Interno: {desc}")
                                 extraiu_algo = True
 
-                        # 3. MAC Address de Origem
                         info_extra = dados.get('extra_data', {})
                         tracker = info_extra.get('TRACKER_DATA_BLOCK', {})
                         mac = tracker.get('mac_address')
@@ -4007,7 +4001,6 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(f"MAC Address de Origem: {mac}")
                             extraiu_algo = True
                         else:
-                            # Adiciona o aviso explícito de ausência
                             metadados_extras.append("MAC Address de Origem: [Não localizado neste atalho]")
 
                         if not extraiu_algo:
@@ -4019,7 +4012,6 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "⚠️ Biblioteca ausente: O módulo 'LnkParse3' não foi encontrado. Análise de atalhos indisponível.")
 
-
         # 7. EXECUTÁVEIS E DLLs (.exe, .dll, .sys)
         elif extensao in FORMATOS_EXECUTAVEIS:
             if HAS_PEFILE:
@@ -4028,33 +4020,30 @@ class JanelaHashes(QWidget):
                     if extrair_raw:
                         raw_dump.append("\n=== PEFILE (RAW INFO) ===")
                         try:
-                            # Junta as centenas de milhares de linhas num único bloco gigante de texto
-                            linhas_limpas = [linha.strip() for linha in pe.dump_info().splitlines() if linha.strip()]
+                            linhas_limpas = [linha.strip() for linha in pe.dump_info().splitlines() if
+                                             linha.strip()]
                             bloco_gigante = "\n".join(linhas_limpas)
                             raw_dump.append(bloco_gigante)
                         except Exception:
                             pass
 
-                    # O TimeDateStamp é obrigatório e gravado em UTC no momento da compilação
                     timestamp = pe.FILE_HEADER.TimeDateStamp
                     data_compilacao = dt.datetime.fromtimestamp(timestamp, dt.timezone.utc).strftime(
                         '%d/%m/%Y %H:%M:%S UTC')
                     metadados_extras.append(f"Data de Compilação (TimeDateStamp): {data_compilacao}")
 
-                    # --- CHECAGEM DE ASSINATURA DIGITAL ---
                     try:
                         dir_seguranca = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
                             pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
                         if dir_seguranca.VirtualAddress > 0 and dir_seguranca.Size > 0:
-                            metadados_extras.append("Assinatura Digital: ✅ PRESENTE (Contém certificado Authenticode)")
+                            metadados_extras.append(
+                                "Assinatura Digital: ✅ PRESENTE (Contém certificado Authenticode)")
                         else:
                             metadados_extras.append(
                                 "Assinatura Digital: ⚠️ AUSENTE (Arquivo não assinado - Suspeito se disser ser do Windows/Microsoft)")
                     except Exception:
                         metadados_extras.append("Assinatura Digital: [Erro ao verificar]")
-                    # --------------------------------------
 
-                    # Busca nomes originais e empresas ocultas nas tabelas de strings
                     if hasattr(pe, 'FileInfo'):
                         for fileinfo in pe.FileInfo:
                             for info in fileinfo:
@@ -4072,13 +4061,17 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "⚠️ Biblioteca ausente: O módulo 'pefile' não foi encontrado. Impossível extrair dados do executável.")
 
-
         # 8. E-MAILS EXPORTADOS (.eml, .msg)
         elif extensao in FORMATOS_EMAIL_EML:
             try:
                 with open(caminho_arquivo, 'rb') as f:
                     msg = BytesParser(policy=policy.default).parse(f)
                     extraiu_algo = False
+
+                    if extrair_raw:
+                        raw_dump.append("\n=== EMAIL HEADERS (RAW) ===")
+                        for k, v in msg.items():
+                            raw_dump.append(f"{k}: {v}")
 
                     if msg['from']:
                         metadados_extras.append(f"Remetente: {msg['from']}")
@@ -4093,7 +4086,6 @@ class JanelaHashes(QWidget):
                         metadados_extras.append(f"Data de Envio: {msg['date']}")
                         extraiu_algo = True
 
-                    # O último 'Received' geralmente revela o IP/Servidor de origem que o criminoso usou
                     received = msg.get_all('Received')
                     if received:
                         metadados_extras.append(
@@ -4113,6 +4105,11 @@ class JanelaHashes(QWidget):
                     msg = extract_msg.Message(caminho_arquivo)
                     extraiu_algo = False
 
+                    if extrair_raw:
+                        raw_dump.append("\n=== EXTRACT_MSG (RAW) ===")
+                        for k, v in msg.header.items():
+                            raw_dump.append(f"{k}: {v}")
+
                     if msg.sender:
                         metadados_extras.append(f"Remetente (MSG): {msg.sender}")
                         extraiu_algo = True
@@ -4129,7 +4126,8 @@ class JanelaHashes(QWidget):
                     msg.close()
 
                     if not extraiu_algo:
-                        metadados_extras.append("ℹ️ Propriedades do Outlook (Remetente, Assunto) vazias neste arquivo.")
+                        metadados_extras.append(
+                            "ℹ️ Propriedades do Outlook (Remetente, Assunto) vazias neste arquivo.")
 
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao ler metadados do Outlook (.msg): {e}")
@@ -4137,7 +4135,7 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "⚠️ Biblioteca ausente: O módulo 'extract_msg' não foi encontrado. Impossível ler e-mails nativos do Outlook (.msg).")
 
-        # 9. ARQUIVOS DE ÁUDIO (TinyTag primário + ExifTool Fallback)
+        # 9. ARQUIVOS DE ÁUDIO (TinyTag primário + ExifTool Complementar/Fallback)
         elif extensao in FORMATOS_AUDIO:
             extraiu_algo = False
             caminho_exiftool = None
@@ -4146,6 +4144,12 @@ class JanelaHashes(QWidget):
             if HAS_TINYTAG:
                 try:
                     tag = TinyTag.get(caminho_arquivo)
+                    if extrair_raw:
+                        raw_dump.append("\n=== TINYTAG (RAW) ===")
+                        for k, v in tag.as_dict().items():
+                            if v is not None:
+                                raw_dump.append(f"{k}: {v}")
+
                     if tag.duration is not None:
                         mins, secs = divmod(tag.duration, 60)
                         horas, mins = divmod(mins, 60)
@@ -4161,16 +4165,15 @@ class JanelaHashes(QWidget):
                         metadados_extras.append(f"Comentários: {tag.comment}")
                         extraiu_algo = True
                 except Exception:
-                    # Falhou silenciosamente (formato não suportado pelo TinyTag, ex: .dss, .ts).
-                    # A flag 'extraiu_algo' continuará False, acionando o ExifTool abaixo.
                     pass
 
-            # --- TENTATIVA 2: ExifTool (Formatos exóticos, de gravadores policiais ou falha do TinyTag) ---
-            if not extraiu_algo:
+            # --- TENTATIVA 2: ExifTool (Formatos exóticos ou Dump complementar) ---
+            if not extraiu_algo or extrair_raw:
                 caminho_exiftool = obter_caminho_exiftool()
                 if caminho_exiftool:
                     try:
-                        cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
+                        cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G",
+                               caminho_arquivo]
                         processo = subprocess.run(
                             cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
                             creationflags=0x08000000 if os.name == 'nt' else 0
@@ -4180,19 +4183,19 @@ class JanelaHashes(QWidget):
                             dados_json = json.loads(processo.stdout)
                             if dados_json:
                                 meta = dados_json[0]
+                                exiftool_executado = True
                                 if extrair_raw:
                                     raw_dump.append("\n=== EXIFTOOL (RAW) ===")
                                     for key_raw, val_raw in meta.items():
                                         raw_dump.append(f"{key_raw}: {val_raw}")
+
                                 extraiu_pelo_exiftool = False
 
-                                # Duração (ExifTool converte formatos estranhos para texto, ex: "0:01:23")
                                 duracao = meta.get('Composite:Duration') or meta.get('System:Duration')
-                                if duracao:
+                                if duracao and not extraiu_algo:
                                     metadados_extras.append(f"Duração (ExifTool): {duracao}")
                                     extraiu_pelo_exiftool = True
 
-                                # Autoria/Artista (Varredura dinâmica de chaves)
                                 artista = None
                                 for chave, valor in meta.items():
                                     if chave.endswith(':Artist') or chave.endswith(':Author') or chave.endswith(
@@ -4200,24 +4203,29 @@ class JanelaHashes(QWidget):
                                         artista = valor
                                         break
 
-                                if artista:
+                                if artista and not extraiu_algo:
                                     metadados_extras.append(f"Autor/Criador (ExifTool): {artista}")
                                     extraiu_pelo_exiftool = True
 
-                                if not extraiu_pelo_exiftool:
+                                if not extraiu_pelo_exiftool and not extraiu_algo:
                                     metadados_extras.append(
                                         "ℹ️ Formato lido pelo ExifTool, mas nenhum dado de autoria ou duração encontrado.")
                                 else:
                                     extraiu_algo = True
+
                     except subprocess.TimeoutExpired:
-                        metadados_extras.append("⚠️ Leitura de áudio via ExifTool abortada (>15s).")
+                        nome_arq = os.path.basename(caminho_arquivo)
+                        metadados_extras.append("⚠️ EXIFTOOL ABORTADO: Tempo limite de 15s excedido (Prevenção de travamento).")
+                        metadados_extras.append("   ↳ O áudio possui estrutura complexa para processamento em lote.")
+                        metadados_extras.append("   ↳ ORIENTAÇÃO PERICIAL: Realize a extração manualmente. Abra o CMD/PowerShell na pasta do arquivo e execute:")
+                        metadados_extras.append(f"   ↳ Comando: exiftool -j -G \"{nome_arq}\" > dump_metadados.json")
                     except Exception as e:
-                        metadados_extras.append(f"⚠️ Erro no fallback do ExifTool para áudio: {e}")
+                        metadados_extras.append(f"⚠️ Erro no ExifTool para áudio: {e}")
                 else:
                     if not HAS_TINYTAG:
                         metadados_extras.append(
                             "⚠️ Bibliotecas TinyTag e ExifTool ausentes. Extração de áudio impossível.")
-                    else:
+                    elif not extraiu_algo:
                         metadados_extras.append(
                             "ℹ️ Formato de áudio não suportado nativamente e ExifTool ausente para tentar leitura secundária.")
 
@@ -4225,45 +4233,43 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "ℹ️ O arquivo foi analisado com sucesso, mas não contém metadados de autoria ou duração legíveis.")
 
-
         # 10. COMPACTADOS, TORRENTS E RTF (Lidos via ExifTool)
         elif extensao in (FORMATOS_COMPACTADOS + FORMATOS_TORRENT + FORMATOS_RTF):
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
                 try:
-                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G", caminho_arquivo]
-                    processo = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
+                    cmd = [caminho_exiftool, "-charset", "filename=latin", "-charset", "utf8", "-j", "-G",
+                           caminho_arquivo]
+                    processo = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace',
+                                              timeout=15,
                                               creationflags=0x08000000 if os.name == 'nt' else 0)
 
                     if processo.returncode == 0:
                         dados_json = json.loads(processo.stdout)
                         if dados_json:
                             meta = dados_json[0]
+                            exiftool_executado = True
                             if extrair_raw:
                                 raw_dump.append("\n=== EXIFTOOL (RAW) ===")
                                 for key_raw, val_raw in meta.items():
                                     raw_dump.append(f"{key_raw}: {val_raw}")
                             extraiu_algo = False
 
-                            # Tenta puxar comentários de ZIPs ou Torrents
                             comentario = meta.get('ZIP:Comment') or meta.get('Bencode:Comment')
                             if comentario:
                                 metadados_extras.append(f"Comentário Embutido: {comentario}")
                                 extraiu_algo = True
 
-                            # Tenta puxar criador de RTF ou Torrent
                             criador = meta.get('RTF:Author') or meta.get('Bencode:CreatedBy')
                             if criador:
                                 metadados_extras.append(f"Autor/Criador: {criador}")
                                 extraiu_algo = True
 
-                            # Tenta puxar data de criação do Torrent
                             data_criacao = meta.get('Bencode:CreationDate')
                             if data_criacao:
                                 metadados_extras.append(f"Data de Criação (Interna): {data_criacao}")
                                 extraiu_algo = True
 
-                            # --- FEEDBACK VISUAL PRECISO E ISOLADO ---
                             if not extraiu_algo:
                                 metadados_extras.append("ℹ️ Metadados avançados não localizados.")
                                 metadados_extras.append(
@@ -4271,16 +4277,51 @@ class JanelaHashes(QWidget):
 
 
                 except subprocess.TimeoutExpired:
-                    metadados_extras.append(
-                        "⚠️ Leitura de arquivo compactado/documento abortada (ExifTool demorou mais que 15s).")
+                    nome_arq = os.path.basename(caminho_arquivo)
+                    metadados_extras.append("⚠️ EXIFTOOL ABORTADO: Tempo limite de 15s excedido (Prevenção de travamento).")
+                    metadados_extras.append("   ↳ O arquivo compactado/documento é muito grande para processamento em lote.")
+                    metadados_extras.append("   ↳ ORIENTAÇÃO PERICIAL: Realize a extração manualmente. Abra o CMD/PowerShell na pasta do arquivo e execute:")
+                    metadados_extras.append(f"   ↳ Comando: exiftool -j -G \"{nome_arq}\" > dump_metadados.json")
                 except Exception as e:
                     metadados_extras.append(
                         f"⚠️ Erro inesperado ao processar arquivo compactado/documento com ExifTool: {e}")
             else:
-                # SE O EXIFTOOL NÃO FOR ENCONTRADO, AVISA IMEDIATAMENTE.
                 pasta_esperada = "exiftool-13.59_64" if sys.maxsize > 2 ** 32 else "exiftool-13.59_32"
                 metadados_extras.append(
                     f"⚠️ ExifTool ausente: Não foi possível extrair metadados estruturais, criadores ou comentários do arquivo compactado/documento. Pasta esperada: '{pasta_esperada}'.")
+
+        # =====================================================================
+        # EXIFTOOL UNIVERSAL COMPLEMENTAR (Rede de Captura Final)
+        # Se extrair_raw estiver ligado e o ExifTool ainda não tiver rodado neste arquivo, roda agora.
+        # =====================================================================
+        if extrair_raw and not exiftool_executado:
+            caminho_exiftool_complementar = obter_caminho_exiftool()
+            if caminho_exiftool_complementar:
+                try:
+                    cmd_comp = [caminho_exiftool_complementar, "-charset", "filename=latin", "-charset", "utf8",
+                                "-j", "-G", caminho_arquivo]
+                    proc_comp = subprocess.run(
+                        cmd_comp, capture_output=True, encoding='utf-8', errors='replace', timeout=15,
+                        creationflags=0x08000000 if os.name == 'nt' else 0
+                    )
+
+                    if proc_comp.returncode == 0:
+                        json_comp = json.loads(proc_comp.stdout)
+                        if json_comp:
+                            meta_comp = json_comp[0]
+                            raw_dump.append("\n=== EXIFTOOL (RAW DUMP COMPLEMENTAR) ===")
+                            for k_raw, v_raw in meta_comp.items():
+                                raw_dump.append(f"{k_raw}: {v_raw}")
+
+                except subprocess.TimeoutExpired:
+                    nome_arq = os.path.basename(caminho_arquivo)
+                    raw_dump.append("\n=== EXIFTOOL (FALHA) ===")
+                    raw_dump.append("⚠️ TEMPO LIMITE EXCEDIDO (>15s).")
+                    raw_dump.append("↳ ORIENTAÇÃO PERICIAL: O arquivo causou timeout. Para forçar a extração bruta, use o PowerShell:")
+                    raw_dump.append(f"↳ Comando: exiftool -j -G \"{nome_arq}\" > dump_metadados.json")
+                except Exception:
+                    # Falha silenciosa para outros erros genéricos da rede de captura
+                    pass
 
         # --- MONTAGEM DO RAW DUMP NO FINAL DO RELATÓRIO DO ARQUIVO ---
         if extrair_raw and raw_dump:
