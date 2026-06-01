@@ -38,27 +38,16 @@ Um diferencial crítico é o **bloqueio automático de arquivos "Apenas Online"*
 
 ---
 
-## 📸 Extração Profunda de Metadados Multimídia
-Trabalhando em conjunto com o **pymediainfo**, **ExifTool**, **OpenCV** e **Pillow**, a extração de mídia é agressiva:
+## 📸 Extração de Metadados
+### 🔬 Metadados Básicos
+
+A ativação da opção **"Incluir Metadados Básicos"** permite a extração de alguns metadados previamente definidos no código, dentre eles:
+
 * **Fotos:** Extrai fabricante/modelo, data de criação interna, fuso horário e **coordenadas GPS** formatadas com link direto para o Google Maps.
 * **Perícia Avançada em Vídeos:** Além da **Análise Avançada de Taxa de Quadros** (FPS nominal, mínimo e máximo), a ferramenta agora extrai as **Razões de Proporção (DAR/PAR)** traduzidas para formatos visuais (16:9, 4:3, Vertical), identifica pixels anamórficos, evidencia discrepâncias entre a resolução de exibição e a resolução armazenada (codificada) e detecta se o vídeo possui espelhamento horizontal ou vertical via matriz de transformação. O ExifTool complementa extraindo GPS embutido, data/hora de criação real, marca/modelo do dispositivo, software de edição (indícios), rotação, UUID de gravação, telemetria e número de série de drones, e indícios de câmeras de vigilância/DVR (Hikvision, Dahua, Intelbras). O MediaInfo detalha as trilhas de vídeo e áudio com containers, codecs, bitrates e campos customizados de fabricantes.
-* **Extração Completa (Raw Dump):** Opção avançada na interface gráfica que permite exportar e anexar o dicionário bruto e integral de todas as bibliotecas de análise subjacentes ao final do relatório de cada arquivo, garantindo que o perito tenha acesso a metadados exóticos ou proprietários não listados no resumo básico.
 * **Validação de Duração:** Calcula o *FPS Matemático/Real* dividindo a quantidade exata de quadros contabilizados fisicamente no arquivo pela duração estrutural extraída em milissegundos, revelando a verdadeira fluidez do vídeo independentemente de cabeçalhos genéricos.
 * **Análise de Redes Sociais:** Detecta padrões de nomes (WhatsApp, Telegram, Facebook) e emite um alerta pericial sobre o **metadata stripping** (lavagem de metadados).
 * **Áudio:** Utiliza uma extração primária hiper-rápida (**TinyTag**) com fallback via ExifTool, obtendo duração exata, bitrate e artista.
-
----
-
-## 📂 Análise de Artefatos do Windows, Documentos e Compactados
-Para documentos (PDF e Office), extrai autoria, software criador e último usuário. Para o pacote Office atual (.docx, .xlsx, .pptx), o programa realiza a leitura direta da **estrutura XML interna** (docProps/core.xml).
-
-### Artefatos de Sistema:
-* **Executáveis (.exe, .dll, .sys):** Faz o parse do cabeçalho PE, extraindo a **data real de compilação (UTC)**, verifica assinatura digital (Authenticode) e varre tabelas de strings.
-* **Atalhos (.lnk):** Extrai o caminho base local, o Rótulo do Volume, o Serial do disco de origem e o **MAC Address** da placa de rede.
-* **E-mails (.eml, .msg):** Varre cabeçalhos em busca do primeiro servidor de trânsito para **rastreio de IP de origem**.
-* **Fluxos Ocultos (ADS NTFS):** Varredura automática profunda por *Alternate Data Streams*. Identifica a **"Mark of the Web"** e IDs de Zona de download. Em fluxos longos ou binários ocultos (>= 50 KB), o script gera automaticamente os comandos nativos do PowerShell (`Get-Content`) para que o analista possa realizar a extração bruta e isolada do payload.
-
----
 
 ### 🔬 Dump Estrutural de Metadados (Raw Dump)
 
@@ -78,6 +67,17 @@ Abaixo estão as rotinas exatas executadas pela ferramenta para a extração est
 * **📦 Outros Formatos (Archives, Torrents, RTF):** A ferramenta delega o *dump* integral para as funções de extração JSON do `ExifTool`.
 
 > **🛡️ Rede de Captura Universal (Fallback):** Caso a extensão do arquivo permita extração, mas o ExifTool não tenha sido acionado nas rotinas principais, o script possui uma rede de segurança no final do bloco. Ele invoca o **ExifTool** de forma complementar com parametrização estrita (`-j -G -a -ee -api largefilesupport=1`) para garantir o *dump* forçado de quaisquer propriedades identificáveis, independentemente do suporte nativo.
+
+---
+
+## 📂 Análise de Artefatos do Windows, Documentos e Compactados
+Para documentos (PDF e Office), extrai autoria, software criador e último usuário. Para o pacote Office atual (.docx, .xlsx, .pptx), o programa realiza a leitura direta da **estrutura XML interna** (docProps/core.xml).
+
+### Artefatos de Sistema:
+* **Executáveis (.exe, .dll, .sys):** Faz o parse do cabeçalho PE, extraindo a **data real de compilação (UTC)**, verifica assinatura digital (Authenticode) e varre tabelas de strings.
+* **Atalhos (.lnk):** Extrai o caminho base local, o Rótulo do Volume, o Serial do disco de origem e o **MAC Address** da placa de rede.
+* **E-mails (.eml, .msg):** Varre cabeçalhos em busca do primeiro servidor de trânsito para **rastreio de IP de origem**.
+* **Fluxos Ocultos (ADS NTFS):** Varredura automática profunda por *Alternate Data Streams*. Identifica a **"Mark of the Web"** e IDs de Zona de download. Em fluxos longos ou binários ocultos (>= 50 KB), o script gera automaticamente os comandos nativos do PowerShell (`Get-Content`) para que o analista possa realizar a extração bruta e isolada do payload.
 
 ---
 
