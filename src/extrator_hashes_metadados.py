@@ -1889,6 +1889,55 @@ class JanelaHashes(QWidget):
         self.texto_saida.setReadOnly(True)
         self.texto_saida.setStyleSheet(
             "background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
+
+        # ==========================================================
+        # INTERCEPTAÇÃO DE TEXTO PARA PROTEÇÃO DE MEMÓRIA (UI FREEZE)
+        # ==========================================================
+        self._relatorio_memoria = []
+        self._chars_na_tela = 0
+        self._limite_tela_atingido = False
+
+        # Guardamos as funções nativas do C++ do PySide6
+        self.texto_saida._original_append = self.texto_saida.append
+        self.texto_saida._original_clear = self.texto_saida.clear
+
+        def append_seguro(texto):
+            # 1. Salva sempre o dado real na lista invisível (super rápido)
+            self._relatorio_memoria.append(texto)
+
+            # 2. Joga para a interface gráfica só se não tiver estourado o limite (500.000 chars)
+            if not self._limite_tela_atingido:
+                self.texto_saida._original_append(texto)
+                self._chars_na_tela += len(texto)
+
+                if self._chars_na_tela > 500000:
+                    self._limite_tela_atingido = True
+                    aviso_corte = (
+                        "\n\n====================================================================\n"
+                        "⚠️ ATENÇÃO: RELATÓRIO MUITO EXTENSO PARA EXIBIÇÃO VISUAL ⚠️\n"
+                        "====================================================================\n"
+                        "Para evitar o congelamento da interface, a exibição em tela foi pausada.\n"
+                        "A extração dos dados CONTINUA normalmente em segundo plano.\n\n"
+                        "👉 COMO ACESSAR O LAUDO COMPLETO:\n"
+                        "   1. Aguarde o progresso finalizar (Mensagem de 'Concluído').\n"
+                        "   2. Clique em 'Salvar Relatório em TXT' ou 'Copiar Relatório'.\n"
+                        "===================================================================="
+                    )
+                    self.texto_saida._original_append(aviso_corte)
+
+        def clear_seguro():
+            # Limpa simultaneamente a tela e a memória
+            self._relatorio_memoria.clear()
+            self._chars_na_tela = 0
+            self._limite_tela_atingido = False
+            self.texto_saida._original_clear()
+
+        # Substitui os métodos da caixa de texto pelos métodos seguros
+        self.texto_saida.append = append_seguro
+        self.texto_saida.clear = clear_seguro
+        # ==========================================================
+
+        # Re-escreve a mensagem inicial usando o append seguro
         self.texto_saida.append(MENSAGEM_INICIAL + "\n")
 
         # Adiciona a saída também no splitter, para ficar embaixo da validação
@@ -4564,17 +4613,19 @@ class JanelaHashes(QWidget):
             QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos))
 
     def copiar_para_area_transferencia(self):
-        conteudo = self.texto_saida.toPlainText()
+        # Em vez de ler da interface (toPlainText), puxamos do array em memória
+        conteudo = "\n".join(self._relatorio_memoria)
+
         if conteudo.strip() and conteudo.strip() != MENSAGEM_INICIAL:
             QApplication.clipboard().setText(conteudo)
             self.btn_copiar.setText("Copiado!")
 
             # Agenda a restauração do texto do botão para daqui a 1000ms (1 segundo)
-            # usando o relógio interno do PySide6, SEM congelar o programa.
-            QTimer.singleShot(1000, lambda: self.btn_copiar.setText("Copiar Relatório"))
+            QTimer.singleShot(1000, lambda: self.btn_copiar.setText("Copiar Relatório (Ctrl+C)"))
 
     def salvar_relatorio(self):
-        conteudo = self.texto_saida.toPlainText()
+        # Em vez de ler da interface (toPlainText), puxamos do array em memória
+        conteudo = "\n".join(self._relatorio_memoria)
 
         if not conteudo.strip() or conteudo.strip() == MENSAGEM_INICIAL:
             QMessageBox.warning(self, "Aviso", "Não há relatório para ser salvo.")
@@ -4903,12 +4954,18 @@ class JanelaHashes(QWidget):
 
                     # 3. O processamento terminou e a mensagem de aviso é apagada
                     if extrair_raw:
-                        cursor = self.texto_saida.textCursor()
-                        cursor.movePosition(QTextCursor.End)
-                        cursor.select(QTextCursor.BlockUnderCursor)
-                        cursor.removeSelectedText()
-                        cursor.deletePreviousChar()
-                        self.texto_saida.setTextCursor(cursor)
+                        # Se a interface gráfica não estourou o limite, apagamos a linha visualmente
+                        if not self._limite_tela_atingido:
+                            cursor = self.texto_saida.textCursor()
+                            cursor.movePosition(QTextCursor.End)
+                            cursor.select(QTextCursor.BlockUnderCursor)
+                            cursor.removeSelectedText()
+                            cursor.deletePreviousChar()
+                            self.texto_saida.setTextCursor(cursor)
+
+                        # Remove a mensagem temporária também do relatório real em memória
+                        if self._relatorio_memoria and "Renderizando Raw Dump" in self._relatorio_memoria[-1]:
+                            self._relatorio_memoria.pop()
 
                     # 4. Inserção do resultado final num bloco único (evitando que o QTextEdit trave)
                     if metadados_midia:
