@@ -60,6 +60,27 @@ Para documentos (PDF e Office), extrai autoria, software criador e último usuá
 
 ---
 
+### 🔬 Dump Estrutural de Metadados (Raw Dump)
+
+A ativação da opção **"Incluir TODOS os metadados (Raw Dump)"** instrui a ferramenta a contornar as camadas de sanitização da interface e realizar o *dump* literal e bruto dos dicionários e atributos retornados pelas bibliotecas subjacentes. Essa funcionalidade permite o acesso a metadados proprietários não mapeados, dados corrompidos ou telemetrias exóticas.
+
+Abaixo estão as rotinas exatas executadas pela ferramenta para a extração estrutural:
+
+* **📷 Imagens (JPEG, PNG, RAW, etc.):** A ferramenta executa o `ExifTool` via linha de comando para obter o JSON completo dos blocos EXIF/XMP. O módulo `Pillow (PIL)` itera sobre `img.info.items()` com uma regra de proteção: valores binários complexos (como Perfis ICC nativos) são mascarados com segurança para não corromper ou congelar a interface gráfica.
+* **🎬 Vídeos (MP4, MKV, AVI):** Utiliza o `pymediainfo` para extrair os dicionários de todas as trilhas multiplexadas (General, Video, Audio) iterando sobre `track.to_data()`. O `OpenCV (cv2)` realiza a leitura bruta de propriedades diretas (CAP_PROP). O `ExifTool` é acionado paralelamente para despejar estruturas embutidas.
+* **🎵 Áudios (MP3, WAV, FLAC):** O módulo `tinytag` é acionado para obter a estrutura completa do áudio convertendo os blocos lidos nativamente em um dicionário via `as_dict()`. Um dump complementar via `ExifTool` também é acionado.
+* **📄 Documentos PDF:** O módulo `pypdf` extrai os objetos primários armazenados no dicionário de metadados iterando sobre `reader.metadata`.
+* **📊 Office OOXML (.docx, .xlsx, .pptx):** As bibliotecas nativas `zipfile` e `xml.etree.ElementTree` executam a descompressão física da estrutura *Open XML* em memória. A ferramenta varre manualmente o *stream* `docProps/core.xml`, realizando o *dump* literal de todas as *tags* e textos contidos na árvore XML.
+* **💾 Office OLE/CFBF (.doc, .xls, .ppt):** O módulo `olefile` extrai o objeto de propriedades, e o script varre iterativamente os atributos internos (`__dict__`), tratando e decodificando cadeias de bytes diretamente.
+* **🔗 Atalhos do Windows (.lnk):** O módulo `LnkParse3` decodifica a estrutura binária do atalho, e a ferramenta anexa o *dump* integral via método `get_json()`.
+* **⚙️ Binários PE (.exe, .dll, .sys):** O módulo `pefile` processa a estrutura executável e a ferramenta incorpora a saída integral e bruta da função `pe.dump_info()`, contemplando mapeamento de seções e cabeçalhos de compilação.
+* **📧 Contêineres de E-mail:** Para arquivos `.eml`, a biblioteca nativa itera sobre o retorno `msg.items()`. Para contêineres `.msg`, o módulo `extract_msg` realiza o *dump* integral varrendo `msg.header.items()`.
+* **📦 Outros Formatos (Archives, Torrents, RTF):** A ferramenta delega o *dump* integral para as funções de extração JSON do `ExifTool`.
+
+> **🛡️ Rede de Captura Universal (Fallback):** Caso a extensão do arquivo permita extração, mas o ExifTool não tenha sido acionado nas rotinas principais, o script possui uma rede de segurança no final do bloco. Ele invoca o **ExifTool** de forma complementar com parametrização estrita (`-j -G -a -ee -api largefilesupport=1`) para garantir o *dump* forçado de quaisquer propriedades identificáveis, independentemente do suporte nativo.
+
+---
+
 ## ⚙️ Tratamento de Erros Transparente e Diagnóstico de Hardware
 Se um arquivo estiver corrompido ou lavado, o programa avisa o motivo no relatório. Na extração RAW, conta com um tradutor de erros de baixo nível para transformar códigos do Windows em **diagnósticos forenses claros** (falhas de I/O, CRC ou violação de compartilhamento).
 
