@@ -3994,7 +3994,7 @@ class JanelaHashes(QWidget):
                         dados = lnk.get_json()
                         if extrair_raw and dados:
                             raw_dump.append("\n=== LNKPARSE3 (RAW JSON) ===")
-                            raw_dump.extend(json.dumps(dados, indent=2, ensure_ascii=False).splitlines())
+                            raw_dump.extend(json.dumps(dados, indent=2, ensure_ascii=False, default=str).splitlines())
 
                         info_link = dados.get('link_info', {})
                         if info_link:
