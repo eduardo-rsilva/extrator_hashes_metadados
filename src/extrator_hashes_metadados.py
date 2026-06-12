@@ -4389,10 +4389,42 @@ class JanelaHashes(QWidget):
 
                         if (atributos & 0x400000) or (atributos & 0x1000) or (atributos & 0x100000) or (
                                 atributos & 0x40000):
-                            return {
-                                'sucesso': False,
-                                'erro': 'ARQUIVO EM NUVEM DETECTADO: Arquivo "Apenas Online" (ex: OneDrive). Leitura bloqueada para evitar download e alteração da evidência local.'
-                            }
+                            # Checa se já perguntamos ao usuário nesta sessão
+                            if getattr(self, 'ignorar_nuvem_nativa', None) is False:
+                                return {
+                                    'sucesso': False,
+                                    'erro': 'ARQUIVO EM NUVEM DETECTADO: Atributos de "Apenas Online". Proteção mantida pelo perito.'
+                                }
+                            elif getattr(self, 'ignorar_nuvem_nativa', None) is None:
+                                # Pausa a interface para dar o alerta forense
+                                msg_box = QMessageBox(self)
+                                msg_box.setWindowTitle("Aviso Forense - Atributos de Nuvem")
+                                msg_box.setText(
+                                    "<b>Foi detectado um arquivo com atributos de 'Nuvem / Apenas Online'.</b>")
+                                msg_box.setInformativeText(
+                                    "O Windows informou que este arquivo pertence a um serviço de nuvem (OneDrive, Dropbox, etc.).\n\n"
+                                    "Se ele foi copiado de uma nuvem para o disco local, o Windows pode ter mantido essa marcação "
+                                    "erroneamente nos atributos (herança NTFS). Mas se ele não estiver offline, a leitura forçará o download.\n\n"
+                                    "Você garante que o arquivo é local e deseja ignorar essa proteção para forçar a extração deste e de TODOS os demais arquivos na mesma situação neste lote?"
+                                )
+                                msg_box.setIcon(QMessageBox.Icon.Warning)
+
+                                btn_sim = msg_box.addButton("Sim, forçar para todos do lote",
+                                                            QMessageBox.ButtonRole.AcceptRole)
+                                btn_nao = msg_box.addButton("Não, manter bloqueio para todos",
+                                                            QMessageBox.ButtonRole.RejectRole)
+
+                                msg_box.exec()
+
+                                if msg_box.clickedButton() == btn_sim:
+                                    self.ignorar_nuvem_nativa = True
+                                else:
+                                    self.ignorar_nuvem_nativa = False
+                                    return {
+                                        'sucesso': False,
+                                        'erro': 'ARQUIVO EM NUVEM DETECTADO: Atributos de "Apenas Online". Proteção mantida pelo perito.'
+                                    }
+                            # Se self.ignorar_nuvem_nativa for True, ele passa reto aqui e extrai o arquivo
                 except OSError as e:
                     return {'sucesso': False, 'erro': f'ACESSO NEGADO PELO S.O.: {e}'}
 
@@ -4774,6 +4806,7 @@ class JanelaHashes(QWidget):
 
         # Reseta a escolha do usuário sobre o Google Drive para cada nova extração
         self.ignorar_google_drive = None
+        self.ignorar_nuvem_nativa = None
 
         # Verifica se o usuário quer extrair metadados extras
         extrair_meta = self.chk_metadados.isChecked()
