@@ -4375,7 +4375,7 @@ class JanelaHashes(QWidget):
 
         return metadados_extras
 
-    def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados):
+    def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados, extrair_metadados=False):
         try:
             # --- PROTEÇÃO FORENSE: BLOQUEIO DE ARQUIVOS EM NUVEM E ACESSO ---
             # Usa o lstat seguro no lugar do stat antigo
@@ -4492,7 +4492,8 @@ class JanelaHashes(QWidget):
             if "SHA-384" in algos_selecionados: objetos_hash["SHA-384"] = hashlib.sha384()
             if "SHA-512" in algos_selecionados: objetos_hash["SHA-512"] = hashlib.sha512()
 
-            contagem_bytes = Counter()  # <--- Inicializa o contador para entropia de Shannon
+            if extrair_metadados:
+                contagem_bytes = Counter()  # Inicializa o contador para entropia de Shannon apenas se solicitado
 
             self.barra_arquivo.setMaximum(100)
             self.barra_arquivo.setValue(0)
@@ -4526,7 +4527,10 @@ class JanelaHashes(QWidget):
                                 else:
                                     objetos_hash[algo].update(chunk)
 
-                            contagem_bytes.update(chunk)  # <--- Conta a frequência dos bytes para entropia de Shannon
+                            # Conta a frequência dos bytes para entropia de Shannon apenas se os metadados foram solicitados
+                            if extrair_metadados:
+                                contagem_bytes.update(chunk)
+
                             bytes_processados += len(chunk)
 
                             self.bytes_processados_total += len(chunk)
@@ -4552,29 +4556,34 @@ class JanelaHashes(QWidget):
             self.barra_arquivo.setValue(100)
 
             # --- CÁLCULO DA ENTROPIA DE SHANNON ---
-            entropia = 0.0
-            if tamanho_bytes > 0:
-                for contagem in contagem_bytes.values():
-                    probabilidade = contagem / tamanho_bytes
-                    entropia -= probabilidade * math.log2(probabilidade)
+            resultado_entropia = None
 
-            # Identifica a extensão para evitar falsos positivos de compressão natural
-            _, ext_arquivo = os.path.splitext(caminho_arquivo)
-            ext_arquivo = ext_arquivo.lower().replace('.', '')
-            formatos_comprimidos = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'gz', 'mp4', 'mkv', 'avi',
-                                    'mp3', 'm4a', 'pdf']
+            if extrair_metadados:
+                entropia = 0.0
+                if tamanho_bytes > 0:
+                    for contagem in contagem_bytes.values():
+                        probabilidade = contagem / tamanho_bytes
+                        entropia -= probabilidade * math.log2(probabilidade)
 
-            status_entropia = ""
-            if entropia > 7.9:
-                if ext_arquivo in formatos_comprimidos:
-                    status_entropia = " (Normal para o formato comprimido deste arquivo)"
+                # Identifica a extensão para evitar falsos positivos de compressão natural
+                _, ext_arquivo = os.path.splitext(caminho_arquivo)
+                ext_arquivo = ext_arquivo.lower().replace('.', '')
+                formatos_comprimidos = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'gz', 'mp4', 'mkv', 'avi',
+                                        'mp3', 'm4a', 'pdf']
+
+                status_entropia = ""
+                if entropia > 7.9:
+                    if ext_arquivo in formatos_comprimidos:
+                        status_entropia = " (Normal para o formato comprimido deste arquivo)"
+                    else:
+                        status_entropia = " (⚠️ ALERTA: Alta entropia - Possível Criptografia / Arquivo Packed)"
+                elif entropia < 1.0:
+                    status_entropia = " (Baixa entropia - Arquivo altamente repetitivo ou vazio)"
                 else:
-                    status_entropia = " (⚠️ ALERTA: Alta entropia - Possível Criptografia / Arquivo Packed)"
-            elif entropia < 1.0:
-                status_entropia = " (Baixa entropia - Arquivo altamente repetitivo ou vazio)"
-            else:
-                # --- Mensagem para a faixa normal (entre 1.0 e 7.9) ---
-                status_entropia = " (Entropia normal - Sem indícios de ofuscação ou criptografia)"
+                    # --- Mensagem para a faixa normal (entre 1.0 e 7.9) ---
+                    status_entropia = " (Entropia normal - Sem indícios de ofuscação ou criptografia)"
+
+                resultado_entropia = f"{entropia:.4f}{status_entropia}"
             # --------------------------------------------
 
             resultados_hash = {}
@@ -4608,7 +4617,7 @@ class JanelaHashes(QWidget):
                 'bytes': tamanho_bytes,
                 'mb': tamanho_mb,
                 'data': data_modificacao,
-                'entropia': f"{entropia:.4f}{status_entropia}",
+                'entropia': resultado_entropia,
                 'arquivo_vazio': arquivo_vazio_detectado
             }
         except Exception as e:
@@ -4922,7 +4931,9 @@ class JanelaHashes(QWidget):
 
             self.texto_saida.append(f"Arquivo: {arquivo}")
 
-            resultado = self.obter_metadados_e_hashes(arquivo, algos_selecionados)
+            # Passa a flag extrair_metadados avisando se a entropia deve ser calculada
+            resultado = self.obter_metadados_e_hashes(arquivo, algos_selecionados,
+                                                      extrair_metadados=(extrair_meta or extrair_raw))
 
             if resultado['sucesso']:
                 arquivos_processados_qtd += 1
@@ -4959,7 +4970,8 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append("")
 
                 # 3. BLOCO DE ANÁLISES (ENTROPIA E METADADOS) NA PARTE INFERIOR
-                self.texto_saida.append(f"Entropia (Shannon): {resultado['entropia']}")
+                if resultado.get('entropia'):
+                    self.texto_saida.append(f"Entropia (Shannon): {resultado['entropia']}")
 
                 if resultado.get('arquivo_vazio', False):
                     self.texto_saida.append(
