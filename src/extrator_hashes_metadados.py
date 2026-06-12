@@ -4669,10 +4669,8 @@ class JanelaHashes(QWidget):
 
         agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        if self.chk_metadados.isChecked():
-            nome_padrao = f"hashes_e_metadados_{agora}.txt"
-        else:
-            nome_padrao = f"hashes_{agora}.txt"
+        # Nome padronizado para o relatório exportado
+        nome_padrao = f"Relatorio_Extracao_{agora}.txt"
 
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
