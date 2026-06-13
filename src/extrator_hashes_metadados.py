@@ -2366,6 +2366,7 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"Rótulo: {info['rotulo']}")
             self.texto_saida.append(f"Serial: {info['serial']}")
             self.texto_saida.append(f"FS: {info['sistema_arquivos']}")
+            self.texto_saida.append(f"Capacidade Total: {info.get('capacidade', 'Não identificada')}")
             self.texto_saida.append("")
 
         # --- Diálogo customizado de UAC (Botões Centralizados) ---
