@@ -4827,6 +4827,7 @@ class JanelaHashes(QWidget):
         # Reseta as flags de detecção de fps em vídeos para o novo relatório
         self.video_teve_fps_geral = False
         self.video_teve_fps_min_max = False
+        self.coordenadas_gps_encontradas = []  # Lista para armazenar GPS desta extração
 
         # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
         texto_atual = self.texto_saida.toPlainText().strip()
@@ -5010,6 +5011,13 @@ class JanelaHashes(QWidget):
                     if metadados_midia:
                         texto_gigante = "\n".join(metadados_midia)
                         self.texto_saida.append(texto_gigante)
+
+                        # Captura as coordenadas usando Expressão Regular para o alerta final
+                        for linha in metadados_midia:
+                            match = re.search(r"📍 GPS \(Latitude, Longitude\):\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)", linha)
+                            if match:
+                                lat, lon = match.groups()
+                                self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
                 # --------------------------------------------------------
 
                 # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA ---
@@ -5165,6 +5173,76 @@ class JanelaHashes(QWidget):
         scrollbar.setValue(scrollbar.maximum())
 
         self.destravar_interface()
+
+        # Chama a janela de alerta se houver coordenadas capturadas
+        if hasattr(self, 'coordenadas_gps_encontradas') and self.coordenadas_gps_encontradas:
+            self.mostrar_alerta_gps()
+
+    def mostrar_alerta_gps(self):
+        """Abre uma janela exibindo os links clicáveis para o Google Maps."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("📍 Coordenadas GPS Encontradas!")
+        dialog.resize(600, 450)
+        layout = QVBoxLayout(dialog)
+
+        lbl_info = QLabel(
+            f"Foram encontradas coordenadas GPS em <b>{len(self.coordenadas_gps_encontradas)}</b> arquivo(s) "
+            f"nesta extração.<br>Abaixo estão os links individuais gerados (os links também estão no texto da extração):"
+        )
+        layout.addWidget(lbl_info)
+
+        # Caixa de texto com links individuais HTML
+        from PySide6.QtWidgets import QTextBrowser
+
+        texto_links = QTextBrowser()
+        texto_links.setReadOnly(True)
+        texto_links.setOpenExternalLinks(True)
+
+        html_links = "<ul style='line-height: 1.5;'>"
+        for nome, lat, lon in self.coordenadas_gps_encontradas:
+            link = f"https://www.google.com/maps?q={lat},{lon}"
+            html_links += f"<li><b>{nome}</b>: <a href='{link}' style='color: #0056b3; text-decoration: none;'>Abrir Localização Original</a></li>"
+        html_links += "</ul>"
+
+        texto_links.setHtml(html_links)
+        layout.addWidget(texto_links)
+
+        # Link com "Todos os pontos"
+        if len(self.coordenadas_gps_encontradas) > 1:
+            layout.addSpacing(10)
+
+            # Limita a 10 pontos porque a URL de rotas do Google Maps começa a falhar com excessos
+            pontos_limite = self.coordenadas_gps_encontradas[:10]
+            pontos_rota = "/".join([f"{lat},{lon}" for _, lat, lon in pontos_limite])
+            link_todos = f"https://www.google.com/maps/dir/{pontos_rota}"
+
+            texto_todos = QLabel()
+            texto_todos.setOpenExternalLinks(True)
+            texto_todos.setWordWrap(True)
+
+            aviso_limite = " (Limitado aos 10 primeiros pontos devido a restrições do Google Maps)" if len(
+                self.coordenadas_gps_encontradas) > 10 else ""
+
+            texto_todos.setText(
+                f"<div style='background-color: #f4f4f4; padding: 10px; border-radius: 5px; border: 1px solid #ddd;'>"
+                f"<b>🗺️ Visualizar todos no mapa:</b><br>"
+                f"Como o Google Maps não permite alfinetes múltiplos por URL, você pode usar o modo 'Rota' "
+                f"para ver os pontos interligados{aviso_limite}:<br><br>"
+                f"👉 <a href='{link_todos}' style='color: #d9534f; font-weight: bold; text-decoration: none;'>Abrir mapa com todos os pontos</a>"
+                f"</div>"
+            )
+            layout.addWidget(texto_todos)
+
+        # Botão Fechar
+        layout.addSpacing(10)
+        btn_fechar = QPushButton("Fechar Aviso")
+        btn_fechar.setMinimumHeight(35)
+        btn_fechar.clicked.connect(dialog.accept)
+        layout.addWidget(btn_fechar)
+
+        dialog.exec()
+
+
 
 
 if __name__ == "__main__":
