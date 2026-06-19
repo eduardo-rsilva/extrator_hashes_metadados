@@ -4828,6 +4828,7 @@ class JanelaHashes(QWidget):
         self.video_teve_fps_geral = False
         self.video_teve_fps_min_max = False
         self.coordenadas_gps_encontradas = []  # Lista para armazenar GPS desta extração
+        self._hashes_com_gps = set()
 
         # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
         texto_atual = self.texto_saida.toPlainText().strip()
@@ -5017,7 +5018,19 @@ class JanelaHashes(QWidget):
                             match = re.search(r"📍 GPS \(Latitude, Longitude\):\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)", linha)
                             if match:
                                 lat, lon = match.groups()
-                                self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
+
+                                # Verifica se há algum algoritmo forte (além do CRC32) selecionado
+                                tem_hash_forte = any(algo != "CRC32" for algo in algos_selecionados)
+
+                                # Se não houver hash forte, adiciona a coordenada incondicionalmente
+                                if not tem_hash_forte:
+                                    self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
+                                else:
+                                    # Se houver hash forte, usa a combinação para não repetir a coordenada em arquivos idênticos
+                                    chave_coordenada = (chave_agrupamento, lat, lon)
+                                    if chave_coordenada not in self._hashes_com_gps:
+                                        self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
+                                        self._hashes_com_gps.add(chave_coordenada)
                 # --------------------------------------------------------
 
                 # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA ---
@@ -5185,9 +5198,15 @@ class JanelaHashes(QWidget):
         dialog.resize(600, 450)
         layout = QVBoxLayout(dialog)
 
+        # Verifica se há algum algoritmo de hash superior ao CRC32 selecionado
+        algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
+        tem_hash_forte = any(algo != "CRC32" for algo in algos_selecionados)
+
+        texto_ignorados = " (arquivos idênticos são ignorados)" if tem_hash_forte else ""
+
         lbl_info = QLabel(
             f"Foram encontradas coordenadas GPS em <b>{len(self.coordenadas_gps_encontradas)}</b> arquivo(s) "
-            f"nesta extração.<br>Abaixo estão os links individuais gerados (os links também estão no texto da extração):"
+            f"nesta extração{texto_ignorados}.<br>Abaixo estão os links individuais gerados (os links também estão no texto da extração):"
         )
         layout.addWidget(lbl_info)
 
