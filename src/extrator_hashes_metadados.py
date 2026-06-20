@@ -5024,12 +5024,12 @@ class JanelaHashes(QWidget):
 
                                 # Se não houver hash forte, adiciona a coordenada incondicionalmente
                                 if not tem_hash_forte:
-                                    self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
+                                    self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
                                 else:
                                     # Se houver hash forte, usa a combinação para não repetir a coordenada em arquivos idênticos
                                     chave_coordenada = (chave_agrupamento, lat, lon)
                                     if chave_coordenada not in self._hashes_com_gps:
-                                        self.coordenadas_gps_encontradas.append((nome_arquivo, lat, lon))
+                                        self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
                                         self._hashes_com_gps.add(chave_coordenada)
                 # --------------------------------------------------------
 
@@ -5219,7 +5219,9 @@ class JanelaHashes(QWidget):
 
         html_links = "<ul style='line-height: 1.5;'>"
         for nome, lat, lon in self.coordenadas_gps_encontradas:
-            link = f"https://www.google.com/maps?q={lat},{lon}"
+            lat_float = float(lat)
+            lon_float = float(lon)
+            link = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
             html_links += f"<li><b>{nome}</b>: <a href='{link}' style='color: #0056b3; text-decoration: none;'>Abrir Localização Original</a></li>"
         html_links += "</ul>"
 
@@ -5233,6 +5235,7 @@ class JanelaHashes(QWidget):
             # Limita a 10 pontos porque a URL de rotas do Google Maps começa a falhar com excessos
             pontos_limite = self.coordenadas_gps_encontradas[:10]
             pontos_rota = "/".join([f"{lat},{lon}" for _, lat, lon in pontos_limite])
+            # URL OFICIAL DO GOOGLE MAPS PARA ROTAS (MÚLTIPLOS PONTOS)
             link_todos = f"https://www.google.com/maps/dir/{pontos_rota}"
 
             texto_todos = QLabel()
@@ -5252,12 +5255,37 @@ class JanelaHashes(QWidget):
             )
             layout.addWidget(texto_todos)
 
-        # Botão Fechar
+        # Botões do Rodapé
         layout.addSpacing(10)
+        layout_botoes = QHBoxLayout()
+
+        btn_copiar = QPushButton("Copiar Lista (Ctrl+C)")
+        btn_copiar.setMinimumHeight(35)
+
+        # Função interna para formatar a lista simplificada e mandar para a área de transferência
+        def copiar_links():
+            texto_copia = "=== COORDENADAS GPS EXTRAÍDAS ===\n\n"
+            for caminho_completo, lat, lon in self.coordenadas_gps_encontradas:
+                lat_float = float(lat)
+                lon_float = float(lon)
+                link = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
+                texto_copia += f"Arquivo: {caminho_completo}\nLink: {link}\n\n"
+
+            QApplication.clipboard().setText(texto_copia)
+            btn_copiar.setText("Copiado!")
+
+            # Restaura o texto original do botão após 1.5 segundos
+            QTimer.singleShot(1500, lambda: btn_copiar.setText("Copiar Lista (Ctrl+C)"))
+
+        btn_copiar.clicked.connect(copiar_links)
+
         btn_fechar = QPushButton("Fechar Aviso")
         btn_fechar.setMinimumHeight(35)
         btn_fechar.clicked.connect(dialog.accept)
-        layout.addWidget(btn_fechar)
+
+        layout_botoes.addWidget(btn_copiar)
+        layout_botoes.addWidget(btn_fechar)
+        layout.addLayout(layout_botoes)
 
         dialog.exec()
 
