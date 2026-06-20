@@ -3292,21 +3292,39 @@ class JanelaHashes(QWidget):
         # --- ANÁLISE HEURÍSTICA DE NOME DE ARQUIVO (LAVAGEM DE METADADOS) ---
         nome_base = os.path.basename(caminho_arquivo).lower()
         plataforma_detectada = None
+        padrao_encontrado = None
 
-        if "whatsapp" in nome_base or nome_base.startswith("aud-") or nome_base.startswith("ptt-"):
+        if "whatsapp" in nome_base:
             plataforma_detectada = "WhatsApp"
+            padrao_encontrado = "whatsapp"
+        elif nome_base.startswith("aud-") and extensao in FORMATOS_AUDIO:
+            plataforma_detectada = "WhatsApp"
+            padrao_encontrado = "aud-"
+        elif nome_base.startswith("ptt-") and extensao in FORMATOS_AUDIO:
+            plataforma_detectada = "WhatsApp"
+            padrao_encontrado = "ptt-"
         elif "telegram" in nome_base:
             plataforma_detectada = "Telegram"
+            padrao_encontrado = "telegram"
         elif "instagram" in nome_base:
             plataforma_detectada = "Instagram"
-        elif "fb_img" in nome_base or "received_" in nome_base:
+            padrao_encontrado = "instagram"
+        elif "fb_img" in nome_base:
             plataforma_detectada = "Facebook/Messenger"
-        elif "twimg" in nome_base or "twitter" in nome_base:
+            padrao_encontrado = "fb_img"
+        elif "received_" in nome_base:
+            plataforma_detectada = "Facebook/Messenger"
+            padrao_encontrado = "received_"
+        elif "twimg" in nome_base:
             plataforma_detectada = "Twitter/X"
+            padrao_encontrado = "twimg"
+        elif "twitter" in nome_base:
+            plataforma_detectada = "Twitter/X"
+            padrao_encontrado = "twitter"
 
         if plataforma_detectada:
             metadados_extras.append(
-                f"⚠️ ALERTA: Padrão de nomenclatura do {plataforma_detectada} detectado no título.")
+                f"⚠️ ALERTA: Padrão de nomenclatura do {plataforma_detectada} detectado no título: '{padrao_encontrado}'")
             metadados_extras.append(
                 f"   ↳ Nota: A plataforma {plataforma_detectada} realiza 'Metadata Stripping' (Lavagem de Metadados).")
             metadados_extras.append(
