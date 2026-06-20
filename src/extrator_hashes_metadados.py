@@ -4948,6 +4948,7 @@ class JanelaHashes(QWidget):
             nome_arquivo = os.path.basename(arquivo)
             self.lbl_progresso_arquivo.setText(f"Progresso do Arquivo Atual: {nome_arquivo}")
 
+            self.texto_saida.append(f"===== ARQUIVO #{indice + 1}/{total_arquivos} =====")
             self.texto_saida.append(f"Arquivo: {arquivo}")
 
             # Passa a flag extrair_metadados avisando se a entropia deve ser calculada
