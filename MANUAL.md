@@ -1,4 +1,4 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
+# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.6.0
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
@@ -145,6 +145,15 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
 
 ## 5. Finalização e Relatórios
 Ao término do processamento, revise o resumo final para consolidar a perícia:
+
+* **Dados de Geolocalização:** Caso sejam encontrados dados de geolocalização (GPS) em um ou mais arquivos, eles serão agrupados na janela **"Coordenadas GPS Encontradas!"**. Os hiperlinks "Abrir Localização Original" levam diretamente àquela localização no site Google Maps no browser padrão do usuário.
+
+    <figure>
+      <img src="imgs/janela_GPS.PNG" alt="Essa janela agrupa os hiperlinks das coordenadas GPS encontradas." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Essa janela agrupa os hiperlinks das coordenadas GPS encontradas.</i></figcaption>
+    </figure>
+
+<br>
 
 * **Arquivos Duplicados:** O programa agrupa automaticamente arquivos idênticos baseando-se no cruzamento de hashes criptográficos.
 
