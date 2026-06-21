@@ -1,4 +1,7 @@
 # Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.6.0
+
+🚀 **[CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.4.6.0)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.4.6.0/Extrator_ERS-IC-SP-NIC_v4.6.0.zip)**
+
 ![Downloads Totais](https://img.shields.io/github/downloads/eduardo-rsilva/extrator_hashes_metadados/total?style=for-the-badge&color=blue&label=TOTAL%20DE%20DOWNLOADS)
 
 > 💡 **Dúvidas de operação?** Acesse o [**Manual do Usuário (MANUAL.md)**](./MANUAL.md) para instruções com capturas de tela.
