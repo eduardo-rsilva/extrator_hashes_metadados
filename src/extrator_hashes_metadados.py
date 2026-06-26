@@ -297,10 +297,12 @@ FORMATOS_COMPACTADOS = ['zip', 'rar', '7z', 'tar', 'gz']
 FORMATOS_TORRENT = ['torrent']
 FORMATOS_RTF = ['rtf']
 
+FORMATOS_KML = ['kml']
+
 # Soma de todas as subcategorias para exibir na Interface do Usuário
 FORMATOS_GERAIS = (FORMATOS_PDF + FORMATOS_OFFICE_XML + FORMATOS_OFFICE_LEGADO +
                    FORMATOS_ATALHOS + FORMATOS_EXECUTAVEIS + FORMATOS_EMAIL_EML +
-                   FORMATOS_EMAIL_MSG + FORMATOS_COMPACTADOS + FORMATOS_TORRENT + FORMATOS_RTF)
+                   FORMATOS_EMAIL_MSG + FORMATOS_COMPACTADOS + FORMATOS_TORRENT + FORMATOS_RTF + FORMATOS_KML)
 # ---------------------------------------------------
 
 ###################### BLOCO PARA GERAÇÃO DE HASH BIT A BIT DE UNIDADES (INÍCIO) ##########################
@@ -4298,7 +4300,70 @@ class JanelaHashes(QWidget):
                 metadados_extras.append(
                     "ℹ️ O arquivo foi analisado com sucesso, mas não contém metadados de autoria ou duração legíveis.")
 
-        # 10. COMPACTADOS, TORRENTS E RTF (Lidos via ExifTool)
+        # 10. ARQUIVOS GEOGRÁFICOS (KML)
+        elif extensao in FORMATOS_KML:
+            try:
+                tree = ET.parse(caminho_arquivo)
+                root = tree.getroot()
+
+                pontos_encontrados = 0
+                limite_visualizacao = 15
+                pontos_vistos = set()  # <-- NOVO: Controle para ignorar pontos repetidos
+
+                # Itera ignorando namespaces dinâmicos (que variam muito em KMLs)
+                for elem in root.iter():
+                    tag_name = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+
+                    if tag_name == 'coordinates' and elem.text:
+                        # Em KML, múltiplas coordenadas num polígono são separadas por espaço
+                        coords = elem.text.strip().split()
+
+                        for coord in coords:
+                            partes = coord.split(',')
+                            if len(partes) >= 2:
+                                try:
+                                    # O padrão KML inverte a ordem: Longitude primeiro, Latitude depois
+                                    lon = float(partes[0])
+                                    lat = float(partes[1])
+
+                                    # Cria uma string padronizada do ponto para checar duplicatas
+                                    str_ponto = f"{lat:.6f},{lon:.6f}"
+
+                                    # Só adiciona ao relatório se o ponto for inédito neste arquivo
+                                    if str_ponto not in pontos_vistos:
+                                        pontos_vistos.add(str_ponto)
+                                        pontos_encontrados += 1
+
+                                        if pontos_encontrados <= limite_visualizacao:
+                                            # Formata no padrão de extração do seu programa (para ser capturado pelos regex depois)
+                                            metadados_extras.append(
+                                                f"📍 GPS (Latitude, Longitude): {lat:.6f}, {lon:.6f}")
+                                            link_maps = f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}"
+                                            metadados_extras.append(f"   ↳ Visualizar no Mapa: {link_maps}")
+                                except ValueError:
+                                    pass
+
+                if pontos_encontrados > limite_visualizacao:
+                    metadados_extras.append(
+                        f"\n⚠️ ALERTA: Mais {pontos_encontrados - limite_visualizacao} coordenadas foram suprimidas da exibição visual para não congelar o relatório.")
+                    metadados_extras.append(
+                        f"   ↳ Total exato de vértices/pontos mapeados neste arquivo: {pontos_encontrados}")
+
+                elif pontos_encontrados == 0:
+                    metadados_extras.append(
+                        "ℹ️ Nenhuma coordenada geográfica (Point/coordinates) encontrada na estrutura deste KML.")
+
+                if extrair_raw:
+                    raw_dump.append("\n=== KML (RAW) ===")
+                    raw_dump.append(f"Total de coordenadas lidas: {pontos_encontrados}")
+
+            except ET.ParseError:
+                metadados_extras.append(
+                    "⚠️ Erro ao ler KML: A estrutura XML do arquivo está malformada ou corrompida.")
+            except Exception as e:
+                metadados_extras.append(f"⚠️ Erro ao extrair dados do arquivo KML: {e}")
+
+        # 11. COMPACTADOS, TORRENTS E RTF (Lidos via ExifTool)
         elif extensao in (FORMATOS_COMPACTADOS + FORMATOS_TORRENT + FORMATOS_RTF):
             caminho_exiftool = obter_caminho_exiftool()
             if caminho_exiftool:
