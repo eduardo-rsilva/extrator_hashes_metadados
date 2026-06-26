@@ -5413,7 +5413,7 @@ class JanelaHashes(QWidget):
             msg.exec()
 
         # --- BOTÃO DE INSTRUÇÕES
-        btn_instrucoes = QPushButton("❓ Como visualizar o KML")
+        btn_instrucoes = QPushButton("❓ Como visualizar o KML?")
         btn_instrucoes.setMinimumHeight(35)
         btn_instrucoes.setStyleSheet("font-weight: bold;")
         btn_instrucoes.clicked.connect(mostrar_instrucoes)
@@ -5454,36 +5454,28 @@ class JanelaHashes(QWidget):
         nome_doc = f"Pontos - {dados_kml['caso']} ({dados_kml['laudo']})"
         desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Usuário:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
 
-        # Cabeçalho padrão obrigatório do KML com as tags dinâmicas
+        # Cabeçalho padrão obrigatório do KML (Minificado)
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
-            '  <Document>',
-            f'    <name>{nome_doc}</name>',
-            f'    <description><![CDATA[{desc_doc}]]></description>'
+            f'<Document><name>{nome_doc}</name><description><![CDATA[{desc_doc}]]></description>'
         ]
 
-        # Cria um alfinete (Placemark) para cada arquivo
+        # Cria um alfinete (Placemark) para cada arquivo, aglutinando as tags
         for caminho_completo, lat, lon in self.coordenadas_gps_encontradas:
             nome_arquivo = os.path.basename(caminho_completo)
             lat_float = float(lat)
             lon_float = float(lon)
 
-            kml_content.append('    <Placemark>')
-            kml_content.append(f'      <name>{nome_arquivo}</name>')
-            kml_content.append(f'      <description><![CDATA[<b>Caminho original:</b> {caminho_completo}]]></description>')
-            kml_content.append('      <Point>')
-            # ATENÇÃO: No KML a ordem é sempre Longitude, depois Latitude
-            kml_content.append(f'        <coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates>')
-            kml_content.append('      </Point>')
-            kml_content.append('    </Placemark>')
+            kml_content.append(
+                f'<Placemark><name>{nome_arquivo}</name><description><![CDATA[<b>Caminho original:</b> {caminho_completo}]]></description><Point><coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates></Point></Placemark>')
 
-        kml_content.append('  </Document>')
-        kml_content.append('</kml>')
+        kml_content.append('</Document></kml>')
 
         try:
             with open(caminho_salvar, 'w', encoding='utf-8') as f:
-                f.write("\n".join(kml_content))
+                # Junta tudo sem quebras de linha
+                f.write("".join(kml_content))
             QMessageBox.information(self, "Sucesso", "Arquivo KML de pontos gerado com sucesso!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
@@ -5531,19 +5523,13 @@ class JanelaHashes(QWidget):
         nome_doc = f"Polígono - {dados_kml['caso']} ({dados_kml['laudo']})"
         desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Perito:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
 
+        # Estrutura base do KML agrupada e sem espaços
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
-            '  <Document>',
-            f'    <name>{nome_doc}</name>',
-            f'    <description><![CDATA[{desc_doc}]]></description>',
-            '    <Placemark>',
-            '      <name>Área Mapeada</name>',
-            '      <description>Perímetro geográfico gerado automaticamente.</description>',
-            '      <Polygon>',
-            '        <outerBoundaryIs>',
-            '          <LinearRing>',
-            '            <coordinates>'
+            f'<Document><name>{nome_doc}</name><description><![CDATA[{desc_doc}]]></description>',
+            '<Placemark><name>Área Mapeada</name><description>Perímetro geográfico gerado automaticamente.</description>',
+            '<Polygon><outerBoundaryIs><LinearRing><coordinates>'
         ]
 
         lista_coordenadas_kml = []
@@ -5553,22 +5539,16 @@ class JanelaHashes(QWidget):
         primeiro_ponto = lista_coordenadas_kml[0]
         lista_coordenadas_kml.append(primeiro_ponto)
 
+        # O espaço simples entre as coordenadas é exigido pelo padrão KML
         linha_coordenadas = " ".join(lista_coordenadas_kml)
-        kml_content.append(f'              {linha_coordenadas}')
+        kml_content.append(linha_coordenadas)
 
-        kml_content.extend([
-            '            </coordinates>',
-            '          </LinearRing>',
-            '        </outerBoundaryIs>',
-            '      </Polygon>',
-            '    </Placemark>',
-            '  </Document>',
-            '</kml>'
-        ])
+        kml_content.append('</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>')
 
         try:
             with open(caminho_salvar, 'w', encoding='utf-8') as f:
-                f.write("\n".join(kml_content))
+                # Junta tudo sem quebras de linha
+                f.write("".join(kml_content))
             QMessageBox.information(self, "Sucesso", "Arquivo KML de polígono gerado com perímetro organizado!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
