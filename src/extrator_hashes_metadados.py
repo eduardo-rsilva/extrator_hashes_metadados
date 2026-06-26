@@ -1744,6 +1744,7 @@ class JanelaHashes(QWidget):
             "<li><b>Áudio (MP3, WAV, FLAC...):</b> Duração Exata, Taxa de Bits (Bitrate), Artista/Software e Comentários Ocultos.</li>"
             "<li><b>Executáveis (EXE, DLL, SYS):</b> Data de Compilação Exata (UTC), Verificação de Assinatura Digital (Authenticode), Nome Original do Arquivo e Empresa.</li>"
             "<li><b>E-mails (EML, MSG):</b> Remetente Real, Destinatário, Assunto, Data de Envio e 1º Servidor de Trânsito (rastreio de IP).</li>"
+            "<li><b>Arquivos Geográficos (KML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
             "<li><b>Atalhos do Windows (LNK):</b> Caminho Alvo (Local e Relativo), Argumentos de Execução (Payloads), Diretório de Trabalho, Rótulo/Serial do Pendrive/HD (em Hex) e MAC Address de origem.</li>"
             "</ul>"
             "<p><b>Análises Forenses Integradas e Proteções:</b></p>"
@@ -3060,6 +3061,7 @@ class JanelaHashes(QWidget):
             "<li>Executáveis e Atalhos do Windows (LNK)</li>"
             "<li>E-mails Exportados (EML, MSG)</li>"
             "<li>Arquivos Compactados (ZIP, RAR, 7Z) e Torrents</li>"
+            "<li>Arquivos Geográficos / Mapas (KML)</li>"
             "</ul>"
             "<p><i>Dica: Para visualizar a lista exata de todas as extensões analisadas, clique no botão <b>'Formatos Suportados'</b> na tela inicial.</i></p>"
 
@@ -3093,7 +3095,7 @@ class JanelaHashes(QWidget):
             "<li><b>Detecção NTFS ADS:</b> Varredura automática e em profundidade por Alternate Data Streams (dados ocultos em partições NTFS), identificando <i>Mark of the Web</i> e gerando comandos de extração para o PowerShell caso payloads maliciosos grandes sejam detectados.</li>"
             "<li><b>Entropia de Shannon:</b> Cálculo de aleatoriedade para detecção de arquivos criptografados, compactados ou ofuscados (Packed).</li>"
             "<li><b>Detecção de Arquivos Duplicados (Triagem Otimizada):</b> Identifica e agrupa automaticamente arquivos idênticos processados em lote. O motor de comparação prioriza o cruzamento de algoritmos criptográficos robustos (como SHA-256 e SHA-512), utilizando o CRC32 apenas como recurso final na ausência destes, o que garante alta precisão técnica e mitiga o risco de falsos positivos por colisão.</li>"
-            "<li><b>Metadados Avançados:</b> Extração de coordenadas GPS (com links para mapas), datas internas de criação, marcas de dispositivos e rastreios de autoria/edição de software.</li>"
+            "<li><b>Metadados Avançados e Dados Espaciais:</b> Extração de coordenadas GPS (com links para mapas), datas internas de criação, marcas de dispositivos e rastreios de autoria/edição. Inclui botões para geração de arquivos KML com exportação de perímetros geográficos (Polígonos e Pontos).</li>"
             "<li><b>Validação de Assinatura e Binários:</b> Checagem de certificados Authenticode em executáveis (EXE/DLL/SYS) e extração do Data/Hora exata de compilação registrada no cabeçalho PE.</li>"
             "</ul>"
             
