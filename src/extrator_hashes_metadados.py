@@ -5214,7 +5214,7 @@ class JanelaHashes(QWidget):
         """Abre uma janela exibindo os links clicáveis para o Google Maps."""
         dialog = QDialog(self)
         dialog.setWindowTitle("📍 Coordenadas GPS Encontradas!")
-        dialog.resize(600, 450)
+        dialog.resize(750, 450)
         layout = QVBoxLayout(dialog)
 
         # Verifica se há algum algoritmo de hash superior ao CRC32 selecionado
@@ -5241,7 +5241,7 @@ class JanelaHashes(QWidget):
             lat_float = float(lat)
             lon_float = float(lon)
             link = f"https://www.google.com/maps/search/?api=1&query={lat_float:.6f},{lon_float:.6f}"
-            html_links += f"<li><b>{nome}</b>: <a href='{link}' style='color: #0056b3; text-decoration: none;'>Abrir Localização Original</a></li>"
+            html_links += f"<li><b>{nome}</b>: <a href='{link}' style='color: #0056b3; text-decoration: none;'>Abrir Localização no Google Maps</a></li>"
         html_links += "</ul>"
 
         texto_links.setHtml(html_links)
@@ -5278,7 +5278,7 @@ class JanelaHashes(QWidget):
         layout.addSpacing(10)
         layout_botoes = QHBoxLayout()
 
-        btn_copiar = QPushButton("Copiar Lista (Ctrl+C)")
+        btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links\nGoogle Maps")
         btn_copiar.setMinimumHeight(35)
 
         # Função interna para formatar a lista simplificada e mandar para a área de transferência
@@ -5298,17 +5298,202 @@ class JanelaHashes(QWidget):
 
         btn_copiar.clicked.connect(copiar_links)
 
-        btn_fechar = QPushButton("Fechar Aviso")
-        btn_fechar.setMinimumHeight(35)
-        btn_fechar.clicked.connect(dialog.accept)
+        # --- BOTÃO KML (PONTOS) ---
+        btn_kml_pontos = QPushButton("📍 Exportar KML (Pontos)")
+        btn_kml_pontos.setMinimumHeight(35)
+        btn_kml_pontos.setStyleSheet("""
+                QPushButton {
+                    background-color: #e6f2ff; color: #005a9e; font-weight: bold; border: 1px solid #b3d4ff; border-radius: 4px;
+                }
+            """)
+        btn_kml_pontos.clicked.connect(self.exportar_kml_pontos)
 
+        # --- BOTÃO KML (POLÍGONO) COM ESTILO :disabled ---
+        btn_kml_poligono = QPushButton("🛑 Exportar KML (Polígono)")
+        btn_kml_poligono.setMinimumHeight(35)
+        btn_kml_poligono.setStyleSheet("""
+                QPushButton {
+                    background-color: #ffe6e6; color: #990000; font-weight: bold; border: 1px solid #ffb3b3; border-radius: 4px;
+                }
+                QPushButton:disabled {
+                    background-color: #e0e0e0; color: #888888; border: 1px solid #cccccc; font-weight: normal;
+                }
+            """)
+        btn_kml_poligono.clicked.connect(self.exportar_kml_poligono)
+
+        # Lógica de desativação
+        if len(self.coordenadas_gps_encontradas) < 3:
+            btn_kml_poligono.setEnabled(False)
+            btn_kml_poligono.setToolTip("Necessário no mínimo 3 coordenadas para desenhar um polígono.")
+
+
+        # --- FUNÇÃO LOCAL PARA EXIBIR AS INSTRUÇÕES ---
+        def mostrar_instrucoes():
+            msg = QMessageBox(dialog)  # Usa a janela de GPS como pai
+            msg.setWindowTitle("Como visualizar arquivos KML")
+
+            # Habilita a interação com a caixa de texto para que os links sejam clicáveis
+            msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+
+            # Adicionada a div externa para controlar o tamanho da fonte e o espaçamento
+            msg.setText(
+                "<div style='font-size: 11pt; line-height: 1.4;'>"
+                "<h3 style='margin-bottom: 5px;'>Opção 1: Google Earth Web (Recomendado)</h3>"
+                "<p style='margin-top: 0;'>1. Acesse <a href='https://earth.google.com/web' style='color: #0056b3; text-decoration: none;'><b>earth.google.com/web</b></a> no seu navegador.<br>"
+                "2. No menu lateral, clique em <b>Projetos</b> (ícone de alfinete sobre um quadrado).<br>"
+                "3. Clique no botão <b>Novo</b> e depois em <b>Importar arquivo para o projeto do mapa</b>.</p>"
+                "<hr>"
+                "<h3 style='margin-bottom: 5px;'>Opção 2: Google Maps (My Maps)</h3>"
+                "<p style='margin-top: 0;'>1. Acesse o <a href='www.google.com/maps/d/' style='color: #0056b3; text-decoration: none;'><b>Google My Maps</b></a> (logado na sua conta Google).<br>"
+                "2. Clique no botão vermelho <b>Criar um novo mapa</b>.<br>"
+                "3. Na caixa flutuante do lado esquerdo, clique no link <b>Importar</b> e selecione o arquivo gerado.</p>"
+                "</div>"
+            )
+            msg.exec()
+
+        # --- BOTÃO DE INSTRUÇÕES
+        btn_instrucoes = QPushButton("❓ Como visualizar o KML")
+        btn_instrucoes.setMinimumHeight(35)
+        btn_instrucoes.setStyleSheet("font-weight: bold;")
+        btn_instrucoes.clicked.connect(mostrar_instrucoes)
+
+        # Montagem do layout
         layout_botoes.addWidget(btn_copiar)
-        layout_botoes.addWidget(btn_fechar)
+        layout_botoes.addWidget(btn_kml_pontos)
+        layout_botoes.addWidget(btn_kml_poligono)
+        layout_botoes.addWidget(btn_instrucoes)
+
         layout.addLayout(layout_botoes)
 
         dialog.exec()
 
+    def exportar_kml_pontos(self):
+        if not self.coordenadas_gps_encontradas:
+            return
 
+        caminho_salvar, _ = QFileDialog.getSaveFileName(
+            self,
+            "Salvar Mapa de Pontos de Evidência",
+            "mapa_evidencias_pontos.kml",
+            "Google Earth KML (*.kml)"
+        )
+
+        if not caminho_salvar:
+            return
+
+        # Cabeçalho padrão obrigatório do KML
+        kml_content = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
+            '  <Document>',
+            '    <name>Pontos de Evidência (Extraídos)</name>'
+        ]
+
+        # Cria um alfinete (Placemark) para cada arquivo
+        for caminho_completo, lat, lon in self.coordenadas_gps_encontradas:
+            nome_arquivo = os.path.basename(caminho_completo)
+            lat_float = float(lat)
+            lon_float = float(lon)
+
+            kml_content.append('    <Placemark>')
+            kml_content.append(f'      <name>{nome_arquivo}</name>')
+            kml_content.append(f'      <description>Caminho original: {caminho_completo}</description>')
+            kml_content.append('      <Point>')
+            # ATENÇÃO: No KML a ordem é sempre Longitude, depois Latitude
+            kml_content.append(f'        <coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates>')
+            kml_content.append('      </Point>')
+            kml_content.append('    </Placemark>')
+
+        kml_content.append('  </Document>')
+        kml_content.append('</kml>')
+
+        try:
+            with open(caminho_salvar, 'w', encoding='utf-8') as f:
+                f.write("\n".join(kml_content))
+            QMessageBox.information(self, "Sucesso", "Arquivo KML de pontos gerado com sucesso!")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
+
+    def exportar_kml_poligono(self):
+        if len(self.coordenadas_gps_encontradas) < 3:
+            QMessageBox.warning(self, "Aviso", "São necessários pelo menos 3 pontos para formar um polígono.")
+            return
+
+        caminho_salvar, _ = QFileDialog.getSaveFileName(
+            self,
+            "Salvar Polígono de Área Periciada",
+            "area_periciada_poligono.kml",
+            "Google Earth KML (*.kml)"
+        )
+
+        if not caminho_salvar:
+            return
+
+        # =========================================================
+        # INTELIGÊNCIA ESPACIAL: ORDENAÇÃO ANGULAR PARA PERÍMETRO
+        # =========================================================
+        # 1. Extraímos apenas os valores numéricos de latitude e longitude
+        pontos = []
+        for _, lat, lon in self.coordenadas_gps_encontradas:
+            pontos.append((float(lat), float(lon)))
+
+        # 2. Calculamos o centro geográfico (centroide) da área periciada
+        centro_lat = sum(p[0] for p in pontos) / len(pontos)
+        centro_lon = sum(p[1] for p in pontos) / len(pontos)
+
+        # 3. Função auxiliar para calcular o ângulo de cada ponto em relação ao centro
+        def calcular_angulo(ponto):
+            # math.atan2(y, x) -> Latitude é o eixo Y, Longitude é o eixo X
+            import math
+            return math.atan2(ponto[0] - centro_lat, ponto[1] - centro_lon)
+
+        # 4. Ordenamos a lista baseada no ângulo (cria o perímetro perfeito)
+        pontos_ordenados = sorted(pontos, key=calcular_angulo)
+        # =========================================================
+
+        kml_content = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
+            '  <Document>',
+            '    <name>Área Periciada</name>',
+            '    <Placemark>',
+            '      <name>Polígono Extraído</name>',
+            '      <description>Perímetro geográfico gerado e ordenado automaticamente a partir das evidências periciais.</description>',
+            '      <Polygon>',
+            '        <outerBoundaryIs>',
+            '          <LinearRing>',
+            '            <coordinates>'
+        ]
+
+        # 5. Montamos a string de coordenadas já na ordem correta
+        lista_coordenadas_kml = []
+        for lat, lon in pontos_ordenados:
+            lista_coordenadas_kml.append(f"{lon:.6f},{lat:.6f}")
+
+        # O SEGREDO DO POLÍGONO: Repetir o primeiro ponto no final para fechar a área geométrica
+        primeiro_ponto = lista_coordenadas_kml[0]
+        lista_coordenadas_kml.append(primeiro_ponto)
+
+        # Junta todos os pontos separados por espaço e adiciona ao KML
+        linha_coordenadas = " ".join(lista_coordenadas_kml)
+        kml_content.append(f'              {linha_coordenadas}')
+
+        kml_content.extend([
+            '            </coordinates>',
+            '          </LinearRing>',
+            '        </outerBoundaryIs>',
+            '      </Polygon>',
+            '    </Placemark>',
+            '  </Document>',
+            '</kml>'
+        ])
+
+        try:
+            with open(caminho_salvar, 'w', encoding='utf-8') as f:
+                f.write("\n".join(kml_content))
+            QMessageBox.information(self, "Sucesso", "Arquivo KML de polígono gerado com perímetro organizado!")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
 
 
 if __name__ == "__main__":
