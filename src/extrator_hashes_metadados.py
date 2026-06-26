@@ -113,7 +113,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                                QPushButton, QCheckBox, QTextEdit, QFileDialog,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
-                               QTabWidget, QFrame, QGroupBox)
+                               QTabWidget, QFrame, QGroupBox, QLineEdit)
 from PySide6.QtGui import QIcon, QTextCursor
 from PySide6.QtCore import QTimer, QEvent, Signal, Qt
 
@@ -5330,7 +5330,7 @@ class JanelaHashes(QWidget):
                 f"<b>🗺️ Visualizar todos no mapa:</b><br>"
                 f"Como o Google Maps não permite alfinetes múltiplos por URL, você pode usar o modo 'Rota' "
                 f"para ver os pontos interligados{aviso_limite}:<br><br>"
-                f"👉 <a href='{link_todos}' style='color: #d9534f; font-weight: bold; text-decoration: none;'>Abrir mapa com todos os pontos</a>"
+                f"👉 <a href='{link_todos}' style='color: #d9534f; font-weight: bold; text-decoration: none;'>Abrir mapa com os 10 primeiros pontos no Google Maps</a>"
                 f"</div>"
             )
             layout.addWidget(texto_todos)
@@ -5391,7 +5391,7 @@ class JanelaHashes(QWidget):
         # --- FUNÇÃO LOCAL PARA EXIBIR AS INSTRUÇÕES ---
         def mostrar_instrucoes():
             msg = QMessageBox(dialog)  # Usa a janela de GPS como pai
-            msg.setWindowTitle("Como visualizar arquivos KML")
+            msg.setWindowTitle("Como visualizar arquivos KML?")
 
             # Habilita a interação com a caixa de texto para que os links sejam clicáveis
             msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
@@ -5432,6 +5432,14 @@ class JanelaHashes(QWidget):
         if not self.coordenadas_gps_encontradas:
             return
 
+        # 1. CHAMA A NOVA JANELA DE METADADOS
+        dialogo = DialogoMetadadosKML(self)
+        if dialogo.exec() != QDialog.Accepted:
+            return  # Usuário fechou ou clicou em Cancelar
+
+        dados_kml = dialogo.obter_dados()
+
+        # 2. SEGUIMENTO NORMAL (Escolher onde salvar)
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Mapa de Pontos de Evidência",
@@ -5442,12 +5450,17 @@ class JanelaHashes(QWidget):
         if not caminho_salvar:
             return
 
-        # Cabeçalho padrão obrigatório do KML
+        # Formatação das tags baseada nos inputs do usuário
+        nome_doc = f"Pontos - {dados_kml['caso']} ({dados_kml['laudo']})"
+        desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Usuário:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
+
+        # Cabeçalho padrão obrigatório do KML com as tags dinâmicas
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
             '  <Document>',
-            '    <name>Pontos de Evidência (Extraídos)</name>'
+            f'    <name>{nome_doc}</name>',
+            f'    <description><![CDATA[{desc_doc}]]></description>'
         ]
 
         # Cria um alfinete (Placemark) para cada arquivo
@@ -5458,7 +5471,7 @@ class JanelaHashes(QWidget):
 
             kml_content.append('    <Placemark>')
             kml_content.append(f'      <name>{nome_arquivo}</name>')
-            kml_content.append(f'      <description>Caminho original: {caminho_completo}</description>')
+            kml_content.append(f'      <description><![CDATA[<b>Caminho original:</b> {caminho_completo}]]></description>')
             kml_content.append('      <Point>')
             # ATENÇÃO: No KML a ordem é sempre Longitude, depois Latitude
             kml_content.append(f'        <coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates>')
@@ -5480,6 +5493,14 @@ class JanelaHashes(QWidget):
             QMessageBox.warning(self, "Aviso", "São necessários pelo menos 3 pontos para formar um polígono.")
             return
 
+        # 1. CHAMA A NOVA JANELA DE METADADOS
+        dialogo = DialogoMetadadosKML(self)
+        if dialogo.exec() != QDialog.Accepted:
+            return
+
+        dados_kml = dialogo.obter_dados()
+
+        # 2. SEGUIMENTO NORMAL
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Polígono de Área Periciada",
@@ -5493,49 +5514,45 @@ class JanelaHashes(QWidget):
         # =========================================================
         # INTELIGÊNCIA ESPACIAL: ORDENAÇÃO ANGULAR PARA PERÍMETRO
         # =========================================================
-        # 1. Extraímos apenas os valores numéricos de latitude e longitude
         pontos = []
         for _, lat, lon in self.coordenadas_gps_encontradas:
             pontos.append((float(lat), float(lon)))
 
-        # 2. Calculamos o centro geográfico (centroide) da área periciada
         centro_lat = sum(p[0] for p in pontos) / len(pontos)
         centro_lon = sum(p[1] for p in pontos) / len(pontos)
 
-        # 3. Função auxiliar para calcular o ângulo de cada ponto em relação ao centro
         def calcular_angulo(ponto):
-            # math.atan2(y, x) -> Latitude é o eixo Y, Longitude é o eixo X
             import math
             return math.atan2(ponto[0] - centro_lat, ponto[1] - centro_lon)
 
-        # 4. Ordenamos a lista baseada no ângulo (cria o perímetro perfeito)
         pontos_ordenados = sorted(pontos, key=calcular_angulo)
         # =========================================================
+
+        nome_doc = f"Polígono - {dados_kml['caso']} ({dados_kml['laudo']})"
+        desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Perito:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
 
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
             '  <Document>',
-            '    <name>Área Periciada</name>',
+            f'    <name>{nome_doc}</name>',
+            f'    <description><![CDATA[{desc_doc}]]></description>',
             '    <Placemark>',
-            '      <name>Polígono Extraído</name>',
-            '      <description>Perímetro geográfico gerado e ordenado automaticamente a partir das evidências periciais.</description>',
+            '      <name>Área Mapeada</name>',
+            '      <description>Perímetro geográfico gerado automaticamente.</description>',
             '      <Polygon>',
             '        <outerBoundaryIs>',
             '          <LinearRing>',
             '            <coordinates>'
         ]
 
-        # 5. Montamos a string de coordenadas já na ordem correta
         lista_coordenadas_kml = []
         for lat, lon in pontos_ordenados:
             lista_coordenadas_kml.append(f"{lon:.6f},{lat:.6f}")
 
-        # O SEGREDO DO POLÍGONO: Repetir o primeiro ponto no final para fechar a área geométrica
         primeiro_ponto = lista_coordenadas_kml[0]
         lista_coordenadas_kml.append(primeiro_ponto)
 
-        # Junta todos os pontos separados por espaço e adiciona ao KML
         linha_coordenadas = " ".join(lista_coordenadas_kml)
         kml_content.append(f'              {linha_coordenadas}')
 
@@ -5555,6 +5572,74 @@ class JanelaHashes(QWidget):
             QMessageBox.information(self, "Sucesso", "Arquivo KML de polígono gerado com perímetro organizado!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
+
+
+class DialogoMetadadosKML(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Identificação Forense do KML")
+        self.setMinimumWidth(450)
+
+        layout = QVBoxLayout(self)
+
+        # Texto instrutivo
+        lbl_info = QLabel(
+            "Preencha os dados abaixo para identificar o caso dentro do arquivo mapa.<br><i>(Deixe em branco o que não quiser preencher)</i>")
+        layout.addWidget(lbl_info)
+        layout.addSpacing(10)
+
+        # Campos de entrada
+        self.inp_caso = QLineEdit()
+        self.inp_caso.setPlaceholderText("Ex: Operação X / Inquérito 123/2026")
+
+        self.inp_laudo = QLineEdit()
+        self.inp_laudo.setPlaceholderText("Ex: Laudo Pericial nº 4567/2026")
+
+        self.inp_perito = QLineEdit()
+        self.inp_perito.setPlaceholderText("Ex: Perito Criminal Fulano de Tal")
+
+        self.inp_desc = QTextEdit()
+        self.inp_desc.setMaximumHeight(80)
+        self.inp_desc.setPlaceholderText("Descrição adicional ou observações relevantes...")
+
+        # Adicionando os campos ao layout com rótulos
+        layout.addWidget(QLabel("<b>Nome da Operação / Caso:</b>"))
+        layout.addWidget(self.inp_caso)
+
+        layout.addWidget(QLabel("<b>Número do Laudo / Procedimento:</b>"))
+        layout.addWidget(self.inp_laudo)
+
+        layout.addWidget(QLabel("<b>Nome do Perito / Analista:</b>"))
+        layout.addWidget(self.inp_perito)
+
+        layout.addWidget(QLabel("<b>Descrição (Opcional):</b>"))
+        layout.addWidget(self.inp_desc)
+
+        layout.addSpacing(15)
+
+        # Botões de Ação
+        btn_layout = QHBoxLayout()
+        btn_ok = QPushButton("Continuar e Salvar KML")
+        btn_ok.setStyleSheet("font-weight: bold; background-color: #e0e0e0;")
+        btn_cancelar = QPushButton("Cancelar")
+
+        btn_ok.clicked.connect(self.accept)
+        btn_cancelar.clicked.connect(self.reject)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_ok)
+        btn_layout.addWidget(btn_cancelar)
+
+        layout.addLayout(btn_layout)
+
+    def obter_dados(self):
+        """Retorna um dicionário com os dados preenchidos ou 'Não informado'."""
+        return {
+            "caso": self.inp_caso.text().strip() or "Não informado",
+            "laudo": self.inp_laudo.text().strip() or "Não informado",
+            "perito": self.inp_perito.text().strip() or "Não informado",
+            "descricao": self.inp_desc.toPlainText().strip() or "Sem descrição adicional."
+        }
 
 
 if __name__ == "__main__":
