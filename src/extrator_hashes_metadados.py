@@ -5422,7 +5422,7 @@ class JanelaHashes(QWidget):
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Polígono de Área Periciada",
-            "area_periciada_poligono.kml",
+            "mapa_evidencias_poligono.kml",
             "Google Earth KML (*.kml)"
         )
 
