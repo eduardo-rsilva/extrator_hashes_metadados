@@ -4307,8 +4307,7 @@ class JanelaHashes(QWidget):
                 root = tree.getroot()
 
                 pontos_encontrados = 0
-                limite_visualizacao = 15
-                pontos_vistos = set()  # <-- NOVO: Controle para ignorar pontos repetidos
+                pontos_vistos = set()  # Controle para ignorar pontos repetidos
 
                 # Itera ignorando namespaces dinâmicos (que variam muito em KMLs)
                 for elem in root.iter():
@@ -4329,33 +4328,30 @@ class JanelaHashes(QWidget):
                                     # Cria uma string padronizada do ponto para checar duplicatas
                                     str_ponto = f"{lat:.6f},{lon:.6f}"
 
-                                    # Só adiciona ao relatório se o ponto for inédito neste arquivo
+                                    # Só adiciona se o ponto for inédito neste arquivo
                                     if str_ponto not in pontos_vistos:
                                         pontos_vistos.add(str_ponto)
                                         pontos_encontrados += 1
 
-                                        if pontos_encontrados <= limite_visualizacao:
-                                            # Formata no padrão de extração do seu programa (para ser capturado pelos regex depois)
-                                            metadados_extras.append(
-                                                f"📍 GPS (Latitude, Longitude): {lat:.6f}, {lon:.6f}")
-                                            link_maps = f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}"
-                                            metadados_extras.append(f"   ↳ Visualizar no Mapa: {link_maps}")
+                                        # Vai TUDO para o relatório e para a memória
+                                        metadados_extras.append(
+                                            f"📍 GPS (Latitude, Longitude): {lat:.6f}, {lon:.6f}")
+                                        link_maps = f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}"
+                                        metadados_extras.append(f"   ↳ Visualizar no Mapa: {link_maps}")
                                 except ValueError:
                                     pass
 
-                if pontos_encontrados > limite_visualizacao:
-                    metadados_extras.append(
-                        f"\n⚠️ ALERTA: Mais {pontos_encontrados - limite_visualizacao} coordenadas foram suprimidas da exibição visual para não congelar o relatório.")
-                    metadados_extras.append(
-                        f"   ↳ Total exato de vértices/pontos mapeados neste arquivo: {pontos_encontrados}")
-
-                elif pontos_encontrados == 0:
+                if pontos_encontrados == 0:
                     metadados_extras.append(
                         "ℹ️ Nenhuma coordenada geográfica (Point/coordinates) encontrada na estrutura deste KML.")
+                else:
+                    # Um aviso amigável indicando quantos vértices compõem a área geométrica
+                    metadados_extras.append(
+                        f"\n🗺️ Total exato de vértices/pontos únicos mapeados neste KML: {pontos_encontrados}")
 
                 if extrair_raw:
                     raw_dump.append("\n=== KML (RAW) ===")
-                    raw_dump.append(f"Total de coordenadas lidas: {pontos_encontrados}")
+                    raw_dump.append(f"Total de coordenadas únicas extraídas: {pontos_encontrados}")
 
             except ET.ParseError:
                 metadados_extras.append(
@@ -5359,7 +5355,7 @@ class JanelaHashes(QWidget):
             btn_copiar.setText("Copiado!")
 
             # Restaura o texto original do botão após 1.5 segundos
-            QTimer.singleShot(1500, lambda: btn_copiar.setText("Copiar Lista (Ctrl+C)"))
+            QTimer.singleShot(1500, lambda: btn_copiar.setText("Copiar Lista (Ctrl+C) de links\nGoogle Maps"))
 
         btn_copiar.clicked.connect(copiar_links)
 
