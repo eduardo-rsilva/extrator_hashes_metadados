@@ -5452,25 +5452,24 @@ class JanelaHashes(QWidget):
         if not caminho_salvar:
             return
 
-        # Formatação das tags baseada nos inputs do usuário
+        # Formatação segura para o My Maps (Bullet points em linha única para não grudar)
         nome_doc = f"Pontos - {dados_kml['caso']} ({dados_kml['laudo']})"
-        desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Usuário:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
+        desc_doc = f"Laudo: {dados_kml['laudo']} • Operação: {dados_kml['caso']} • Usuário: {dados_kml['perito']} • Descrição: {dados_kml['descricao']}"
 
         # Cabeçalho padrão obrigatório do KML (Minificado)
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
-            f'<Document><name>{nome_doc}</name><description><![CDATA[{desc_doc}]]></description>'
+            f'<Document><name>{nome_doc}</name><description>{desc_doc}</description>'
         ]
 
-        # Cria um alfinete (Placemark) para cada arquivo, aglutinando as tags
+        # Cria um alfinete (Placemark) para cada arquivo, usando ExtendedData para criar uma tabela nativa
         for caminho_completo, lat, lon in self.coordenadas_gps_encontradas:
             nome_arquivo = os.path.basename(caminho_completo)
             lat_float = float(lat)
             lon_float = float(lon)
 
-            kml_content.append(
-                f'<Placemark><name>{nome_arquivo}</name><description><![CDATA[<b>Caminho original:</b> {caminho_completo}]]></description><Point><coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates></Point></Placemark>')
+            kml_content.append(f'<Placemark><name>{nome_arquivo}</name><description>Ponto de interesse extraído dos metadados.</description><ExtendedData><Data name="Caminho Original"><value>{caminho_completo}</value></Data></ExtendedData><Point><coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates></Point></Placemark>')
 
         kml_content.append('</Document></kml>')
 
@@ -5522,15 +5521,22 @@ class JanelaHashes(QWidget):
         pontos_ordenados = sorted(pontos, key=calcular_angulo)
         # =========================================================
 
+        # Formatação segura para a pasta Document
         nome_doc = f"Polígono - {dados_kml['caso']} ({dados_kml['laudo']})"
-        desc_doc = f"<b>Laudo:</b> {dados_kml['laudo']}<br><b>Operação:</b> {dados_kml['caso']}<br><b>Perito:</b> {dados_kml['perito']}<br><br><b>Descrição:</b><br>{dados_kml['descricao']}"
+        desc_doc = f"Laudo: {dados_kml['laudo']} • Operação: {dados_kml['caso']} • Usuário: {dados_kml['perito']} • Descrição: {dados_kml['descricao']}"
 
-        # Estrutura base do KML agrupada e sem espaços
+        # Estrutura base do KML com ExtendedData gerando uma TABELA NATIVA
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
-            f'<Document><name>{nome_doc}</name><description><![CDATA[{desc_doc}]]></description>',
-            '<Placemark><name>Área Mapeada</name><description>Perímetro geográfico gerado automaticamente.</description>',
+            f'<Document><name>{nome_doc}</name><description>{desc_doc}</description>',
+            '<Placemark><name>Área Mapeada</name><description>Perímetro geográfico da área periciada.</description>',
+            '<ExtendedData>',
+            f'<Data name="Laudo"><value>{dados_kml["laudo"]}</value></Data>',
+            f'<Data name="Operação"><value>{dados_kml["caso"]}</value></Data>',
+            f'<Data name="Usuário"><value>{dados_kml["perito"]}</value></Data>',
+            f'<Data name="Descrição"><value>{dados_kml["descricao"]}</value></Data>',
+            '</ExtendedData>',
             '<Polygon><outerBoundaryIs><LinearRing><coordinates>'
         ]
 
