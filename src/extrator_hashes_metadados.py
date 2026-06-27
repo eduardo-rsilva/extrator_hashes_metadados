@@ -5314,9 +5314,24 @@ class JanelaHashes(QWidget):
         if len(self.coordenadas_gps_encontradas) > 1:
             layout.addSpacing(10)
 
-            # Limita a 10 pontos porque a URL de rotas do Google Maps começa a falhar com excessos
+            # 1. Limita a 10 pontos porque a URL de rotas do Google Maps começa a falhar com excessos
             pontos_limite = self.coordenadas_gps_encontradas[:10]
-            pontos_rota = "/".join([f"{lat},{lon}" for _, lat, lon in pontos_limite])
+
+            # 2. Calcula o centróide exclusivamente desses pontos selecionados
+            centro_lat = sum(float(lat) for _, lat, _ in pontos_limite) / len(pontos_limite)
+            centro_lon = sum(float(lon) for _, _, lon in pontos_limite) / len(pontos_limite)
+
+            # 3. Define a lógica de ordenação angular (Arco Tangente)
+            def calcular_angulo(item):
+                _, lat, lon = item
+                return math.atan2(float(lat) - centro_lat, float(lon) - centro_lon)
+
+            # 4. Ordena os pontos formando o perímetro ao redor do centro
+            pontos_ordenados = sorted(pontos_limite, key=calcular_angulo)
+
+            # 5. Gera a string de rota usando a nova ordem
+            pontos_rota = "/".join([f"{lat},{lon}" for _, lat, lon in pontos_ordenados])
+
             # URL OFICIAL DO GOOGLE MAPS PARA ROTAS (MÚLTIPLOS PONTOS)
             link_todos = f"https://www.google.com/maps/dir/{pontos_rota}"
 
