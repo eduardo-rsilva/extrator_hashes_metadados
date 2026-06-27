@@ -5456,6 +5456,10 @@ class JanelaHashes(QWidget):
         nome_doc = f"Pontos - {dados_kml['caso']} ({dados_kml['laudo']})"
         desc_doc = f"Laudo: {dados_kml['laudo']} • Operação: {dados_kml['caso']} • Usuário: {dados_kml['perito']} • Descrição: {dados_kml['descricao']}"
 
+        # Usa o texto do usuário se houver, senão aplica o genérico
+        desc_usuario = dados_kml['descricao']
+        desc_placemark = desc_usuario if desc_usuario != "Sem descrição adicional." else "Ponto de interesse extraído dos metadados."
+
         # Cabeçalho padrão obrigatório do KML (Minificado)
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
@@ -5469,7 +5473,9 @@ class JanelaHashes(QWidget):
             lat_float = float(lat)
             lon_float = float(lon)
 
-            kml_content.append(f'<Placemark><name>{nome_arquivo}</name><description>Ponto de interesse extraído dos metadados.</description><ExtendedData><Data name="Caminho Original"><value>{caminho_completo}</value></Data></ExtendedData><Point><coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates></Point></Placemark>')
+            # Injeta a variável {desc_placemark} dinamicamente na tag <description>
+            kml_content.append(
+                f'<Placemark><name>{nome_arquivo}</name><description>{desc_placemark}</description><ExtendedData><Data name="Caminho Original"><value>{caminho_completo}</value></Data></ExtendedData><Point><coordinates>{lon_float:.6f},{lat_float:.6f}</coordinates></Point></Placemark>')
 
         kml_content.append('</Document></kml>')
 
@@ -5525,17 +5531,20 @@ class JanelaHashes(QWidget):
         nome_doc = f"Polígono - {dados_kml['caso']} ({dados_kml['laudo']})"
         desc_doc = f"Laudo: {dados_kml['laudo']} • Operação: {dados_kml['caso']} • Usuário: {dados_kml['perito']} • Descrição: {dados_kml['descricao']}"
 
+        # Usa o texto do usuário se houver, senão aplica o genérico
+        desc_usuario = dados_kml['descricao']
+        desc_placemark = desc_usuario if desc_usuario != "Sem descrição adicional." else "Perímetro geográfico da área periciada."
+
         # Estrutura base do KML com ExtendedData gerando uma TABELA NATIVA
         kml_content = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/kml/2.2 https://developers.google.com/kml/schema/kml22gx.xsd">',
             f'<Document><name>{nome_doc}</name><description>{desc_doc}</description>',
-            '<Placemark><name>Área Mapeada</name><description>Perímetro geográfico da área periciada.</description>',
+            f'<Placemark><name>Área Mapeada</name><description>{desc_placemark}</description>',
             '<ExtendedData>',
             f'<Data name="Laudo"><value>{dados_kml["laudo"]}</value></Data>',
             f'<Data name="Operação"><value>{dados_kml["caso"]}</value></Data>',
             f'<Data name="Usuário"><value>{dados_kml["perito"]}</value></Data>',
-            f'<Data name="Descrição"><value>{dados_kml["descricao"]}</value></Data>',
             '</ExtendedData>',
             '<Polygon><outerBoundaryIs><LinearRing><coordinates>'
         ]
