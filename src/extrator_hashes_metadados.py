@@ -5547,10 +5547,11 @@ class JanelaHashes(QWidget):
                 """)
         btn_kml_poligono.clicked.connect(self.exportar_kml_poligono)
 
-        # Lógica de desativação do polígono
-        if len(self.coordenadas_gps_encontradas) < 3:
+        # Lógica de desativação do polígono (considerando apenas coordenadas únicas)
+        coordenadas_unicas = set((lat, lon) for _, lat, lon in self.coordenadas_gps_encontradas)
+        if len(coordenadas_unicas) < 3:
             btn_kml_poligono.setEnabled(False)
-            btn_kml_poligono.setToolTip("Necessário no mínimo 3 coordenadas para desenhar um polígono.")
+            btn_kml_poligono.setToolTip("Necessário no mínimo 3 coordenadas distintas para desenhar um polígono.")
 
         # --- BOTÃO INSTRUÇÕES (RENOMEADO) ---
         btn_instrucoes = QPushButton("Instruções para visualizar arquivos KML")
@@ -5652,8 +5653,11 @@ class JanelaHashes(QWidget):
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
 
     def exportar_kml_poligono(self):
-        if len(self.coordenadas_gps_encontradas) < 3:
-            QMessageBox.warning(self, "Aviso", "São necessários pelo menos 3 pontos para formar um polígono.")
+        # Extrai apenas as coordenadas únicas logo de cara
+        pontos = list(set((float(lat), float(lon)) for _, lat, lon in self.coordenadas_gps_encontradas))
+
+        if len(pontos) < 3:
+            QMessageBox.warning(self, "Aviso", "São necessários pelo menos 3 pontos distintos para formar um polígono.")
             return
 
         # 1. CHAMA A NOVA JANELA DE METADADOS
@@ -5677,9 +5681,7 @@ class JanelaHashes(QWidget):
         # =========================================================
         # INTELIGÊNCIA ESPACIAL: ORDENAÇÃO ANGULAR PARA PERÍMETRO
         # =========================================================
-        pontos = []
-        for _, lat, lon in self.coordenadas_gps_encontradas:
-            pontos.append((float(lat), float(lon)))
+        # A lista 'pontos' já foi criada e filtrada no início da função
 
         centro_lat = sum(p[0] for p in pontos) / len(pontos)
         centro_lon = sum(p[1] for p in pontos) / len(pontos)
