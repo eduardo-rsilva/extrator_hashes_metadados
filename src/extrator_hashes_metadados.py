@@ -5404,8 +5404,14 @@ class JanelaHashes(QWidget):
             layout.addWidget(texto_todos)
             layout.addSpacing(5)
 
+            # Define o texto do botão dinamicamente
+            if len(pontos_unicos) < 10:
+                texto_botao = f"Mostrar {len(pontos_unicos)} pontos únicos no Google Maps"
+            else:
+                texto_botao = "Mostrar 10 primeiros pontos únicos no Google Maps"
+
             # Criação do botão solicitado para abrir o mapa integrado
-            btn_mostrar_10_pontos = QPushButton("Mostrar 10 primeiros pontos no Google Maps")
+            btn_mostrar_10_pontos = QPushButton(texto_botao)
             btn_mostrar_10_pontos.setMinimumHeight(35)
             btn_mostrar_10_pontos.setStyleSheet("""
                         QPushButton {
