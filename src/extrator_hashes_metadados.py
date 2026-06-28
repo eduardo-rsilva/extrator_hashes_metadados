@@ -5325,8 +5325,12 @@ class JanelaHashes(QWidget):
 
         texto_ignorados = " (arquivos idênticos são ignorados)" if tem_hash_forte else ""
 
+        # Conta quantos arquivos únicos possuem coordenadas
+        arquivos_unicos = len(set(arquivo for arquivo, lat, lon in self.coordenadas_gps_encontradas))
+        total_coordenadas = len(self.coordenadas_gps_encontradas)
+
         lbl_info = QLabel(
-            f"Foram encontradas coordenadas GPS em <b>{len(self.coordenadas_gps_encontradas)}</b> arquivo(s) "
+            f"Foram encontradas <b>{total_coordenadas}</b> coordenadas GPS em <b>{arquivos_unicos}</b> arquivo(s) "
             f"nesta extração{texto_ignorados}.<br>Abaixo estão os links individuais gerados (os links também estão no texto da extração):"
         )
         layout.addWidget(lbl_info)
