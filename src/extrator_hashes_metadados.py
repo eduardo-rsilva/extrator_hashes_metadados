@@ -5353,12 +5353,21 @@ class JanelaHashes(QWidget):
         texto_links.setHtml(html_links)
         layout.addWidget(texto_links)
 
+        # Filtra coordenadas únicas mantendo a ordem de aparição para a rota do Google Maps
+        pontos_unicos = []
+        coords_vistas = set()
+        for item in self.coordenadas_gps_encontradas:
+            coord = (float(item[1]), float(item[2]))
+            if coord not in coords_vistas:
+                coords_vistas.add(coord)
+                pontos_unicos.append(item)
+
         # Link com "Todos os pontos"
-        if len(self.coordenadas_gps_encontradas) > 1:
+        if len(pontos_unicos) > 1:
             layout.addSpacing(10)
 
             # 1. Limita a 10 pontos porque a URL de rotas do Google Maps começa a falhar com excessos
-            pontos_limite = self.coordenadas_gps_encontradas[:10]
+            pontos_limite = pontos_unicos[:10]
 
             # 2. Calcula o centróide exclusivamente desses pontos selecionados
             centro_lat = sum(float(lat) for _, lat, _ in pontos_limite) / len(pontos_limite)
@@ -5382,7 +5391,7 @@ class JanelaHashes(QWidget):
             texto_todos.setWordWrap(True)
 
             aviso_limite = " (Limitado aos 10 primeiros pontos devido a restrições do Google Maps)" if len(
-                self.coordenadas_gps_encontradas) > 10 else ""
+                pontos_unicos) > 10 else ""
 
             # Agora mantemos apenas o texto informativo dentro da caixa cinza
             texto_todos.setText(
