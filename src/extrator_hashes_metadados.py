@@ -5430,6 +5430,12 @@ class JanelaHashes(QWidget):
                         border: 1px solid #b3d4ff; 
                         border-radius: 4px;
                     }
+                    QPushButton:hover {
+                        background-color: #cce5ff;
+                    }
+                    QPushButton:pressed {
+                        background-color: #99ccff;
+                    }
                 """)
         btn_exportar_kml_todos.clicked.connect(self.abrir_menu_exportacao_kml)
 
@@ -5456,23 +5462,46 @@ class JanelaHashes(QWidget):
         btn_kml_pontos = QPushButton("📍 Exportar KML (Pontos)")
         btn_kml_pontos.setMinimumHeight(35)
         btn_kml_pontos.setStyleSheet("""
-                QPushButton {
-                    background-color: #e6f2ff; color: #005a9e; font-weight: bold; border: 1px solid #b3d4ff; border-radius: 4px;
-                }
-            """)
+                    QPushButton {
+                        background-color: #e6f2ff; 
+                        color: #005a9e; 
+                        font-weight: bold; 
+                        border: 1px solid #b3d4ff; 
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: #cce5ff;
+                    }
+                    QPushButton:pressed {
+                        background-color: #99ccff;
+                    }
+                """)
         btn_kml_pontos.clicked.connect(self.exportar_kml_pontos)
 
         # --- BOTÃO KML (POLÍGONO) ---
         btn_kml_poligono = QPushButton("🛑 Exportar KML (Polígono)")
         btn_kml_poligono.setMinimumHeight(35)
         btn_kml_poligono.setStyleSheet("""
-                QPushButton {
-                    background-color: #ffe6e6; color: #990000; font-weight: bold; border: 1px solid #ffb3b3; border-radius: 4px;
-                }
-                QPushButton:disabled {
-                    background-color: #e0e0e0; color: #888888; border: 1px solid #cccccc; font-weight: normal;
-                }
-            """)
+                    QPushButton {
+                        background-color: #ffe6e6; 
+                        color: #990000; 
+                        font-weight: bold; 
+                        border: 1px solid #ffb3b3; 
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: #ffcccc;
+                    }
+                    QPushButton:pressed {
+                        background-color: #ff9999;
+                    }
+                    QPushButton:disabled {
+                        background-color: #e0e0e0; 
+                        color: #888888; 
+                        border: 1px solid #cccccc; 
+                        font-weight: normal;
+                    }
+                """)
         btn_kml_poligono.clicked.connect(self.exportar_kml_poligono)
 
         # Lógica de desativação do polígono
