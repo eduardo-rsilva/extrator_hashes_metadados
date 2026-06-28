@@ -297,7 +297,7 @@ FORMATOS_COMPACTADOS = ['zip', 'rar', '7z', 'tar', 'gz']
 FORMATOS_TORRENT = ['torrent']
 FORMATOS_RTF = ['rtf']
 
-FORMATOS_KML = ['kml']
+FORMATOS_KML = ['kml', 'xml', 'gpx']
 
 # Soma de todas as subcategorias para exibir na Interface do Usuário
 FORMATOS_GERAIS = (FORMATOS_PDF + FORMATOS_OFFICE_XML + FORMATOS_OFFICE_LEGADO +
@@ -1744,7 +1744,7 @@ class JanelaHashes(QWidget):
             "<li><b>Áudio (MP3, WAV, FLAC...):</b> Duração Exata, Taxa de Bits (Bitrate), Artista/Software e Comentários Ocultos.</li>"
             "<li><b>Executáveis (EXE, DLL, SYS):</b> Data de Compilação Exata (UTC), Verificação de Assinatura Digital (Authenticode), Nome Original do Arquivo e Empresa.</li>"
             "<li><b>E-mails (EML, MSG):</b> Remetente Real, Destinatário, Assunto, Data de Envio e 1º Servidor de Trânsito (rastreio de IP).</li>"
-            "<li><b>Arquivos Geográficos (KML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
+            "<li><b>Arquivos Geográficos (KML, GPX, XML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
             "<li><b>Atalhos do Windows (LNK):</b> Caminho Alvo (Local e Relativo), Argumentos de Execução (Payloads), Diretório de Trabalho, Rótulo/Serial do Pendrive/HD (em Hex) e MAC Address de origem.</li>"
             "</ul>"
             "<p><b>Análises Forenses Integradas e Proteções:</b></p>"
@@ -3061,7 +3061,7 @@ class JanelaHashes(QWidget):
             "<li>Executáveis e Atalhos do Windows (LNK)</li>"
             "<li>E-mails Exportados (EML, MSG)</li>"
             "<li>Arquivos Compactados (ZIP, RAR, 7Z) e Torrents</li>"
-            "<li>Arquivos Geográficos / Mapas (KML)</li>"
+            "<li>Arquivos Geográficos / Mapas (KML, GPX, XML)</li>"
             "</ul>"
             "<p><i>Dica: Para visualizar a lista exata de todas as extensões analisadas, clique no botão <b>'Formatos Suportados'</b> na tela inicial.</i></p>"
 
