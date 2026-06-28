@@ -5277,7 +5277,7 @@ class JanelaHashes(QWidget):
         """Abre uma janela exibindo os links clicáveis para o Google Maps."""
         dialog = QDialog(self)
         dialog.setWindowTitle("📍 Coordenadas GPS Encontradas!")
-        dialog.resize(750, 450)
+        dialog.resize(850, 600)
         layout = QVBoxLayout(dialog)
 
         # Verifica se há algum algoritmo de hash superior ao CRC32 selecionado
@@ -5385,6 +5385,22 @@ class JanelaHashes(QWidget):
 
         btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links Google Maps (todos os pontos encontrados)")
         btn_copiar.setMinimumHeight(35)
+        # Estilo: Verde suave para contrastar com o amarelo (acima) e azul (direita)
+        btn_copiar.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e8f5e9; 
+                        color: #2e7d32; 
+                        font-weight: bold; 
+                        border: 1px solid #c8e6c9; 
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c8e6c9;
+                    }
+                    QPushButton:pressed {
+                        background-color: #a5d6a7;
+                    }
+                """)
 
         # Função interna para formatar a lista simplificada e mandar para a área de transferência
         def copiar_links():
