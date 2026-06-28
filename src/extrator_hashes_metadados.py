@@ -5376,6 +5376,39 @@ class JanelaHashes(QWidget):
 
         btn_copiar.clicked.connect(copiar_links)
 
+        # --- BOTÃO UNIFICADO KML ---
+        btn_exportar_kml_todos = QPushButton("Exportar KML (todos os itens)")
+        btn_exportar_kml_todos.setMinimumHeight(35)
+        btn_exportar_kml_todos.setStyleSheet("""
+                    QPushButton {
+                        background-color: #e6f2ff; 
+                        color: #005a9e; 
+                        font-weight: bold; 
+                        border: 1px solid #b3d4ff; 
+                        border-radius: 4px;
+                    }
+                """)
+        btn_exportar_kml_todos.clicked.connect(self.abrir_menu_exportacao_kml)
+
+        # Montagem do layout
+        layout_botoes.addWidget(btn_copiar)
+        layout_botoes.addWidget(btn_exportar_kml_todos)
+
+        layout.addLayout(layout_botoes)
+
+        dialog.exec()
+
+    def abrir_menu_exportacao_kml(self):
+        """Abre uma nova janela contendo as opções específicas de exportação KML."""
+        dialog_kml = QDialog(self)
+        dialog_kml.setWindowTitle("Opções de Exportação KML")
+        dialog_kml.setMinimumWidth(380)
+        layout = QVBoxLayout(dialog_kml)
+
+        lbl_info = QLabel("Selecione o formato desejado para a exportação:")
+        lbl_info.setStyleSheet("margin-bottom: 10px;")
+        layout.addWidget(lbl_info)
+
         # --- BOTÃO KML (PONTOS) ---
         btn_kml_pontos = QPushButton("📍 Exportar KML (Pontos)")
         btn_kml_pontos.setMinimumHeight(35)
@@ -5386,7 +5419,7 @@ class JanelaHashes(QWidget):
             """)
         btn_kml_pontos.clicked.connect(self.exportar_kml_pontos)
 
-        # --- BOTÃO KML (POLÍGONO) COM ESTILO :disabled ---
+        # --- BOTÃO KML (POLÍGONO) ---
         btn_kml_poligono = QPushButton("🛑 Exportar KML (Polígono)")
         btn_kml_poligono.setMinimumHeight(35)
         btn_kml_poligono.setStyleSheet("""
@@ -5399,51 +5432,52 @@ class JanelaHashes(QWidget):
             """)
         btn_kml_poligono.clicked.connect(self.exportar_kml_poligono)
 
-        # Lógica de desativação
+        # Lógica de desativação do polígono
         if len(self.coordenadas_gps_encontradas) < 3:
             btn_kml_poligono.setEnabled(False)
             btn_kml_poligono.setToolTip("Necessário no mínimo 3 coordenadas para desenhar um polígono.")
 
-
-        # --- FUNÇÃO LOCAL PARA EXIBIR AS INSTRUÇÕES ---
-        def mostrar_instrucoes():
-            msg = QMessageBox(dialog)  # Usa a janela de GPS como pai
-            msg.setWindowTitle("Como visualizar arquivos KML?")
-
-            # Habilita a interação com a caixa de texto para que os links sejam clicáveis
-            msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-
-            # Adicionada a div externa para controlar o tamanho da fonte e o espaçamento
-            msg.setText(
-                "<div style='font-size: 11pt; line-height: 1.4;'>"
-                "<h3 style='margin-bottom: 5px;'>Opção 1: Google Earth Web (Recomendado)</h3>"
-                "<p style='margin-top: 0;'>1. Acesse <a href='https://earth.google.com/web' style='color: #0056b3; text-decoration: none;'><b>earth.google.com/web</b></a> no seu navegador.<br>"
-                "2. No menu lateral, clique em <b>Projetos</b> (ícone de alfinete sobre um quadrado).<br>"
-                "3. Clique no botão <b>Novo</b> e depois em <b>Importar arquivo para o projeto do mapa</b>.</p>"
-                "<hr>"
-                "<h3 style='margin-bottom: 5px;'>Opção 2: Google Maps (My Maps)</h3>"
-                "<p style='margin-top: 0;'>1. Acesse o <a href='www.google.com/maps/d/' style='color: #0056b3; text-decoration: none;'><b>Google My Maps</b></a> (logado na sua conta Google).<br>"
-                "2. Clique no botão vermelho <b>Criar um novo mapa</b>.<br>"
-                "3. Na caixa flutuante do lado esquerdo, clique no link <b>Importar</b> e selecione o arquivo gerado.</p>"
-                "</div>"
-            )
-            msg.exec()
-
-        # --- BOTÃO DE INSTRUÇÕES
-        btn_instrucoes = QPushButton("❓ Como visualizar o KML?")
+        # --- BOTÃO INSTRUÇÕES (RENOMEADO) ---
+        btn_instrucoes = QPushButton("Instruções para visualizar arquivos KML")
         btn_instrucoes.setMinimumHeight(35)
         btn_instrucoes.setStyleSheet("font-weight: bold;")
-        btn_instrucoes.clicked.connect(mostrar_instrucoes)
+        btn_instrucoes.clicked.connect(self.mostrar_instrucoes_kml)
 
-        # Montagem do layout
-        layout_botoes.addWidget(btn_copiar)
-        layout_botoes.addWidget(btn_kml_pontos)
-        layout_botoes.addWidget(btn_kml_poligono)
-        layout_botoes.addWidget(btn_instrucoes)
+        # Adiciona botões ao layout
+        layout.addWidget(btn_kml_pontos)
+        layout.addWidget(btn_kml_poligono)
+        layout.addWidget(btn_instrucoes)
 
-        layout.addLayout(layout_botoes)
+        # Botão Fechar padrão
+        layout.addSpacing(10)
+        btn_fechar = QPushButton("Fechar")
+        btn_fechar.clicked.connect(dialog_kml.accept)
+        layout.addWidget(btn_fechar)
 
-        dialog.exec()
+        dialog_kml.exec()
+
+    def mostrar_instrucoes_kml(self):
+        """Exibe as instruções sobre como abrir os arquivos KML no Google Earth/Maps."""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Como visualizar arquivos KML?")
+
+        # Habilita a interação com a caixa de texto para que os links sejam clicáveis
+        msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+
+        msg.setText(
+            "<div style='font-size: 11pt; line-height: 1.4;'>"
+            "<h3 style='margin-bottom: 5px;'>Opção 1: Google Earth Web (Recomendado)</h3>"
+            "<p style='margin-top: 0;'>1. Acesse <a href='https://earth.google.com/web' style='color: #0056b3; text-decoration: none;'><b>earth.google.com/web</b></a> no seu navegador.<br>"
+            "2. No menu lateral, clique em <b>Projetos</b> (ícone de alfinete sobre um quadrado).<br>"
+            "3. Clique no botão <b>Novo</b> e depois em <b>Importar arquivo para o projeto do mapa</b>.</p>"
+            "<hr>"
+            "<h3 style='margin-bottom: 5px;'>Opção 2: Google Maps (My Maps)</h3>"
+            "<p style='margin-top: 0;'>1. Acesse o <a href='www.google.com/maps/d/' style='color: #0056b3; text-decoration: none;'><b>Google My Maps</b></a> (logado na sua conta Google).<br>"
+            "2. Clique no botão vermelho <b>Criar um novo mapa</b>.<br>"
+            "3. Na caixa flutuante do lado esquerdo, clique no link <b>Importar</b> e selecione o arquivo gerado.</p>"
+            "</div>"
+        )
+        msg.exec()
 
     def exportar_kml_pontos(self):
         if not self.coordenadas_gps_encontradas:
