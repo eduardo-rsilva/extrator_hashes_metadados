@@ -5278,6 +5278,11 @@ class JanelaHashes(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("📍 Coordenadas GPS Encontradas!")
         dialog.resize(850, 600)
+
+        # --- Força a centralização exata da janela em relação à interface principal ---
+        centro_pai = self.geometry().center()
+        dialog.move(centro_pai.x() - dialog.width() // 2, centro_pai.y() - dialog.height() // 2)
+
         layout = QVBoxLayout(dialog)
 
         # Verifica se há algum algoritmo de hash superior ao CRC32 selecionado
@@ -5352,7 +5357,7 @@ class JanelaHashes(QWidget):
             layout.addWidget(texto_todos)
             layout.addSpacing(5)
 
-            # NOVO: Criação do botão solicitado para abrir o mapa integrado
+            # Criação do botão solicitado para abrir o mapa integrado
             btn_mostrar_10_pontos = QPushButton("Mostrar 10 primeiros pontos no Google Maps")
             btn_mostrar_10_pontos.setMinimumHeight(35)
             btn_mostrar_10_pontos.setStyleSheet("""
