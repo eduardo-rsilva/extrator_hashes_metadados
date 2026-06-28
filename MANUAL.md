@@ -1,4 +1,4 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.6.0
+# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.4.6.1
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
