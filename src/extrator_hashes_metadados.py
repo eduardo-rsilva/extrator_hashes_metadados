@@ -3173,6 +3173,40 @@ class JanelaHashes(QWidget):
         layout_citar.addWidget(texto_citar_ui)
         abas.addTab(aba_citar, "Como Citar")
 
+        # ==============================================================
+        # ABA 4: AGRADECIMENTOS
+        # ==============================================================
+        aba_agradecimentos = QWidget()
+        layout_agradecimentos = QVBoxLayout(aba_agradecimentos)
+        layout_agradecimentos.setContentsMargins(20, 20, 20, 20)
+
+        texto_agradecimentos_ui = QTextEdit()
+        texto_agradecimentos_ui.setReadOnly(True)
+        texto_agradecimentos_ui.setStyleSheet("background-color: transparent; border: none; font-size: 10pt;")
+
+        # Conteúdo em HTML padronizado com o restante do menu Sobre
+        conteudo_agradecimentos_html = (
+            "<h3>🤝 Agradecimentos</h3>"
+            "<p>O desenvolvimento do <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b> foi tornado possível graças ao "
+            "apoio de colaboradores da área pericial e à robusta comunidade global de software livre.</p>"
+            "<br>"
+            "<b>Reconhecimentos Especiais:</b>"
+            "<ul>"
+            "<li><b>Apoio Institucional e Colegas:</b> Ao Diretor do Núcleo de Identificação Criminal Doutor Yuri Ojevan Presto e aos "
+            "Peritos Criminais Doutor Marco Aurélio Santoro e Doutora Luana Maria Garcia de Lima que voluntariaram "
+            "seu tempo realizando testes de estresse em lotes massivos, validação de metodologias e sugestões de interface e funcionalidades.</li>"
+            "<li><b>Comunidade de Software Livre (Open-Source):</b> Aos criadores e mantenedores das ferramentas de base "
+            "que compõem este ecossistema, com especial destaque para <i>Phil Harvey (ExifTool)</i>, a equipe do <i>MediaInfo</i>, "
+            "e os desenvolvedores do <i>PySide6/Qt</i>, <i>Pillow</i>, <i>pypdf</i>, <i>LnkParse3</i> e <i>pefile</i>.</li>"
+            "</ul>"
+            "<p>Este projeto reforça o compromisso da comunidade pericial com a transparência e auditabilidade das "
+            "ferramentas de extração de prova digital.</p>"
+        )
+
+        texto_agradecimentos_ui.setHtml(conteudo_agradecimentos_html)
+        layout_agradecimentos.addWidget(texto_agradecimentos_ui)
+        abas.addTab(aba_agradecimentos, "Agradecimentos")
+
         # --- RODAPÉ ---
         layout_botoes = QHBoxLayout()
         btn_audit = QPushButton("📂 Baixar Código Fonte para Auditoria (.py)")
