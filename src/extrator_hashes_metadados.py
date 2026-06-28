@@ -5387,22 +5387,9 @@ class JanelaHashes(QWidget):
             # URL OFICIAL DO GOOGLE MAPS PARA ROTAS (MÚLTIPLOS PONTOS)
             link_todos = f"https://www.google.com/maps/dir/{pontos_rota}"
 
-            texto_todos = QLabel()
-            texto_todos.setWordWrap(True)
-
-            aviso_limite = " (Limitado aos 10 primeiros pontos devido a restrições do Google Maps)" if len(
+            # Formata o aviso de limite separadamente para quebrar linha, se existir
+            aviso_limite = "<br><span style='font-size: 9pt;'>(Limitado aos 10 primeiros pontos devido a restrições do Google Maps)</span>" if len(
                 pontos_unicos) > 10 else ""
-
-            # Agora mantemos apenas o texto informativo dentro da caixa cinza
-            texto_todos.setText(
-                f"<div style='background-color: #f4f4f4; padding: 10px; border-radius: 5px; border: 1px solid #ddd;'>"
-                f"<b>🗺️ Visualizar todos no mapa:</b><br>"
-                f"Como o Google Maps não permite alfinetes múltiplos por URL, você pode usar o modo 'Rota' "
-                f"para ver os pontos interligados de forma sequencial{aviso_limite}."
-                f"</div>"
-            )
-            layout.addWidget(texto_todos)
-            layout.addSpacing(5)
 
             # Define o texto do botão dinamicamente
             if len(pontos_unicos) < 10:
@@ -5414,20 +5401,62 @@ class JanelaHashes(QWidget):
             btn_mostrar_10_pontos = QPushButton(texto_botao)
             btn_mostrar_10_pontos.setMinimumHeight(35)
             btn_mostrar_10_pontos.setStyleSheet("""
-                        QPushButton {
-                            background-color: #fff2cc; 
-                            color: #b27a00; 
-                            font-weight: bold; 
-                            border: 1px solid #ffe599; 
-                            border-radius: 4px;
-                        }
-                        QPushButton:hover {
-                            background-color: #ffe599;
-                        }
-                        QPushButton:pressed {
-                            background-color: #ffd966;
-                        }
-                    """)
+                                    QPushButton {
+                                        background-color: #fff2cc; 
+                                        color: #b27a00; 
+                                        font-weight: bold; 
+                                        border: 1px solid #ffe599; 
+                                        border-radius: 4px;
+                                    }
+                                    QPushButton:hover {
+                                        background-color: #ffe599;
+                                    }
+                                    QPushButton:pressed {
+                                        background-color: #ffd966;
+                                    }
+                                """)
+
+            # --- MELHORIA DA TOOLTIP (HTML + POSIÇÃO CENTRALIZADA) ---
+            # Adicionado width (largura) e font-size (tamanho da fonte)
+            tooltip_texto = (
+                "<table width='500'><tr><td align='center' style='padding: 5px; font-size: 11pt;'>"
+                "Como o Google Maps não permite alfinetes múltiplos por URL,<br>"
+                "você pode usar o modo <b>'Rota'</b> para ver os pontos interligados de forma sequencial."
+                f"{aviso_limite}"
+                "</td></tr></table>"
+            )
+            btn_mostrar_10_pontos.setToolTip(tooltip_texto)
+
+            from PySide6.QtCore import QObject, QEvent
+            from PySide6.QtWidgets import QToolTip
+
+            class FiltroTooltipCentro(QObject):
+                def eventFilter(self, obj, event):
+                    # Quando o mouse entra no botão
+                    if event.type() == QEvent.Type.Enter:
+                        centro = obj.rect().center()
+                        # Desloca levemente para baixo para não tampar o texto do botão
+                        centro.setY(centro.y() + 20)
+                        pos_global = obj.mapToGlobal(centro)
+                        # Força a exibição da tooltip nessa coordenada exata
+                        QToolTip.showText(pos_global, obj.toolTip(), obj)
+                        return True
+
+                    # Bloqueia o delay padrão e a posição da tooltip do sistema operacional
+                    elif event.type() == QEvent.Type.ToolTip:
+                        return True
+
+                        # Apaga a tooltip quando o mouse sai
+                    elif event.type() == QEvent.Type.Leave:
+                        QToolTip.hideText()
+
+                    return False
+
+            # Instancia o filtro e atrela ao botão
+            btn_mostrar_10_pontos._filtro_centro = FiltroTooltipCentro(btn_mostrar_10_pontos)
+            btn_mostrar_10_pontos.installEventFilter(btn_mostrar_10_pontos._filtro_centro)
+
+            # ---------------------------------------------------------
 
             # Função interna para chamar o navegador nativo
             def abrir_rota_agrupada():
