@@ -146,7 +146,7 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
 ## 5. Finalização e Relatórios
 Ao término do processamento, revise o resumo final para consolidar a perícia:
 
-* **Dados de Geolocalização:** Caso sejam encontrados dados de geolocalização (GPS) em um ou mais arquivos, eles serão agrupados na janela **"Coordenadas GPS Encontradas!"**. Os hiperlinks "Abrir Localização Original" levam diretamente àquela localização no site Google Maps no browser padrão do usuário.
+* **Dados de Geolocalização:** Caso sejam encontrados dados de geolocalização (GPS) em um ou mais arquivos, eles serão agrupados na janela **"Coordenadas GPS Encontradas!"**. Os hiperlinks "Abrir Localização no Google Maps" levam diretamente àquela localização no site Google Maps no browser padrão do usuário. Também é possível ver os primeiros 10 pontos encontrados em link direto no Google Maps (modo Rota), copiar a lista de links gerados em texto puro ou exportar o resultado em formato `.kml` para visualização no "Google Earth" ou no "Google My Maps".
 
     <figure>
       <img src="imgs/janela_GPS.PNG" alt="Essa janela agrupa os hiperlinks das coordenadas GPS encontradas." style="border: 1px solid black;" width="100%">
