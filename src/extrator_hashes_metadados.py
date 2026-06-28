@@ -5336,27 +5336,54 @@ class JanelaHashes(QWidget):
             link_todos = f"https://www.google.com/maps/dir/{pontos_rota}"
 
             texto_todos = QLabel()
-            texto_todos.setOpenExternalLinks(True)
             texto_todos.setWordWrap(True)
 
             aviso_limite = " (Limitado aos 10 primeiros pontos devido a restrições do Google Maps)" if len(
                 self.coordenadas_gps_encontradas) > 10 else ""
 
+            # Agora mantemos apenas o texto informativo dentro da caixa cinza
             texto_todos.setText(
                 f"<div style='background-color: #f4f4f4; padding: 10px; border-radius: 5px; border: 1px solid #ddd;'>"
                 f"<b>🗺️ Visualizar todos no mapa:</b><br>"
                 f"Como o Google Maps não permite alfinetes múltiplos por URL, você pode usar o modo 'Rota' "
-                f"para ver os pontos interligados{aviso_limite}:<br><br>"
-                f"👉 <a href='{link_todos}' style='color: #d9534f; font-weight: bold; text-decoration: none;'>Abrir mapa com os 10 primeiros pontos no Google Maps</a>"
+                f"para ver os pontos interligados de forma sequencial{aviso_limite}."
                 f"</div>"
             )
             layout.addWidget(texto_todos)
+            layout.addSpacing(5)
+
+            # NOVO: Criação do botão solicitado para abrir o mapa integrado
+            btn_mostrar_10_pontos = QPushButton("Mostrar 10 primeiros pontos no Google Maps")
+            btn_mostrar_10_pontos.setMinimumHeight(35)
+            btn_mostrar_10_pontos.setStyleSheet("""
+                        QPushButton {
+                            background-color: #fff2cc; 
+                            color: #b27a00; 
+                            font-weight: bold; 
+                            border: 1px solid #ffe599; 
+                            border-radius: 4px;
+                        }
+                        QPushButton:hover {
+                            background-color: #ffe599;
+                        }
+                        QPushButton:pressed {
+                            background-color: #ffd966;
+                        }
+                    """)
+
+            # Função interna para chamar o navegador nativo
+            def abrir_rota_agrupada():
+                import webbrowser
+                webbrowser.open(link_todos)
+
+            btn_mostrar_10_pontos.clicked.connect(abrir_rota_agrupada)
+            layout.addWidget(btn_mostrar_10_pontos)
 
         # Botões do Rodapé
         layout.addSpacing(10)
         layout_botoes = QHBoxLayout()
 
-        btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links\nGoogle Maps")
+        btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links Google Maps (todos os pontos encontrados)")
         btn_copiar.setMinimumHeight(35)
 
         # Função interna para formatar a lista simplificada e mandar para a área de transferência
@@ -5372,12 +5399,12 @@ class JanelaHashes(QWidget):
             btn_copiar.setText("Copiado!")
 
             # Restaura o texto original do botão após 1.5 segundos
-            QTimer.singleShot(1500, lambda: btn_copiar.setText("Copiar Lista (Ctrl+C) de links\nGoogle Maps"))
+            QTimer.singleShot(1500, lambda: btn_copiar.setText("Copiar Lista (Ctrl+C) de links Google Maps (todos os pontos encontrados)"))
 
         btn_copiar.clicked.connect(copiar_links)
 
         # --- BOTÃO UNIFICADO KML ---
-        btn_exportar_kml_todos = QPushButton("Exportar KML (todos os itens)")
+        btn_exportar_kml_todos = QPushButton("Exportar KML (todos os pontos encontrados)")
         btn_exportar_kml_todos.setMinimumHeight(35)
         btn_exportar_kml_todos.setStyleSheet("""
                     QPushButton {
