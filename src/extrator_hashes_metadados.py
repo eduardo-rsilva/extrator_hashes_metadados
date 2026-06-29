@@ -2103,9 +2103,21 @@ class JanelaHashes(QWidget):
             self.texto_saida.setStyleSheet(
                 "background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas; font-size: 10pt; border: 1px solid #555555;")
             self.btn_unidade_raw.setStyleSheet("""
-                            QPushButton { font-weight: bold; color: #ff6666; background-color: #3c3f41; border: 1px solid #ff6666; }
+                            QPushButton { 
+                                font-weight: bold; 
+                                color: #ff6666; 
+                                background-color: #3c3f41; 
+                                border: 1px solid #ff6666;
+                                border-radius: 4px;
+                                padding: 4px;
+                            }
                             QPushButton:hover { background-color: #4b4d4f; }
-                            QPushButton:disabled { color: #666666; background-color: #2b2b2b; border: 1px solid #444444; }
+                            QPushButton:pressed { background-color: #2b2b2b; }
+                            QPushButton:disabled { 
+                                color: #666666; 
+                                background-color: #2b2b2b; 
+                                border: 1px solid #444444; 
+                            }
                         """)
 
             # Texto de referência (Cadeia de Custódia)
@@ -2516,12 +2528,30 @@ class JanelaHashes(QWidget):
             lbl_info.setStyleSheet("font-weight: bold; font-size: 12pt; margin-bottom: 10px;")
             layout_escopo.addWidget(lbl_info)
 
-            # --- Controle de Cores Dinâmicas para o Escopo RAW ---
+            # --- Controle de Cores Dinâmicas e Efeitos Táteis para o Escopo RAW ---
             is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
             cor_texto = "#d4d4d4" if is_dark else "#333"
-            cor_btn_bg = "#3c3f41" if is_dark else "#e0e0e0"
-            borda_btn = "1px solid #555555" if is_dark else "none"
-            cor_btn_txt = "#f0f0f0" if is_dark else "#000000"
+
+            # Variáveis para os botões (Normal, Hover e Pressed)
+            bg_normal = "#3c3f41" if is_dark else "#e0e0e0"
+            bg_hover = "#4b4d4f" if is_dark else "#d4d4d4"
+            bg_pressed = "#2b2b2b" if is_dark else "#cccccc"
+            borda = "1px solid #555555" if is_dark else "1px solid #bfbfbf"
+            cor_txt = "#f0f0f0" if is_dark else "#000000"
+
+            estilo_botoes_escopo = f"""
+                            QPushButton {{
+                                padding: 8px;
+                                font-weight: bold;
+                                font-size: 11pt;
+                                background-color: {bg_normal};
+                                color: {cor_txt};
+                                border: {borda};
+                                border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {bg_hover}; }}
+                            QPushButton:pressed {{ background-color: {bg_pressed}; }}
+                        """
 
             # TEXTO OPÇÃO 1
             lbl_titulo_disco = QLabel(
@@ -2535,8 +2565,7 @@ class JanelaHashes(QWidget):
             lbl_desc_disco.setStyleSheet(f"color: {cor_texto}; font-size: 11pt; margin-bottom: 10px;")
 
             btn_disco = QPushButton("Selecionar Opção 1 (Hardware Completo)")
-            btn_disco.setStyleSheet(
-                f"padding: 8px; font-weight: bold; font-size: 11pt; background-color: {cor_btn_bg}; color: {cor_btn_txt}; border: {borda_btn};")
+            btn_disco.setStyleSheet(estilo_botoes_escopo)
 
             # TEXTO OPÇÃO 2
             lbl_titulo_volume = QLabel(
@@ -2550,8 +2579,7 @@ class JanelaHashes(QWidget):
             lbl_desc_volume.setStyleSheet(f"color: {cor_texto}; font-size: 11pt; margin-bottom: 10px;")
 
             btn_volume = QPushButton("Selecionar Opção 2 (Apenas Partição)")
-            btn_volume.setStyleSheet(
-                f"padding: 8px; font-weight: bold; font-size: 11pt; background-color: {cor_btn_bg}; color: {cor_btn_txt}; border: {borda_btn};")
+            btn_volume.setStyleSheet(estilo_botoes_escopo)
 
             # Lógica de seleção
             escolha = {"tipo": "volume"}
