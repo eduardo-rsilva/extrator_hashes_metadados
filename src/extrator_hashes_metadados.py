@@ -2312,9 +2312,11 @@ class JanelaHashes(QWidget):
                     "Certifique-se de que o arquivo 'extrator_hashes_metadados.py' está na pasta do programa.")
                 return
 
+            opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
             caminho_destino, _ = QFileDialog.getSaveFileName(
                 self, "Exportar Código Fonte para Auditoria",
-                "extrator_hashes_metadados_auditoria.py", "Python Script (*.py)"
+                "extrator_hashes_metadados_auditoria.py", "Python Script (*.py)",
+                options=opcoes_salvar
             )
 
             if caminho_destino:
@@ -4973,11 +4975,13 @@ class JanelaHashes(QWidget):
         # Nome padronizado para o relatório exportado
         nome_padrao = f"Relatorio_Extracao_{agora}.txt"
 
+        opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Relatório",
             nome_padrao,
-            "Arquivo de Texto (*.txt)"
+            "Arquivo de Texto (*.txt)",
+            options=opcoes_salvar
         )
 
         if caminho_salvar:
@@ -5893,11 +5897,13 @@ class JanelaHashes(QWidget):
         dados_kml = dialogo.obter_dados()
 
         # 2. SEGUIMENTO NORMAL (Escolher onde salvar)
+        opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Mapa de Pontos de Evidência",
             "mapa_evidencias_pontos.kml",
-            "Google Earth KML (*.kml)"
+            "Google Earth KML (*.kml)",
+            options=opcoes_salvar
         )
 
         if not caminho_salvar:
@@ -5954,11 +5960,13 @@ class JanelaHashes(QWidget):
         dados_kml = dialogo.obter_dados()
 
         # 2. SEGUIMENTO NORMAL
+        opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
         caminho_salvar, _ = QFileDialog.getSaveFileName(
             self,
             "Salvar Polígono de Área Periciada",
             "mapa_evidencias_poligono.kml",
-            "Google Earth KML (*.kml)"
+            "Google Earth KML (*.kml)",
+            options=opcoes_salvar
         )
 
         if not caminho_salvar:
