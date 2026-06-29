@@ -1697,101 +1697,85 @@ class JanelaHashes(QWidget):
     def setup_ui(self):
         layout_principal = QVBoxLayout()
 
-        # --- LINHA 0: Opções do Sistema (Topo) ---
+        # ==============================================================
+        # --- BLOCO 0: Caixa de Configurações e Ajuda (Linha 0) ---
+        # ==============================================================
+        self.grupo_topo = QGroupBox("Configurações e Utilidades")
         layout_opcoes_topo = QHBoxLayout()
+
+        self.btn_formatos = QPushButton("Formatos Suportados")
+        self.btn_formatos.clicked.connect(self.mostrar_formatos)
+        layout_opcoes_topo.addWidget(self.btn_formatos)
+
+        self.btn_manual_online = QPushButton("Manual Online")
+        self.btn_manual_online.clicked.connect(self.abrir_manual_online)
+        layout_opcoes_topo.addWidget(self.btn_manual_online)
+
+        self.btn_sobre = QPushButton("Sobre")
+        self.btn_sobre.clicked.connect(self.mostrar_sobre)
+        layout_opcoes_topo.addWidget(self.btn_sobre)
+
         layout_opcoes_topo.addStretch()
 
         self.chk_modo_escuro = QCheckBox("🌙 Modo Escuro")
         self.chk_modo_escuro.setStyleSheet("font-weight: bold; padding: 2px;")
         self.chk_modo_escuro.toggled.connect(self.alternar_modo_escuro)
-
         layout_opcoes_topo.addWidget(self.chk_modo_escuro)
-        layout_principal.addLayout(layout_opcoes_topo)
 
-        # --- LINHA 1: Controles Principais ---
-        layout_controles = QHBoxLayout()
+        # Define o layout interno da caixa e adiciona a caixa na janela
+        self.grupo_topo.setLayout(layout_opcoes_topo)
+        layout_principal.addWidget(self.grupo_topo)
+
+        # ==============================================================
+        # --- BLOCO 1: Caixa de Operações Forenses (Controles + Hashes) ---
+        # ==============================================================
+        self.grupo_controles = QGroupBox("Controles de Extração de Evidências")
+        # Layout vertical principal da caixa para empilhar as duas linhas
+        layout_grupo_controles = QVBoxLayout()
+
+        # --- Sub-linha A: Botões de Origem ---
+        layout_botoes_origem = QHBoxLayout()
 
         self.btn_arquivo = QPushButton("Selecionar Arquivo(s)")
         self.btn_arquivo.clicked.connect(self.selecionar_arquivo)
-        layout_controles.addWidget(self.btn_arquivo)
+        layout_botoes_origem.addWidget(self.btn_arquivo)
 
         self.btn_diretorio = QPushButton("Selecionar Diretório")
         self.btn_diretorio.clicked.connect(self.selecionar_diretorio)
-        layout_controles.addWidget(self.btn_diretorio)
+        layout_botoes_origem.addWidget(self.btn_diretorio)
 
         self.chk_subdiretorios = QCheckBox("Incluir Subdiretórios")
         self.chk_subdiretorios.setChecked(True)
-        layout_controles.addWidget(self.chk_subdiretorios)
+        layout_botoes_origem.addWidget(self.chk_subdiretorios)
 
-        layout_controles.addSpacing(25)
+        layout_botoes_origem.addSpacing(25)
 
-        # Botão RAW
         self.btn_unidade_raw = QPushButton("Selecionar Unidade (RAW)")
         self.btn_unidade_raw.clicked.connect(self.selecionar_unidade_raw)
-        # Estilo distinto para diferenciar o RAW dos arquivos comuns
         self.btn_unidade_raw.setStyleSheet("""
-                    QPushButton {
-                        font-weight: bold; 
-                        color: #800000; 
-                        background-color: #e6e6e6;
-                    }
-                    QPushButton:disabled {
-                        color: #999999; 
-                        background-color: #f0f0f0;
-                        border: 1px solid #cccccc;
-                    }
-                """)
-        layout_controles.addWidget(self.btn_unidade_raw)
+                            QPushButton {
+                                font-weight: bold; 
+                                color: #800000; 
+                                background-color: #e6e6e6;
+                            }
+                            QPushButton:disabled {
+                                color: #999999; 
+                                background-color: #f0f0f0;
+                                border: 1px solid #cccccc;
+                            }
+                        """)
+        layout_botoes_origem.addWidget(self.btn_unidade_raw)
 
-        # --- Checkbox de Metadados Extras à direita de Subdiretórios ---
-        self.chk_metadados = QCheckBox("Incluir Metadados Básicos")
-        self.chk_metadados.setChecked(True)
-        self.chk_metadados.setToolTip(
-            "<p><b>Suporte a extração de metadados avançados:</b></p>"
-            "<ul>"
-            "<li><b>Imagens (JPG, PNG, TIFF, WEBP...):</b> Resolução, Formato, DPI, Dispositivo (Marca/Modelo), Data de Captura, Software/Editor e Coordenadas GPS (com link para o Google Maps).</li>"
-            "<li><b>Vídeos (MP4, AVI, MKV...):</b> Resolução, FPS, Duração, Data de Criação, Dispositivo de Gravação, Software e Coordenadas GPS (com link para o Google Maps).</li>"
-            "<li><b>Documentos (PDF e Office):</b> Total de Páginas, Título Interno, Autor, Último a Modificar e Software Criador.</li>"
-            "<li><b>Áudio (MP3, WAV, FLAC...):</b> Duração Exata, Taxa de Bits (Bitrate), Artista/Software e Comentários Ocultos.</li>"
-            "<li><b>Executáveis (EXE, DLL, SYS):</b> Data de Compilação Exata (UTC), Verificação de Assinatura Digital (Authenticode), Nome Original do Arquivo e Empresa.</li>"
-            "<li><b>E-mails (EML, MSG):</b> Remetente Real, Destinatário, Assunto, Data de Envio e 1º Servidor de Trânsito (rastreio de IP).</li>"
-            "<li><b>Arquivos Geográficos (KML, GPX, XML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
-            "<li><b>Atalhos do Windows (LNK):</b> Caminho Alvo (Local e Relativo), Argumentos de Execução (Payloads), Diretório de Trabalho, Rótulo/Serial do Pendrive/HD (em Hex) e MAC Address de origem.</li>"
-            "</ul>"
-            "<p><b>Análises Forenses Integradas e Proteções:</b></p>"
-            "<ul>"
-            "<li><b>Segurança NTFS (ADS):</b> Detecção e leitura parcial de fluxos de dados ocultos, como 'Mark of the Web' ou payloads binários.</li>"
-            "<li><b>Preservação de Evidência (Nuvem):</b> Bloqueio automático de leitura de arquivos 'Apenas Online' (OneDrive/Google Drive) para evitar downloads indesejados e alteração do disco.</li>"
-            "<li><b>Seleção Literal:</b> Ignora ativamente resoluções nativas do Windows para links simbólicos e junções de diretório.</li>"
-            "<li><b>File Lock / Controle de Acesso:</b> Identificação segura de arquivos trancados com acesso exclusivo pelo sistema operacional ou em uso por outros aplicativos (ex: pacote Office).</li>"
-            "</ul>"
-        )
-        self.chk_metadados.installEventFilter(self)
+        # Adiciona a primeira linha dentro da caixa
+        layout_grupo_controles.addLayout(layout_botoes_origem)
 
-        layout_controles.addStretch()
-
-        self.btn_formatos = QPushButton("Formatos Suportados")
-        self.btn_formatos.clicked.connect(self.mostrar_formatos)
-        layout_controles.addWidget(self.btn_formatos)
-
-        self.btn_manual_online = QPushButton("Manual Online")
-        self.btn_manual_online.clicked.connect(self.abrir_manual_online)
-        layout_controles.addWidget(self.btn_manual_online)
-
-        self.btn_sobre = QPushButton("Sobre")
-        self.btn_sobre.clicked.connect(self.mostrar_sobre)
-        layout_controles.addWidget(self.btn_sobre)
-
-        layout_principal.addLayout(layout_controles)
-
-        # --- LINHA 2: Seleção de Algoritmos ---
+        # --- Sub-linha B: Algoritmos e Metadados ---
         layout_hashes = QHBoxLayout()
         layout_hashes.addWidget(QLabel("Algoritmos:"))
 
         self.chk_hashes = {}
         lista_algoritmos = ["CRC32", "MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512"]
 
-        # Dicionário com as descrições forenses de cada algoritmo
         tooltips_hashes = {
             "CRC32": "<p><b>CRC32:</b> Verificação de redundância (Não Criptográfico).</p>"
                      "<ul><li><b>Segurança:</b> Nula.</li>"
@@ -1831,26 +1815,43 @@ class JanelaHashes(QWidget):
             if algo in ["SHA-256", "SHA-512"]:
                 chk.setChecked(True)
 
-            # Aplica o texto da tooltip correspondente
             chk.setToolTip(tooltips_hashes[algo])
-            # Instala o filtro de eventos para aparecer instantaneamente
             chk.installEventFilter(self)
 
             layout_hashes.addWidget(chk)
             self.chk_hashes[algo] = chk
 
         layout_hashes.addStretch()
-
         layout_hashes.addWidget(QLabel("Análise:"))
 
-        # --- BLOCO VERTICAL PARA EMPILHAR AS OPÇÕES ---
         layout_opcoes_metadados = QVBoxLayout()
-        layout_opcoes_metadados.setSpacing(2)  # Espaçamento entre as duas checkboxes
+        layout_opcoes_metadados.setSpacing(2)
 
-        # 1. Adiciona a checkbox básica (que já foi criada e configurada lá na Linha 1 do seu código)
+        self.chk_metadados = QCheckBox("Incluir Metadados Básicos")
+        self.chk_metadados.setChecked(True)
+        self.chk_metadados.setToolTip(
+            "<p><b>Suporte a extração de metadados avançados:</b></p>"
+            "<ul>"
+            "<li><b>Imagens (JPG, PNG, TIFF, WEBP...):</b> Resolução, Formato, DPI, Dispositivo (Marca/Modelo), Data de Captura, Software/Editor e Coordenadas GPS (com link para o Google Maps).</li>"
+            "<li><b>Vídeos (MP4, AVI, MKV...):</b> Resolução, FPS, Duração, Data de Criação, Dispositivo de Gravação, Software e Coordenadas GPS (com link para o Google Maps).</li>"
+            "<li><b>Documentos (PDF e Office):</b> Total de Páginas, Título Interno, Autor, Último a Modificar e Software Criador.</li>"
+            "<li><b>Áudio (MP3, WAV, FLAC...):</b> Duração Exata, Taxa de Bits (Bitrate), Artista/Software e Comentários Ocultos.</li>"
+            "<li><b>Executáveis (EXE, DLL, SYS):</b> Data de Compilação Exata (UTC), Verificação de Assinatura Digital (Authenticode), Nome Original do Arquivo e Empresa.</li>"
+            "<li><b>E-mails (EML, MSG):</b> Remetente Real, Destinatário, Assunto, Data de Envio e 1º Servidor de Trânsito (rastreio de IP).</li>"
+            "<li><b>Arquivos Geográficos (KML, GPX, XML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
+            "<li><b>Atalhos do Windows (LNK):</b> Caminho Alvo (Local e Relativo), Argumentos de Execução (Payloads), Diretório de Trabalho, Rótulo/Serial do Pendrive/HD (em Hex) e MAC Address de origem.</li>"
+            "</ul>"
+            "<p><b>Análises Forenses Integradas e Proteções:</b></p>"
+            "<ul>"
+            "<li><b>Segurança NTFS (ADS):</b> Detecção e leitura parcial de fluxos de dados ocultos, como 'Mark of the Web' ou payloads binários.</li>"
+            "<li><b>Preservação de Evidência (Nuvem):</b> Bloqueio automático de leitura de arquivos 'Apenas Online' (OneDrive/Google Drive) para evitar downloads indesejados e alteração do disco.</li>"
+            "<li><b>Seleção Literal:</b> Ignora ativamente resoluções nativas do Windows para links simbólicos e junções de diretório.</li>"
+            "<li><b>File Lock / Controle de Acesso:</b> Identificação segura de arquivos trancados com acesso exclusivo pelo sistema operacional ou em uso por outros aplicativos (ex: pacote Office).</li>"
+            "</ul>"
+        )
+        self.chk_metadados.installEventFilter(self)
         layout_opcoes_metadados.addWidget(self.chk_metadados)
 
-        # 2. Cria e adiciona a nova checkbox de Raw Dump
         self.chk_metadados_raw = QCheckBox("Incluir TODOS os metadados (Raw Dump)")
         self.chk_metadados_raw.setChecked(False)
         self.chk_metadados_raw.setToolTip(
@@ -1861,11 +1862,14 @@ class JanelaHashes(QWidget):
         self.chk_metadados.clicked.connect(self._garantir_exclusividade_basico)
         self.chk_metadados_raw.clicked.connect(self._garantir_exclusividade_raw)
 
-        # 3. Adiciona esse "pacote" vertical dentro do layout horizontal dos hashes
         layout_hashes.addLayout(layout_opcoes_metadados)
-        # ---------------------------------------------------
 
-        layout_principal.addLayout(layout_hashes)
+        # Adiciona a segunda linha dentro da caixa
+        layout_grupo_controles.addLayout(layout_hashes)
+
+        # Finalmente, define o layout empilhado na caixa e coloca a caixa na janela
+        self.grupo_controles.setLayout(layout_grupo_controles)
+        layout_principal.addWidget(self.grupo_controles)
 
         # --- ALERTA DE ATUALIZAÇÃO (Invisível por padrão) ---
         self.lbl_alerta_versao = QLabel()
@@ -3118,26 +3122,37 @@ class JanelaHashes(QWidget):
                 print(f"[DEBUG] Erro ao executar limpeza global de temporários: {e}")
 
     def eventFilter(self, obj, event):
-        # Verifica se o alvo é o checkbox de metadados, algum dos checkboxes de hash ou a label de alerta
-        alvos_tooltip = [self.chk_metadados, self.lbl_alerta_versao] + list(self.chk_hashes.values())
+        eh_alvo = False
 
-        if obj in alvos_tooltip:
-            # 1. Quando o mouse ENTRA (Ação imediata)
+        # 1. Verifica de forma segura o componente que disparou o evento
+        if hasattr(self, 'lbl_alerta_versao') and obj == self.lbl_alerta_versao:
+            eh_alvo = True
+        elif hasattr(self, 'chk_metadados') and obj == self.chk_metadados:
+            eh_alvo = True
+        elif hasattr(self, 'chk_metadados_raw') and obj == self.chk_metadados_raw:
+            eh_alvo = True
+        elif hasattr(self, 'chk_hashes') and obj in self.chk_hashes.values():
+            eh_alvo = True
+
+        if eh_alvo:
+            # 2. Quando o mouse ENTRA (Ação imediata)
             if event.type() == QEvent.Type.Enter:
                 from PySide6.QtGui import QCursor
                 from PySide6.QtWidgets import QToolTip
 
                 pos_mouse = QCursor.pos()
 
-                # A) Se for o Tooltip de Nova Versão, exibe o HTML costumizado e empurra MUITO pra esquerda
-                if obj == self.lbl_alerta_versao and hasattr(self.lbl_alerta_versao, 'custom_tooltip_text'):
+                # A) Se for o Tooltip de Nova Versão, exibe o HTML customizado e empurra MUITO pra esquerda
+                if hasattr(self, 'lbl_alerta_versao') and obj == self.lbl_alerta_versao and hasattr(
+                        self.lbl_alerta_versao, 'custom_tooltip_text'):
                     pos_mouse.setX(pos_mouse.x() - 500)
                     pos_mouse.setY(pos_mouse.y() + 15)
                     QToolTip.showText(pos_mouse, self.lbl_alerta_versao.custom_tooltip_text, obj)
                     return True
 
-                # B) Se for o tooltip GIGANTE de Metadados, empurra um pouco pra esquerda
-                elif obj == self.chk_metadados:
+                # B) Se for o tooltip GIGANTE de Metadados (Básico ou RAW), empurra um pouco pra esquerda
+                elif (hasattr(self, 'chk_metadados') and obj == self.chk_metadados) or \
+                        (hasattr(self, 'chk_metadados_raw') and obj == self.chk_metadados_raw):
                     pos_mouse.setX(pos_mouse.x() - 320)
                     pos_mouse.setY(pos_mouse.y() + 15)
                     QToolTip.showText(pos_mouse, obj.toolTip(), obj)
@@ -3150,13 +3165,13 @@ class JanelaHashes(QWidget):
                     QToolTip.showText(pos_mouse, obj.toolTip(), obj)
                     return True
 
-            # 2. Quando o mouse SAI
+            # 3. Quando o mouse SAI
             elif event.type() == QEvent.Type.Leave:
                 from PySide6.QtWidgets import QToolTip
                 QToolTip.hideText()
                 return True
 
-            # 3. Ignora o delay padrão do Windows
+            # 4. Ignora o delay padrão do Windows
             elif event.type() == QEvent.Type.ToolTip:
                 return True
 
@@ -3458,45 +3473,39 @@ class JanelaHashes(QWidget):
 
     def travar_interface(self):
         self.processando = True
-        self.btn_arquivo.setEnabled(False)
-        self.btn_diretorio.setEnabled(False)
-        self.chk_subdiretorios.setEnabled(False)
-        self.btn_unidade_raw.setEnabled(False)
-        self.chk_metadados.setEnabled(False)
-        self.chk_metadados_raw.setEnabled(False)
+
+        # Trava as duas novas caixas superiores inteiras de uma vez
+        # (Isso desativa automaticamente: Arquivos, Diretório, RAW, Subdirs, Modo Escuro, Sobre, Formatos, etc.)
+        self.grupo_topo.setEnabled(False)
+        self.grupo_controles.setEnabled(False)
+
+        # Trava os botões do rodapé
         self.btn_limpar.setEnabled(False)
         self.btn_copiar.setEnabled(False)
-        self.btn_formatos.setEnabled(False)
-        self.btn_sobre.setEnabled(False)
-        self.btn_manual_online.setEnabled(False)
-        self.setAcceptDrops(False)
         self.btn_salvar.setEnabled(False)
+
+        # Trava a área de cadeia de custódia e o drag & drop global
+        self.setAcceptDrops(False)
         self.texto_referencia.setEnabled(False)
         self.btn_limpar_custodia.setEnabled(False)
 
-        for chk in self.chk_hashes.values():
-            chk.setEnabled(False)
-
     def destravar_interface(self):
         self.processando = False
-        self.btn_arquivo.setEnabled(True)
-        self.btn_diretorio.setEnabled(True)
-        self.chk_subdiretorios.setEnabled(True)
-        self.btn_unidade_raw.setEnabled(True)
-        self.chk_metadados.setEnabled(True)
-        self.chk_metadados_raw.setEnabled(True)
+
+        # Destrava as duas novas caixas superiores inteiras de uma vez
+        self.grupo_topo.setEnabled(True)
+        self.grupo_controles.setEnabled(True)
+
+        # Destrava os botões do rodapé
         self.btn_limpar.setEnabled(True)
         self.btn_copiar.setEnabled(True)
-        self.btn_formatos.setEnabled(True)
-        self.btn_sobre.setEnabled(True)
-        self.btn_manual_online.setEnabled(True)
-        self.setAcceptDrops(True)
         self.btn_salvar.setEnabled(True)
+
+        # Destrava a área de cadeia de custódia e o drag & drop global
+        self.setAcceptDrops(True)
         self.texto_referencia.setEnabled(True)
         self.btn_limpar_custodia.setEnabled(True)
 
-        for chk in self.chk_hashes.values():
-            chk.setEnabled(True)
 
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
     def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False):
