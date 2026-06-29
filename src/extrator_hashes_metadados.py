@@ -1701,6 +1701,11 @@ class JanelaHashes(QWidget):
         # --- BLOCO 0: Caixa de Configurações e Ajuda (Linha 0) ---
         # ==============================================================
         self.grupo_topo = QGroupBox("Configurações e Utilidades")
+        # Força o alinhamento e o padding idênticos desde a criação
+        self.grupo_topo.setStyleSheet("""
+                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                """)
         layout_opcoes_topo = QHBoxLayout()
 
         self.btn_formatos = QPushButton("Formatos Suportados")
@@ -1730,7 +1735,11 @@ class JanelaHashes(QWidget):
         # --- BLOCO 1: Caixa de Operações Forenses (Controles + Hashes) ---
         # ==============================================================
         self.grupo_controles = QGroupBox("Controles de Extração de Evidências")
-        # Layout vertical principal da caixa para empilhar as duas linhas
+        # Força o alinhamento e o padding idênticos desde o primeiro milissegundo de criação
+        self.grupo_controles.setStyleSheet("""
+                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                """)
         layout_grupo_controles = QVBoxLayout()
 
         # --- Sub-linha A: Botões de Origem ---
@@ -1882,8 +1891,12 @@ class JanelaHashes(QWidget):
         splitter = QSplitter(Qt.Orientation.Vertical)
 
         # --- CADEIA DE CUSTÓDIA ---
-        grupo_validacao = QGroupBox("Validar Cadeia de Custódia (Opcional)")
-        layout_validacao = QHBoxLayout()  # O seu layout horizontal perfeito
+        self.grupo_validacao = QGroupBox("Validar Cadeia de Custódia (Opcional)")
+        self.grupo_validacao.setStyleSheet("""
+                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                """)
+        layout_validacao = QHBoxLayout()
 
         self.texto_referencia = TextEditCustodia(self)
         self.texto_referencia.setMinimumHeight(65)
@@ -1897,10 +1910,10 @@ class JanelaHashes(QWidget):
 
         layout_validacao.addWidget(self.texto_referencia)
         layout_validacao.addWidget(self.btn_limpar_custodia)
-        grupo_validacao.setLayout(layout_validacao)
+        self.grupo_validacao.setLayout(layout_validacao)
 
         # A MÁGICA ACONTECE AQUI: Em vez de adicionar ao layout principal, adicionamos ao splitter!
-        splitter.addWidget(grupo_validacao)
+        splitter.addWidget(self.grupo_validacao)
 
         # --- Área de Texto Principal ---
         self.texto_saida = QTextEdit()
@@ -2100,12 +2113,20 @@ class JanelaHashes(QWidget):
                 QPushButton:pressed { background-color: #2b2b2b; }
                 QPushButton:disabled { background-color: #2b2b2b; color: #666666; border: 1px solid #444444; }
                 QCheckBox { color: #f0f0f0; }
-                QGroupBox { border: 1px solid #555555; margin-top: 10px; }
-                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }
                 QComboBox { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; }
                 QTextBrowser { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555; }
             """
             self.setStyleSheet(estilo_global)
+
+            # Atualiza o estilo individual de cada QGroupBox para a cor cinza-clara do Modo Escuro
+            estilo_caixas_escuro = """
+                QGroupBox { border: 1px solid #555555; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #f0f0f0; }
+            """
+            self.grupo_topo.setStyleSheet(estilo_caixas_escuro)
+            self.grupo_controles.setStyleSheet(estilo_caixas_escuro)
+            if hasattr(self, 'grupo_validacao'):
+                self.grupo_validacao.setStyleSheet(estilo_caixas_escuro)
 
             # Altera a folha de estilos das Tooltips globais para o modo escuro
             if app:
@@ -2141,6 +2162,16 @@ class JanelaHashes(QWidget):
             # --- ESTILO MODO CLARO (Padrão) ---
             self.setStyleSheet("")
 
+            # Restaura o estilo individual de cada QGroupBox para a cor preta do Modo Claro
+            estilo_caixas_claro = """
+                QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+            """
+            self.grupo_topo.setStyleSheet(estilo_caixas_claro)
+            self.grupo_controles.setStyleSheet(estilo_caixas_claro)
+            if hasattr(self, 'grupo_validacao'):
+                self.grupo_validacao.setStyleSheet(estilo_caixas_claro)
+
             # Restaura a folha de estilos das Tooltips globais para o modo claro
             if app:
                 app.setStyleSheet("""
@@ -2164,9 +2195,7 @@ class JanelaHashes(QWidget):
 
         # --- Atualiza dinamicamente o aviso em vermelho da Tooltip do CRC32 ---
         if hasattr(self, "chk_hashes") and "CRC32" in self.chk_hashes:
-            # Usa um vermelho vivo no modo escuro e o vermelho escuro original no modo claro
             cor_alerta_crc32 = "#ff6666" if ativado else "#990000"
-
             tooltip_crc32 = (
                 "<p><b>CRC32:</b> Verificação de redundância (Não Criptográfico).</p>"
                 "<ul><li><b>Segurança:</b> Nula.</li>"
