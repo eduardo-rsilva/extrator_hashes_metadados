@@ -36,21 +36,21 @@ A forma mais rápida de utilizar o programa é através da técnica de "arrastar
 
 * **Configuração:** Selecione os algoritmos de hash desejados no painel superior (SHA-256 e SHA-512 são recomendados e vêm marcados por padrão).
 * **Incluir Subdiretórios:** Selecione esse campo se quiser analisar todos os arquivos contidos em todos os subdiretórios contidos no diretório selecionado.
-* **Seleção de Metadados:** Selecione "Metadados Básicos", que é uma seleção dos metadados mais utilizados, ou "TODOS os metadados (Raw Dump)" para ver todos os itens disponíveis encontrados.
+* **Seleção de Metadados:** Selecione **"Incluir Metadados Básicos"**, que é uma seleção dos metadados mais utilizados, ou **"Incluir TODOS os metadados (Raw Dump)"** para ver todos os itens disponíveis encontrados.
 
     <figure>
-      <img src="imgs/config_drag_drop.PNG" alt="Área de seleção de configurações." style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Área de seleção de configurações.</i></figcaption>
+      <img src="imgs/config_drag_drop.PNG" alt="Área de 'Controles de Extração de Evidências'" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Área de 'Controles de Extração de Evidências'.</i></figcaption>
     </figure>
 
 <br>
 
-* **Ação:** Arraste seus arquivos ou diretórios para qualquer área da janela principal.
+* **Ação**: Arraste seus **arquivos, diretórios ou ícones de unidade** para qualquer área da janela principal.
     > **DICA:** se for arrastado o ícone da unidade completa (ex.: F:, G: etc), o relatório de hash também incluirá o "serial number" daquela unidade.
 
     <figure>
       <img src="imgs/drag_drop.PNG" alt="Interface principal destacando a área para drag-and-drop de arquivos a serem analisados" style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Interface principal destacando a área para drag-and-drop de arquivos a serem analisados</i></figcaption>
+      <figcaption align="center"><i>Interface principal destacando a área para drag-and-drop de arquivos, diretórios ou ícones de unidade a serem analisados</i></figcaption>
     </figure>
 
 <br>
@@ -127,7 +127,7 @@ O extrator permite auditar listagens de hashes recebidas em laudos de terceiros 
 ---
     
 ## 4. Analisando Metadados e Alertas Periciais
-Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração dos metadados mais utilizados através de diversas bibliotecas forenses. A opção "TODOS os metadados (Raw Dump)" vai listar todos os itens disponíveis encontrados:
+Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração dos metadados mais utilizados através de diversas bibliotecas forenses. A opção "Incluir TODOS os metadados (Raw Dump)" vai listar todos os itens disponíveis encontrados:
 
 * **Multimídia:** Coordenadas GPS (com link para mapas), marcas de câmeras e análise avançada de FPS (taxa de quadros) em vídeos.
 * **ADS (NTFS):** O programa alerta sobre dados ocultos em fluxos de dados alternativos e fornece comandos PowerShell prontos para extração de payloads.
@@ -151,6 +151,25 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
     <figure>
       <img src="imgs/janela_GPS.PNG" alt="Essa janela agrupa os hiperlinks das coordenadas GPS encontradas." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Essa janela agrupa os hiperlinks das coordenadas GPS encontradas.</i></figcaption>
+    </figure>
+
+<br>
+
+* É possível exportar as coordenadas GPS encontradas para um arquivo no formato '.kml', padrão do Google Earth e do Google MyMaps (modo de acesso detalhado no botão "Instruções para visualizar arquivos KML").
+
+    <figure>
+      <img src="imgs/janela_GPS_KML.PNG" alt="É possível selecionar os formatos Pontos e Polígono" style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>É possível selecionar os formatos Pontos e Polígono. </i></figcaption>
+    </figure>
+
+    <figure>
+      <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>É possível registrar no arquivo KML informações que identificam a extração. </i></figcaption>
+    </figure>
+
+    <figure>
+      <img src="imgs/janela_GPS_KML_instruções.PNG" alt="Instruções para visualização de arquivos KML." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Instruções para visualização de arquivos KML. </i></figcaption>
     </figure>
 
 <br>
