@@ -1697,6 +1697,17 @@ class JanelaHashes(QWidget):
     def setup_ui(self):
         layout_principal = QVBoxLayout()
 
+        # --- LINHA 0: Opções do Sistema (Topo) ---
+        layout_opcoes_topo = QHBoxLayout()
+        layout_opcoes_topo.addStretch()
+
+        self.chk_modo_escuro = QCheckBox("🌙 Modo Escuro")
+        self.chk_modo_escuro.setStyleSheet("font-weight: bold; padding: 2px;")
+        self.chk_modo_escuro.toggled.connect(self.alternar_modo_escuro)
+
+        layout_opcoes_topo.addWidget(self.chk_modo_escuro)
+        layout_principal.addLayout(layout_opcoes_topo)
+
         # --- LINHA 1: Controles Principais ---
         layout_controles = QHBoxLayout()
 
@@ -2049,6 +2060,8 @@ class JanelaHashes(QWidget):
         # Carregar configurações salvas
         config = carregar_config()
         if config:
+            # Restaura o Modo Escuro primeiro para não piscar a tela clara
+            self.chk_modo_escuro.setChecked(config.get('chk_modo_escuro', False))
             # Restaura estado do checkbox de metadados
             self.chk_metadados.setChecked(config.get('chk_metadados', True))
             # Restaura o Raw Dump (Padrão: False) <---
@@ -2070,6 +2083,46 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
+
+    def alternar_modo_escuro(self, ativado):
+        if ativado:
+            # --- ESTILO MODO ESCURO ---
+            estilo_global = """
+                QWidget { background-color: #2b2b2b; color: #f0f0f0; }
+                QPushButton { background-color: #3c3f41; border: 1px solid #555555; padding: 4px; border-radius: 4px; }
+                QPushButton:hover { background-color: #4b4d4f; }
+                QPushButton:disabled { background-color: #2b2b2b; color: #666666; border: 1px solid #444444; }
+                QCheckBox { color: #f0f0f0; }
+                QGroupBox { border: 1px solid #555555; margin-top: 10px; }
+                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }
+                QComboBox { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; }
+                QTextBrowser { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555; }
+            """
+            self.setStyleSheet(estilo_global)
+
+            self.texto_saida.setStyleSheet(
+                "background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas; font-size: 10pt; border: 1px solid #555555;")
+            self.btn_unidade_raw.setStyleSheet("""
+                            QPushButton { font-weight: bold; color: #ff6666; background-color: #3c3f41; border: 1px solid #ff6666; }
+                            QPushButton:hover { background-color: #4b4d4f; }
+                            QPushButton:disabled { color: #666666; background-color: #2b2b2b; border: 1px solid #444444; }
+                        """)
+
+            # Texto de referência (Cadeia de Custódia)
+            self.texto_referencia.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555;")
+
+        else:
+            # --- ESTILO MODO CLARO (Padrão) ---
+            self.setStyleSheet("")  # Remove o estilo global, voltando ao Fusion nativo
+
+            # Restaurando os componentes que tinham cores hardcoded originais
+            self.texto_saida.setStyleSheet(
+                "background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
+            self.btn_unidade_raw.setStyleSheet("""
+                QPushButton { font-weight: bold; color: #800000; background-color: #e6e6e6; }
+                QPushButton:disabled { color: #999999; background-color: #f0f0f0; border: 1px solid #cccccc; }
+            """)
+            self.texto_referencia.setStyleSheet("")
 
     def _garantir_exclusividade_basico(self, checked):
         if checked:
@@ -2226,11 +2279,30 @@ class JanelaHashes(QWidget):
         # Define um ObjectName para a janela principal se ela ainda não tiver
         self.setObjectName("MainWindow")
 
-        # Estilo geral da janela (Fundo vermelho e letras brancas para os botões/textos soltos)
+        # Estilo geral da janela (Fundo vermelho e letras brancas para textos soltos)
+        # Corrigido fundo dos botões e contraste das caixas de seleção
         estilo_admin = """
                             #MainWindow { background-color: #4a0000; }
-                            #MainWindow QLabel, #MainWindow QCheckBox, #MainWindow QPushButton, #MainWindow QGroupBox { color: #f0f0f0; }
-
+                            #MainWindow QLabel, #MainWindow QGroupBox { color: #f0f0f0; }
+    
+                            #MainWindow QCheckBox { color: #f0f0f0; }
+                            #MainWindow QCheckBox::indicator { background-color: #ffffff; border: 1px solid #cccccc; width: 13px; height: 13px; }
+                            #MainWindow QCheckBox::indicator:checked { background-color: #cc0000; border: 1px solid #ff9999; }
+    
+                            #MainWindow QPushButton { 
+                                background-color: #7a0000; 
+                                color: #ffffff; 
+                                border: 1px solid #a30000;
+                                padding: 4px;
+                                border-radius: 4px;
+                            }
+                            #MainWindow QPushButton:hover { background-color: #990000; }
+                            #MainWindow QPushButton:disabled { 
+                                background-color: #330000; 
+                                color: #888888; 
+                                border: 1px solid #550000; 
+                            }
+    
                             QProgressBar {
                                 border: 1px solid #7a0000;
                                 background-color: #2a0000;
@@ -2254,8 +2326,13 @@ class JanelaHashes(QWidget):
         if hasattr(self, "_titulo_original"):
             self.setWindowTitle(self._titulo_original)
 
-        # Remove o estilo global vermelho (volta para o padrão do Windows)
-        self.setStyleSheet("")
+        # SE O MODO ESCURO ESTIVER ATIVADO, VOLTA PRA ELE. SENÃO, VOLTA PRO CLARO.
+        if hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked():
+            self.alternar_modo_escuro(True)
+        else:
+            self.setStyleSheet("")
+            if hasattr(self, "_estilo_texto_original"):
+                self.texto_saida.setStyleSheet(self._estilo_texto_original)
 
         # Re-aplica o estilo padronizado com texto centralizado nas barras
         if hasattr(self, "estilo_barra_padrao"):
@@ -2401,7 +2478,11 @@ class JanelaHashes(QWidget):
         btn_nao_autorizar.setMinimumWidth(120)
 
         # Adiciona uma cor leve ao botão de autorizar para destacá-lo
-        btn_autorizar.setStyleSheet("font-weight: bold; background-color: #e0e0e0;")
+        if hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked():
+            btn_autorizar.setStyleSheet(
+                "font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; color: #f0f0f0;")
+        else:
+            btn_autorizar.setStyleSheet("font-weight: bold; background-color: #e0e0e0;")
 
         # Conecta os botões às ações de aceitar/rejeitar o diálogo
         btn_autorizar.clicked.connect(dialog_uac.accept)
@@ -2435,6 +2516,13 @@ class JanelaHashes(QWidget):
             lbl_info.setStyleSheet("font-weight: bold; font-size: 12pt; margin-bottom: 10px;")
             layout_escopo.addWidget(lbl_info)
 
+            # --- Controle de Cores Dinâmicas para o Escopo RAW ---
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            cor_texto = "#d4d4d4" if is_dark else "#333"
+            cor_btn_bg = "#3c3f41" if is_dark else "#e0e0e0"
+            borda_btn = "1px solid #555555" if is_dark else "none"
+            cor_btn_txt = "#f0f0f0" if is_dark else "#000000"
+
             # TEXTO OPÇÃO 1
             lbl_titulo_disco = QLabel(
                 "<b><span style='font-size: 12pt;'>OPÇÃO 1: Disco Físico Inteiro (\\\\.\\PhysicalDriveN)</span></b>")
@@ -2444,11 +2532,11 @@ class JanelaHashes(QWidget):
                 "<b>Uso Forense:</b> Padrão-ouro para espelhamento pericial completo. Essencial para <i>Data Carving</i> e garantia de que nenhum byte foi deixado para trás."
             )
             lbl_desc_disco.setWordWrap(True)
-            # Adicionado font-size: 11pt e margem inferior
-            lbl_desc_disco.setStyleSheet("color: #333; font-size: 11pt; margin-bottom: 10px;")
+            lbl_desc_disco.setStyleSheet(f"color: {cor_texto}; font-size: 11pt; margin-bottom: 10px;")
 
             btn_disco = QPushButton("Selecionar Opção 1 (Hardware Completo)")
-            btn_disco.setStyleSheet("padding: 8px; font-weight: bold; font-size: 11pt; background-color: #e0e0e0;")
+            btn_disco.setStyleSheet(
+                f"padding: 8px; font-weight: bold; font-size: 11pt; background-color: {cor_btn_bg}; color: {cor_btn_txt}; border: {borda_btn};")
 
             # TEXTO OPÇÃO 2
             lbl_titulo_volume = QLabel(
@@ -2459,11 +2547,11 @@ class JanelaHashes(QWidget):
                 "<b>Uso Forense:</b> Ideal para triagem rápida. Metodologia recomendada para extrair o conteúdo 'em claro' de partições BitLocker após desbloqueio."
             )
             lbl_desc_volume.setWordWrap(True)
-            # Adicionado font-size: 11pt
-            lbl_desc_volume.setStyleSheet("color: #333; font-size: 11pt; margin-bottom: 10px;")
+            lbl_desc_volume.setStyleSheet(f"color: {cor_texto}; font-size: 11pt; margin-bottom: 10px;")
 
             btn_volume = QPushButton("Selecionar Opção 2 (Apenas Partição)")
-            btn_volume.setStyleSheet("padding: 8px; font-weight: bold; font-size: 11pt; background-color: #e0e0e0;")
+            btn_volume.setStyleSheet(
+                f"padding: 8px; font-weight: bold; font-size: 11pt; background-color: {cor_btn_bg}; color: {cor_btn_txt}; border: {borda_btn};")
 
             # Lógica de seleção
             escolha = {"tipo": "volume"}
@@ -2565,10 +2653,15 @@ class JanelaHashes(QWidget):
 
         layout_img.addLayout(layout_botoes_img)
 
+        # --- Cores dinâmicas para a Nota Técnica ---
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+        bg_nota = "#2b2b2b" if is_dark else "#f9f9f9"
+        borda_nota = "#555555" if is_dark else "#ddd"
+        cor_nota = "#d4d4d4" if is_dark else "#333"
+
         # --- NOTA TÉCNICA SOBRE ABERTURA DE ARQUIVOS .DD ---
-        layout_img.addSpacing(20)
         lbl_nota_tecnica = QLabel(
-            "<div style='background-color: #f9f9f9; border: 1px solid #ddd; padding: 12px; border-radius: 5px; color: #333;'>"
+            f"<div style='background-color: {bg_nota}; border: 1px solid {borda_nota}; padding: 12px; border-radius: 5px; color: {cor_nota};'>"
             "<b>ℹ️ Nota Técnica sobre Montagem de Imagens RAW (.dd):</b><br><br>"
             "O uso de softwares como <b>Daemon Tools não é recomendado</b> para perícia. Ele foi projetado para "
             "emular mídias ópticas (ISO, MDS) e não interpreta corretamente tabelas de partição (MBR/GPT) ou sistemas "
@@ -2901,6 +2994,7 @@ class JanelaHashes(QWidget):
     def salvar_estado_atual(self, *args):
         """Salva as configurações atuais imediatamente após qualquer alteração."""
         config = {
+            'chk_modo_escuro': self.chk_modo_escuro.isChecked(),
             'chk_metadados': self.chk_metadados.isChecked(),
             'chk_metadados_raw': self.chk_metadados_raw.isChecked(),
             'chk_subdiretorios': self.chk_subdiretorios.isChecked(),
@@ -3014,14 +3108,18 @@ class JanelaHashes(QWidget):
         layout_cabecalho.addWidget(lbl_icone)
         layout_cabecalho.addSpacing(20)
 
+        # --- Cor dinâmica para os links ---
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+        cor_link = "#66b2ff" if is_dark else "#0056b3"
+
         # 2. Informações principais: Nome, Versão, Desenvolvedor e Contato
         lbl_infos_topo = QLabel(
             f"<div style='line-height: 140%;'>"
             f"<h2 style='margin-bottom: 2px;'>{NOME_APP}</h2>"
             f"<b>Versão:</b> {VERSAO_APP}<br>"
             f"<b>Desenvolvedor:</b> {DESENVOLVEDOR}<br>"
-            f"<b>Contato / Reportar Bugs:</b> <a href='mailto:{EMAIL_CONTATO}'>{EMAIL_CONTATO}</a><br>"
-            f"<b>Projeto e Atualizações:</b> <a href='{LINK_GITHUB}'>Repositório no GitHub</a>"
+            f"<b>Contato / Reportar Bugs:</b> <a href='mailto:{EMAIL_CONTATO}' style='color: {cor_link};'>{EMAIL_CONTATO}</a><br>"
+            f"<b>Projeto e Atualizações:</b> <a href='{LINK_GITHUB}' style='color: {cor_link};'>Repositório no GitHub</a>"
             f"</div>"
         )
         lbl_infos_topo.setOpenExternalLinks(True)
@@ -3049,7 +3147,10 @@ class JanelaHashes(QWidget):
         # CORPO: TEXTO TÉCNICO COM ROLAGEM
         texto_sobre = QTextEdit()
         texto_sobre.setReadOnly(True)
-        texto_sobre.setStyleSheet("background-color: #ffffff; font-size: 10pt; border: none;")
+        if self.chk_modo_escuro.isChecked():
+            texto_sobre.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-size: 10pt; border: none;")
+        else:
+            texto_sobre.setStyleSheet("background-color: #ffffff; color: #111111; font-size: 10pt; border: none;")
 
         # Descrição geral das funcionalidades da versão
         conteudo_html = (
@@ -3138,9 +3239,14 @@ class JanelaHashes(QWidget):
         texto_licenca_ui = QTextEdit()
         texto_licenca_ui.setPlainText(TEXTO_LICENCA)  # A variável global criada antes
         texto_licenca_ui.setReadOnly(True)
+
         # Um fundo ligeiramente diferente para destacar que é um documento legal
-        texto_licenca_ui.setStyleSheet(
-            "background-color: #f8f9fa; color: #333; font-family: Consolas, monospace; font-size: 10pt; border: none; padding: 10px;")
+        if self.chk_modo_escuro.isChecked():
+            texto_licenca_ui.setStyleSheet(
+                "background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; font-size: 10pt; border: none; padding: 10px;")
+        else:
+            texto_licenca_ui.setStyleSheet(
+                "background-color: #f8f9fa; color: #333; font-family: Consolas, monospace; font-size: 10pt; border: none; padding: 10px;")
 
         layout_licenca.addWidget(texto_licenca_ui)
         abas.addTab(aba_licenca, "Licença e Termos de Uso")
@@ -3156,14 +3262,17 @@ class JanelaHashes(QWidget):
         texto_citar_ui.setReadOnly(True)
         texto_citar_ui.setStyleSheet("background-color: transparent; border: none; font-size: 10pt;")
 
-        # Montagem dinâmica da citação usando as constantes do topo do ficheiro
+        # Variáveis dinâmicas para o bloco de citação ABNT acompanhar o tema
+        bg_bloco = "#3c3f41" if self.chk_modo_escuro.isChecked() else "#f4f4f4"
+        cor_bloco = "#f0f0f0" if self.chk_modo_escuro.isChecked() else "#333333"
+
         conteudo_citar_html = (
             "<h3>📝 Como citar este software (ABNT)</h3>"
             "<p>Se utilizar o <b>Extrator de Hashes e Metadados Forenses</b> em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte referência:</p>"
             "<br>"
-            f"<div style='background-color: #f4f4f4; border-left: 5px solid #005a9e; padding: 15px; font-family: Consolas, monospace; color: #333; line-height: 140%;'>"
+            f"<div style='background-color: {bg_bloco}; border-left: 5px solid #005a9e; padding: 15px; font-family: Consolas, monospace; color: {cor_bloco}; line-height: 140%;'>"
             f"SILVA, Eduardo R. <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b>. Versão {VERSAO_APP}. "
-            f"São Paulo, SP: GitHub, 2026. Disponível em: &lt;{LINK_GITHUB}/releases&gt;. "
+            f"São Paulo, SP: GitHub, 2026. Disponível em: <{LINK_GITHUB}/releases>. "
             f"Acesso em: [Data de Acesso]."
             f"</div>"
             "<br><br>"
@@ -3211,7 +3320,8 @@ class JanelaHashes(QWidget):
         layout_botoes = QHBoxLayout()
         btn_audit = QPushButton("📂 Baixar Código Fonte para Auditoria (.py)")
         btn_audit.setMinimumHeight(35)
-        btn_audit.setStyleSheet("font-weight: bold; color: #005a9e;")
+        cor_btn_audit = "#66b2ff" if is_dark else "#005a9e"
+        btn_audit.setStyleSheet(f"font-weight: bold; color: {cor_btn_audit};")
         btn_audit.clicked.connect(self.exportar_codigo_fonte)
 
         # Botão para fechar
@@ -3240,7 +3350,10 @@ class JanelaHashes(QWidget):
 
         texto_formatos = QTextEdit()
         texto_formatos.setReadOnly(True)
-        texto_formatos.setStyleSheet("background-color: #ffffff; font-size: 10pt;")
+        if self.chk_modo_escuro.isChecked():
+            texto_formatos.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-size: 10pt; border: none;")
+        else:
+            texto_formatos.setStyleSheet("background-color: #ffffff; color: #111111; font-size: 10pt; border: none;")
 
         conteudo_html = f"""
             <h2>Formatos Suportados para Extração de Metadados Básicos</h2>
