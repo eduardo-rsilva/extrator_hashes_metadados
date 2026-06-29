@@ -2764,10 +2764,14 @@ class JanelaHashes(QWidget):
 
             # Laço para permitir que o usuário tente selecionar o destino novamente
             while True:
-                # Pede para o usuário escolher APENAS UM DIRETÓRIO onde a nova pasta será criada
+                # Usa DontUseNativeDialog para a janela herdar o Modo Escuro do Qt
+                # e não depender do tema claro/escuro do próprio Windows
+                opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
+
                 diretorio_escolhido = QFileDialog.getExistingDirectory(
                     self,
-                    f"Selecione o local para criar a pasta da evidência '{nome_da_imagem}'"
+                    f"Selecione o local para criar a pasta da evidência '{nome_da_imagem}'",
+                    options=opcoes_dir
                 )
 
                 if diretorio_escolhido:
