@@ -5695,21 +5695,35 @@ class JanelaHashes(QWidget):
         # --- BOTÃO UNIFICADO KML ---
         btn_exportar_kml_todos = QPushButton("Exportar KML (todos os pontos encontrados)")
         btn_exportar_kml_todos.setMinimumHeight(35)
+
+        # --- TOOLTIP KML COM ESTILO E FILTRO ---
+        tooltip_texto_kml = (
+            "<table width='350'><tr><td align='center' style='padding: 5px; font-size: 11pt;'>"
+            "Para visualização no Google Earth<br>e no Google MyMaps"
+            "</td></tr></table>"
+        )
+        btn_exportar_kml_todos.setToolTip(tooltip_texto_kml)
+
+        # Reutiliza o filtro criado acima para garantir que a tooltip apareça centralizada abaixo do botão
+        btn_exportar_kml_todos._filtro_centro = FiltroTooltipCentro(btn_exportar_kml_todos)
+        btn_exportar_kml_todos.installEventFilter(btn_exportar_kml_todos._filtro_centro)
+        # ----------------------------------------
+
         btn_exportar_kml_todos.setStyleSheet("""
-                    QPushButton {
-                        background-color: #e6f2ff; 
-                        color: #005a9e; 
-                        font-weight: bold; 
-                        border: 1px solid #b3d4ff; 
-                        border-radius: 4px;
-                    }
-                    QPushButton:hover {
-                        background-color: #cce5ff;
-                    }
-                    QPushButton:pressed {
-                        background-color: #99ccff;
-                    }
-                """)
+                            QPushButton {
+                                background-color: #e6f2ff; 
+                                color: #005a9e; 
+                                font-weight: bold; 
+                                border: 1px solid #b3d4ff; 
+                                border-radius: 4px;
+                            }
+                            QPushButton:hover {
+                                background-color: #cce5ff;
+                            }
+                            QPushButton:pressed {
+                                background-color: #99ccff;
+                            }
+                        """)
         btn_exportar_kml_todos.clicked.connect(self.abrir_menu_exportacao_kml)
 
         # Montagem do layout
