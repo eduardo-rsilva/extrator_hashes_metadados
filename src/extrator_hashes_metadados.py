@@ -2085,12 +2085,15 @@ class JanelaHashes(QWidget):
             chk.toggled.connect(self.salvar_estado_atual)
 
     def alternar_modo_escuro(self, ativado):
+        app = QApplication.instance()  # Captura a instância global do aplicativo
+
         if ativado:
             # --- ESTILO MODO ESCURO ---
             estilo_global = """
                 QWidget { background-color: #2b2b2b; color: #f0f0f0; }
                 QPushButton { background-color: #3c3f41; border: 1px solid #555555; padding: 4px; border-radius: 4px; }
                 QPushButton:hover { background-color: #4b4d4f; }
+                QPushButton:pressed { background-color: #2b2b2b; }
                 QPushButton:disabled { background-color: #2b2b2b; color: #666666; border: 1px solid #444444; }
                 QCheckBox { color: #f0f0f0; }
                 QGroupBox { border: 1px solid #555555; margin-top: 10px; }
@@ -2100,32 +2103,51 @@ class JanelaHashes(QWidget):
             """
             self.setStyleSheet(estilo_global)
 
+            # Altera a folha de estilos das Tooltips globais para o modo escuro
+            if app:
+                app.setStyleSheet("""
+                    QToolTip {
+                        background-color: #3c3f41;
+                        color: #ffffff;
+                        border: 1px solid #555555;
+                        padding: 2px;
+                        font-size: 10pt;
+                    }
+                """)
+
+            # Substituindo os componentes que tinham cores hardcoded
             self.texto_saida.setStyleSheet(
                 "background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas; font-size: 10pt; border: 1px solid #555555;")
             self.btn_unidade_raw.setStyleSheet("""
-                            QPushButton { 
-                                font-weight: bold; 
-                                color: #ff6666; 
-                                background-color: #3c3f41; 
-                                border: 1px solid #ff6666;
-                                border-radius: 4px;
-                                padding: 4px;
-                            }
-                            QPushButton:hover { background-color: #4b4d4f; }
-                            QPushButton:pressed { background-color: #2b2b2b; }
-                            QPushButton:disabled { 
-                                color: #666666; 
-                                background-color: #2b2b2b; 
-                                border: 1px solid #444444; 
-                            }
-                        """)
-
-            # Texto de referência (Cadeia de Custódia)
+                QPushButton { 
+                    font-weight: bold; 
+                    color: #ff6666; 
+                    background-color: #3c3f41; 
+                    border: 1px solid #ff6666;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QPushButton:hover { background-color: #4b4d4f; }
+                QPushButton:pressed { background-color: #2b2b2b; }
+                QPushButton:disabled { color: #666666; background-color: #2b2b2b; border: 1px solid #444444; }
+            """)
             self.texto_referencia.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555;")
 
         else:
             # --- ESTILO MODO CLARO (Padrão) ---
-            self.setStyleSheet("")  # Remove o estilo global, voltando ao Fusion nativo
+            self.setStyleSheet("")
+
+            # Restaura a folha de estilos das Tooltips globais para o modo claro
+            if app:
+                app.setStyleSheet("""
+                    QToolTip {
+                        background-color: #ffffff;
+                        color: #000000;
+                        border: 1px solid #cccccc;
+                        padding: 2px;
+                        font-size: 10pt;
+                    }
+                """)
 
             # Restaurando os componentes que tinham cores hardcoded originais
             self.texto_saida.setStyleSheet(
@@ -2208,10 +2230,13 @@ class JanelaHashes(QWidget):
 
         notas_formatadas = notas.replace('\n', '<br>')
 
-        # Dica: adicionei um background na div interna para garantir que ela
-        # não fique transparente em alguns temas do Windows
+        # Cores dinâmicas para a janela flutuante de notas de lançamento
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+        bg_tooltip = "#3c3f41" if is_dark else "#ffffff"
+        fg_tooltip = "#f0f0f0" if is_dark else "#000000"
+
         tooltip_html = (
-            f"<div style='width: 650px; font-size: 10pt; line-height: 1.2; font-family: Consolas, monospace; background-color: #ffffff; color: #000000; padding: 5px;'>"
+            f"<div style='width: 650px; font-size: 10pt; line-height: 1.2; font-family: Consolas, monospace; background-color: {bg_tooltip}; color: {fg_tooltip}; padding: 5px;'>"
             f"<span style='font-size: 11pt;'><b>O que há de novo na versão {nova_versao}:</b></span><hr>"
             f"{notas_formatadas}"
             f"</div>"
