@@ -5586,21 +5586,25 @@ class JanelaHashes(QWidget):
             # Criação do botão solicitado para abrir o mapa integrado
             btn_mostrar_10_pontos = QPushButton(texto_botao)
             btn_mostrar_10_pontos.setMinimumHeight(35)
-            btn_mostrar_10_pontos.setStyleSheet("""
-                                    QPushButton {
-                                        background-color: #fff2cc; 
-                                        color: #b27a00; 
-                                        font-weight: bold; 
-                                        border: 1px solid #ffe599; 
-                                        border-radius: 4px;
-                                    }
-                                    QPushButton:hover {
-                                        background-color: #ffe599;
-                                    }
-                                    QPushButton:pressed {
-                                        background-color: #ffd966;
-                                    }
-                                """)
+            # --- CORES DINÂMICAS: BOTÃO MAPS (AMARELO) ---
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            bg_maps = "#2b2000" if is_dark else "#fff2cc"
+            fg_maps = "#ffcc66" if is_dark else "#b27a00"
+            bd_maps = "#664d00" if is_dark else "#ffe599"
+            hv_maps = "#403000" if is_dark else "#ffe599"
+            pr_maps = "#1a1300" if is_dark else "#ffd966"
+
+            btn_mostrar_10_pontos.setStyleSheet(f"""
+                                                QPushButton {{
+                                                    background-color: {bg_maps}; 
+                                                    color: {fg_maps}; 
+                                                    font-weight: bold; 
+                                                    border: 1px solid {bd_maps}; 
+                                                    border-radius: 4px;
+                                                }}
+                                                QPushButton:hover {{ background-color: {hv_maps}; }}
+                                                QPushButton:pressed {{ background-color: {pr_maps}; }}
+                                            """)
 
             # --- MELHORIA DA TOOLTIP (HTML + POSIÇÃO CENTRALIZADA) ---
             # Adicionado width (largura) e font-size (tamanho da fonte)
@@ -5658,22 +5662,25 @@ class JanelaHashes(QWidget):
 
         btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links Google Maps (todos os pontos encontrados)")
         btn_copiar.setMinimumHeight(35)
-        # Estilo: Verde suave para contrastar com o amarelo (acima) e azul (direita)
-        btn_copiar.setStyleSheet("""
-                    QPushButton {
-                        background-color: #e8f5e9; 
-                        color: #2e7d32; 
-                        font-weight: bold; 
-                        border: 1px solid #c8e6c9; 
-                        border-radius: 4px;
-                    }
-                    QPushButton:hover {
-                        background-color: #c8e6c9;
-                    }
-                    QPushButton:pressed {
-                        background-color: #a5d6a7;
-                    }
-                """)
+        # --- CORES DINÂMICAS: BOTÃO COPIAR (VERDE) ---
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+        bg_copy = "#0d2611" if is_dark else "#e8f5e9"
+        fg_copy = "#81c784" if is_dark else "#2e7d32"
+        bd_copy = "#1b5e20" if is_dark else "#c8e6c9"
+        hv_copy = "#143d1a" if is_dark else "#c8e6c9"
+        pr_copy = "#0a1a0c" if is_dark else "#a5d6a7"
+
+        btn_copiar.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {bg_copy}; 
+                                color: {fg_copy}; 
+                                font-weight: bold; 
+                                border: 1px solid {bd_copy}; 
+                                border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_copy}; }}
+                            QPushButton:pressed {{ background-color: {pr_copy}; }}
+                        """)
 
         # Função interna para formatar a lista simplificada e mandar para a área de transferência
         def copiar_links():
@@ -5709,20 +5716,23 @@ class JanelaHashes(QWidget):
         btn_exportar_kml_todos.installEventFilter(btn_exportar_kml_todos._filtro_centro)
         # ----------------------------------------
 
-        btn_exportar_kml_todos.setStyleSheet("""
-                            QPushButton {
-                                background-color: #e6f2ff; 
-                                color: #005a9e; 
+        # --- CORES DINÂMICAS: BOTÃO KML (AZUL) ---
+        bg_kml = "#001a33" if is_dark else "#e6f2ff"
+        fg_kml = "#66b2ff" if is_dark else "#005a9e"
+        bd_kml = "#003366" if is_dark else "#b3d4ff"
+        hv_kml = "#002b5e" if is_dark else "#cce5ff"
+        pr_kml = "#001122" if is_dark else "#99ccff"
+
+        btn_exportar_kml_todos.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {bg_kml}; 
+                                color: {fg_kml}; 
                                 font-weight: bold; 
-                                border: 1px solid #b3d4ff; 
+                                border: 1px solid {bd_kml}; 
                                 border-radius: 4px;
-                            }
-                            QPushButton:hover {
-                                background-color: #cce5ff;
-                            }
-                            QPushButton:pressed {
-                                background-color: #99ccff;
-                            }
+                            }}
+                            QPushButton:hover {{ background-color: {hv_kml}; }}
+                            QPushButton:pressed {{ background-color: {pr_kml}; }}
                         """)
         btn_exportar_kml_todos.clicked.connect(self.abrir_menu_exportacao_kml)
 
