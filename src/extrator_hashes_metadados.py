@@ -1918,7 +1918,6 @@ class JanelaHashes(QWidget):
         layout_validacao.addWidget(self.btn_limpar_custodia)
         self.grupo_validacao.setLayout(layout_validacao)
 
-        # A MÁGICA ACONTECE AQUI: Em vez de adicionar ao layout principal, adicionamos ao splitter!
         splitter.addWidget(self.grupo_validacao)
 
         # --- Área de Texto Principal ---
@@ -1980,8 +1979,15 @@ class JanelaHashes(QWidget):
         # Adiciona a saída também no splitter, para ficar embaixo da validação
         splitter.addWidget(self.texto_saida)
 
-        # Define as proporções iniciais de altura (Ex: 80 pixels para validação e 500 para o log)
-        splitter.setSizes([190, 390])
+        # =====================================================================
+        # AJUSTE DE COMPORTAMENTO DO SPLITTER
+        # =====================================================================
+        splitter.setStretchFactor(0, 0)  # Caixa de Custódia: Não estica
+        splitter.setStretchFactor(1, 1)  # Área de Texto Principal: Absorve o crescimento
+        # =====================================================================
+
+        # Define as proporções iniciais de altura
+        splitter.setSizes([110, 470])
 
         # Finalmente, coloca o splitter inteiro na tela principal
         layout_principal.addWidget(splitter)
