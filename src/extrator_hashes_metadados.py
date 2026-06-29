@@ -2158,6 +2158,21 @@ class JanelaHashes(QWidget):
             """)
             self.texto_referencia.setStyleSheet("")
 
+        # --- Atualiza dinamicamente o aviso em vermelho da Tooltip do CRC32 ---
+        if hasattr(self, "chk_hashes") and "CRC32" in self.chk_hashes:
+            # Usa um vermelho vivo no modo escuro e o vermelho escuro original no modo claro
+            cor_alerta_crc32 = "#ff6666" if ativado else "#990000"
+
+            tooltip_crc32 = (
+                "<p><b>CRC32:</b> Verificação de redundância (Não Criptográfico).</p>"
+                "<ul><li><b>Segurança:</b> Nula.</li>"
+                "<li><b>Colisão:</b> Altíssima.</li>"
+                "<li><b>Uso:</b> Inseguro para evidências. Útil apenas para detecção rápida de corrupção. <br><br>"
+                f"<span style='color: {cor_alerta_crc32};'><b>⚠️ Nota Pericial:</b> Para evitar falsos positivos, o CRC32 é "
+                "intencionalmente ignorado na conferência automática da Cadeia de Custódia.</span></li></ul>"
+            )
+            self.chk_hashes["CRC32"].setToolTip(tooltip_crc32)
+
     def _garantir_exclusividade_basico(self, checked):
         if checked:
             self.chk_metadados_raw.setChecked(False)
