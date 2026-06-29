@@ -1709,14 +1709,20 @@ class JanelaHashes(QWidget):
         layout_opcoes_topo = QHBoxLayout()
 
         self.btn_formatos = QPushButton("Formatos Suportados")
+        self.btn_formatos.setMinimumWidth(150)
+        self.btn_formatos.setMinimumHeight(28)
         self.btn_formatos.clicked.connect(self.mostrar_formatos)
         layout_opcoes_topo.addWidget(self.btn_formatos)
 
         self.btn_manual_online = QPushButton("Manual Online")
+        self.btn_manual_online.setMinimumWidth(120)
+        self.btn_manual_online.setMinimumHeight(28)
         self.btn_manual_online.clicked.connect(self.abrir_manual_online)
         layout_opcoes_topo.addWidget(self.btn_manual_online)
 
         self.btn_sobre = QPushButton("Sobre")
+        self.btn_sobre.setMinimumWidth(90)
+        self.btn_sobre.setMinimumHeight(28)
         self.btn_sobre.clicked.connect(self.mostrar_sobre)
         layout_opcoes_topo.addWidget(self.btn_sobre)
 
