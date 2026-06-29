@@ -5755,50 +5755,62 @@ class JanelaHashes(QWidget):
         lbl_info.setStyleSheet("margin-bottom: 10px;")
         layout.addWidget(lbl_info)
 
-        # --- BOTÃO KML (PONTOS) ---
+        # --- VERIFICAÇÃO DE MODO ESCURO ---
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+        # --- BOTÃO KML (PONTOS) - AZUL ---
+        bg_pt = "#001a33" if is_dark else "#e6f2ff"
+        fg_pt = "#66b2ff" if is_dark else "#005a9e"
+        bd_pt = "#003366" if is_dark else "#b3d4ff"
+        hv_pt = "#002b5e" if is_dark else "#cce5ff"
+        pr_pt = "#001122" if is_dark else "#99ccff"
+
         btn_kml_pontos = QPushButton("📍 Exportar KML (Pontos)")
         btn_kml_pontos.setMinimumHeight(35)
-        btn_kml_pontos.setStyleSheet("""
-                    QPushButton {
-                        background-color: #e6f2ff; 
-                        color: #005a9e; 
-                        font-weight: bold; 
-                        border: 1px solid #b3d4ff; 
-                        border-radius: 4px;
-                    }
-                    QPushButton:hover {
-                        background-color: #cce5ff;
-                    }
-                    QPushButton:pressed {
-                        background-color: #99ccff;
-                    }
-                """)
+        btn_kml_pontos.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {bg_pt}; 
+                                color: {fg_pt}; 
+                                font-weight: bold; 
+                                border: 1px solid {bd_pt}; 
+                                border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_pt}; }}
+                            QPushButton:pressed {{ background-color: {pr_pt}; }}
+                        """)
         btn_kml_pontos.clicked.connect(self.exportar_kml_pontos)
 
-        # --- BOTÃO KML (POLÍGONO) ---
+        # --- BOTÃO KML (POLÍGONO) - VERMELHO ---
+        bg_pl = "#330000" if is_dark else "#ffe6e6"
+        fg_pl = "#ff6666" if is_dark else "#990000"
+        bd_pl = "#660000" if is_dark else "#ffb3b3"
+        hv_pl = "#4d0000" if is_dark else "#ffcccc"
+        pr_pl = "#1a0000" if is_dark else "#ff9999"
+
+        # Cores para o estado desativado (disabled)
+        bg_dis = "#2b2b2b" if is_dark else "#e0e0e0"
+        fg_dis = "#666666" if is_dark else "#888888"
+        bd_dis = "#444444" if is_dark else "#cccccc"
+
         btn_kml_poligono = QPushButton("🛑 Exportar KML (Polígono)")
         btn_kml_poligono.setMinimumHeight(35)
-        btn_kml_poligono.setStyleSheet("""
-                    QPushButton {
-                        background-color: #ffe6e6; 
-                        color: #990000; 
-                        font-weight: bold; 
-                        border: 1px solid #ffb3b3; 
-                        border-radius: 4px;
-                    }
-                    QPushButton:hover {
-                        background-color: #ffcccc;
-                    }
-                    QPushButton:pressed {
-                        background-color: #ff9999;
-                    }
-                    QPushButton:disabled {
-                        background-color: #e0e0e0; 
-                        color: #888888; 
-                        border: 1px solid #cccccc; 
-                        font-weight: normal;
-                    }
-                """)
+        btn_kml_poligono.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {bg_pl}; 
+                                color: {fg_pl}; 
+                                font-weight: bold; 
+                                border: 1px solid {bd_pl}; 
+                                border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_pl}; }}
+                            QPushButton:pressed {{ background-color: {pr_pl}; }}
+                            QPushButton:disabled {{
+                                background-color: {bg_dis}; 
+                                color: {fg_dis}; 
+                                border: 1px solid {bd_dis}; 
+                                font-weight: normal;
+                            }}
+                        """)
         btn_kml_poligono.clicked.connect(self.exportar_kml_poligono)
 
         # Lógica de desativação do polígono (considerando apenas coordenadas únicas)
@@ -5807,10 +5819,26 @@ class JanelaHashes(QWidget):
             btn_kml_poligono.setEnabled(False)
             btn_kml_poligono.setToolTip("Necessário no mínimo 3 coordenadas distintas para desenhar um polígono.")
 
-        # --- BOTÃO INSTRUÇÕES (RENOMEADO) ---
+        # --- BOTÃO INSTRUÇÕES (CINZA/NEUTRO) ---
+        bg_inst = "#3c3f41" if is_dark else "#f0f0f0"
+        fg_inst = "#f0f0f0" if is_dark else "#000000"
+        bd_inst = "#555555" if is_dark else "#cccccc"
+        hv_inst = "#4b4d4f" if is_dark else "#e0e0e0"
+        pr_inst = "#2b2b2b" if is_dark else "#d0d0d0"
+
         btn_instrucoes = QPushButton("Instruções para visualizar arquivos KML")
         btn_instrucoes.setMinimumHeight(35)
-        btn_instrucoes.setStyleSheet("font-weight: bold;")
+        btn_instrucoes.setStyleSheet(f"""
+                            QPushButton {{
+                                font-weight: bold;
+                                background-color: {bg_inst};
+                                color: {fg_inst};
+                                border: 1px solid {bd_inst};
+                                border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_inst}; }}
+                            QPushButton:pressed {{ background-color: {pr_inst}; }}
+                        """)
         btn_instrucoes.clicked.connect(self.mostrar_instrucoes_kml)
 
         # Adiciona botões ao layout
