@@ -6127,7 +6127,23 @@ class DialogoMetadadosKML(QDialog):
         # Botões de Ação
         btn_layout = QHBoxLayout()
         btn_ok = QPushButton("Continuar e Salvar KML")
-        btn_ok.setStyleSheet("font-weight: bold; background-color: #e0e0e0;")
+        # Adicionado efeito hover (muda para um cinza ligeiramente mais escuro ao passar o mouse)
+        btn_ok.setStyleSheet("""
+            QPushButton {
+                font-weight: bold; 
+                background-color: #e0e0e0; 
+                color: #111111;
+                border: 1px solid #b5b5b5;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QPushButton:hover {
+                background-color: #d4d4d4;
+            }
+            QPushButton:pressed {
+                background-color: #c5c5c5;
+            }
+        """)
         btn_cancelar = QPushButton("Cancelar")
 
         btn_ok.clicked.connect(self.accept)
