@@ -870,6 +870,90 @@ def obter_caminho_exiftool():
     return None
 
 
+def obter_caminho_ewfacquire():
+    """Procura o ewfacquire.exe na pasta 'ewf' ou na raiz do script."""
+    nome_executavel = "ewfacquire.exe"
+    caminhos_tentativa = [
+        BASE_DIR / "ewf" / nome_executavel,
+        BASE_DIR / nome_executavel,
+        BASE_DIR / "bin" / nome_executavel
+    ]
+    for caminho in caminhos_tentativa:
+        if caminho.exists():
+            return str(caminho)
+    return None
+
+
+def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
+    """Executa o ewfacquire com UAC, corrigindo caminhos e mantendo a GUI fluida."""
+    caminho_ewf = obter_caminho_ewfacquire()
+    if not caminho_ewf:
+        raise FileNotFoundError("O executável 'ewfacquire.exe' não foi localizado.")
+
+    if metadados is None:
+        metadados = {}
+
+    if caminho_destino.lower().endswith('.e01'):
+        caminho_destino = caminho_destino[:-4]
+
+    # CORREÇÃO 1: Normaliza o caminho para forçar o uso exclusivo de barras invertidas (\)
+    # Isso evita o erro "\\?\D:\/" no C++ do ewfacquire
+    caminho_destino = os.path.normpath(caminho_destino)
+    caminho_ewf_norm = os.path.normpath(caminho_ewf)
+
+    def escapar_ps(texto):
+        return texto.replace("'", "''")
+
+    args = [
+        "-u",
+        "-c", "fast",
+        "-t", f'"{caminho_destino}"'
+    ]
+
+    caso = metadados.get("caso", "").strip()
+    if caso: args.extend(["-C", f'"{escapar_ps(caso)}"'])
+
+    descricao = metadados.get("descricao", "").strip()
+    if descricao: args.extend(["-D", f'"{escapar_ps(descricao)}"'])
+
+    laudo = metadados.get("laudo", "").strip()
+    if laudo: args.extend(["-E", f'"{escapar_ps(laudo)}"'])
+
+    perito = metadados.get("perito", "").strip()
+    if perito: args.extend(["-e", f'"{escapar_ps(perito)}"'])
+
+    args.append(device_path)
+
+    args_str = " ".join(args)
+    caminho_ewf_ps = escapar_ps(str(caminho_ewf_norm))
+
+    # Removemos o cmd /k. Agora ele fecha sozinho quando terminar a extração.
+    ps_cmd = [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        f"$p = Start-Process -FilePath '{caminho_ewf_ps}' -ArgumentList '{args_str}' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+    ]
+
+    creationflags = 0x08000000 if os.name == 'nt' else 0
+
+    # CORREÇÃO 2: Usa Popen em vez de run para não bloquear o Python
+    processo = subprocess.Popen(ps_cmd, creationflags=creationflags)
+
+    # CORREÇÃO 3: O "Pulmão" da Interface. Mantém o PySide vivo e clicável.
+    while processo.poll() is None:
+        QApplication.processEvents()
+        time.sleep(0.1)  # Pausa rápida para não fritar o processador (CPU)
+
+    if processo.returncode != 0:
+        raise RuntimeError(
+            f"Processo abortado pelo usuário no UAC ou falha no ewfacquire.\n"
+            f"Código retornado: {processo.returncode}"
+        )
+    return True
+
+
 def salvar_config(config):
     """Serializa e salva config criptografada."""
     try:
@@ -2804,91 +2888,82 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("\n[!] Operação cancelada pelo usuário (Janela fechada).")
             return  # Aborta tudo e mantém no modo não-admin
 
-        # Se o usuário clicar em "Sim"
         if resultado_imagem == 1:
-            # Usuário clicou em SIM (Gere o HASH e a cópia)
+            # --- 1. JANELA DE SELEÇÃO: DD vs E01 ---
+            dialog_formato = QDialog(self)
+            dialog_formato.setWindowTitle("Selecionar Formato da Imagem")
+            layout_formato = QVBoxLayout(dialog_formato)
+
+            lbl_f = QLabel("Escolha o formato de saída para a cópia bit-a-bit:")
+            layout_formato.addWidget(lbl_f)
+
+            btn_dd = QPushButton("Formato RAW / DD (.dd)")
+            btn_e01 = QPushButton("Formato Expert Witness (.E01)")
+            layout_formato.addWidget(btn_dd)
+            layout_formato.addWidget(btn_e01)
+
+            formato_escolhido = {"ext": ".dd", "meta": {}}
+
+            btn_dd.clicked.connect(lambda: dialog_formato.done(1))
+            btn_e01.clicked.connect(lambda: dialog_formato.done(2))
+
+            res_formato = dialog_formato.exec()
+            if res_formato == 0:
+                self.texto_saida.append("\n[!] Operação cancelada pelo usuário (Seleção de formato).")
+                return
+
+            if res_formato == 2:
+                # --- 2. TRAVA DE SEGURANÇA: VERIFICA SE O EWFACQUIRE EXISTE ---
+                if obter_caminho_ewfacquire() is None:
+                    mensagem_aviso = (
+                        "O utilitário 'ewfacquire.exe' não foi encontrado!\n\n"
+                        "Para gerar imagens .E01, você precisa baixar o 'libewf-msvscpp' "
+                        "(binários para Windows) e colocar o arquivo 'ewfacquire.exe' "
+                        "dentro de uma pasta chamada 'ewf' ao lado deste programa."
+                    )
+                    QMessageBox.critical(self, "ewfacquire Ausente", mensagem_aviso)
+                    self.texto_saida.append("\n[!] Operação cancelada: ewfacquire.exe não encontrado.")
+                    return
+
+                # --- 3. COLETAR METADADOS (Pode vir vazio, o Passo 1 já lida com isso) ---
+                dialogo_meta = DialogoMetadadosKML(self, texto_botao="Continuar e Gerar Imagem .E01")
+                dialogo_meta.setWindowTitle("Cabeçalho Forense do Arquivo E01")
+                if dialogo_meta.exec() != QDialog.Accepted:
+                    self.texto_saida.append("\n[!] Operação cancelada pelo usuário na tela de metadados.")
+                    return
+                formato_escolhido["ext"] = ".e01"
+                formato_escolhido["meta"] = dialogo_meta.obter_dados()
+
+            # --- 4. SELEÇÃO DE DESTINO DA IMAGEM ---
             nome_da_imagem = f"imagem_forense_{info['serial'] if info else 'raw'}"
 
-            # Laço para permitir que o usuário tente selecionar o destino novamente
             while True:
-                # Usa DontUseNativeDialog para a janela herdar o Modo Escuro do Qt
-                # e não depender do tema claro/escuro do próprio Windows
                 opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
-
-                diretorio_escolhido = QFileDialog.getExistingDirectory(
-                    self,
-                    f"Selecione o local para criar a pasta da evidência '{nome_da_imagem}'",
-                    options=opcoes_dir
-                )
+                diretorio_escolhido = QFileDialog.getExistingDirectory(self, "Selecione o local para salvar",
+                                                                       options=opcoes_dir)
 
                 if diretorio_escolhido:
-                    # LÓGICA DE DIRETÓRIO: Cria a pasta de evidência para agrupar o DD e o Log
                     pasta_evidencia = os.path.join(diretorio_escolhido, f"{nome_da_imagem}_evidencia")
-
                     os.makedirs(pasta_evidencia, exist_ok=True)
 
-                    caminho_imagem = os.path.join(pasta_evidencia, f"{nome_da_imagem}.dd")
-                    self.caminho_audit_log = os.path.join(pasta_evidencia, f"{nome_da_imagem}_auditoria.txt")
+                    caminho_imagem = os.path.join(pasta_evidencia, f"{nome_da_imagem}{formato_escolhido['ext']}")
+                    self._caminho_audit_log = os.path.join(pasta_evidencia, f"{nome_da_imagem}_auditoria.txt")
 
-                    self._raw_metodo_escolhido += " + Geração de Imagem (.dd)"
-                    break  # Saída do laço: caminho selecionado com sucesso
+                    self._raw_metodo_escolhido += f" + Geração de Imagem ({formato_escolhido['ext'].upper()})"
+                    break
                 else:
-                    # O usuário cancelou a janela de escolher pasta, abre a segunda confirmação
-                    dialog_cancela = QDialog(self)
-                    dialog_cancela.setWindowTitle("Aviso - Destino não selecionado")
-                    dialog_cancela.setMinimumWidth(450)
+                    self.texto_saida.append("\n[!] Operação cancelada (Destino não selecionado).")
+                    return
 
-                    layout_cancela = QVBoxLayout()
+            # Chama a função de processamento (Note o novo parâmetro metadados adicionado!)
+            self._iniciar_raw_hash_elevado(device_path, caminho_imagem, formato_escolhido["meta"])
 
-                    lbl_aviso_cancela = QLabel(
-                        "Nenhum destino selecionado para a imagem.\n\n"
-                        "Deseja tentar selecionar um destino novamente ou continuar APENAS com a geração do Hash RAW?"
-                    )
-                    lbl_aviso_cancela.setWordWrap(True)
-                    lbl_aviso_cancela.setStyleSheet("font-size: 10pt;")
-                    layout_cancela.addWidget(lbl_aviso_cancela)
-                    layout_cancela.addSpacing(15)
-
-                    layout_botoes_cancela = QHBoxLayout()
-                    btn_sim_cancela = QPushButton("Selecionar um destino\npara a cópia bit-a-bit.")
-                    btn_nao_cancela = QPushButton("Gere apenas o HASH.")
-
-                    btn_sim_cancela.clicked.connect(lambda: dialog_cancela.done(1))
-                    btn_nao_cancela.clicked.connect(lambda: dialog_cancela.done(2))
-
-                    layout_botoes_cancela.addStretch()
-                    layout_botoes_cancela.addWidget(btn_sim_cancela)
-                    layout_botoes_cancela.addWidget(btn_nao_cancela)
-                    layout_botoes_cancela.addStretch()
-
-                    layout_cancela.addLayout(layout_botoes_cancela)
-                    dialog_cancela.setLayout(layout_cancela)
-
-                    # --- CORREÇÃO AQUI: Tratamento do resultado da segunda janela ---
-                    resultado_cancela = dialog_cancela.exec()
-
-                    if resultado_cancela == 0:
-                        # Fechou a segunda janela no 'X'
-                        self.texto_saida.append("\n[!] Operação cancelada pelo usuário (Destino não selecionado).")
-                        return
-                    elif resultado_cancela == 1:
-                        # Quer tentar escolher a pasta de novo
-                        continue
-                    elif resultado_cancela == 2:
-                        # Desistiu de salvar a imagem, quer só o hash (sai do While)
-                        break
-
-        # Se resultado_imagem == 2 (clicou em NÃO na primeira tela), os IFs acima são ignorados
-        # e o código flui direto para cá, executando apenas o Hash RAW.
-        self._iniciar_raw_hash_elevado(device_path, caminho_imagem)
-
-    def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = ""):
+    def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = "", metadados_e01: dict = None):
         lf, _ = try_acquire_raw_device_lock(device_path)
         if lf is None:
             QMessageBox.warning(self, "RAW em andamento",
                                 f"Já existe uma aquisição RAW em andamento para: {device_path}")
             return
-        # Se conseguiu, libera imediatamente (a trava real será no helper)
         release_raw_device_lock(lf)
 
         algos = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
@@ -2896,19 +2971,51 @@ class JanelaHashes(QWidget):
             QMessageBox.warning(self, "Algoritmos", "Selecione ao menos um algoritmo de hash.")
             return
 
-        out_json, progress_json, cancel_flag = self._temp_paths_raw()
+        # =========================================================
+        # DESVIO: SE FOR E01, PASSA O COMANDO PARA O EWFACQUIRE
+        # =========================================================
+        if caminho_imagem.lower().endswith('.e01'):
+            self.travar_interface()
+            self.barra_total.setMaximum(100)
+            self.barra_total.setValue(0)
+            self.lbl_progresso_total.setText("Executando aquisição forense via ewfacquire...")
+            self._ativar_modo_admin_visual()
+            self.cancelar_operacao = False
 
+            try:
+                # O Python fica bloqueado aguardando o processo C++ terminar
+                executar_aquisicao_e01_ewf(device_path, caminho_imagem, metadados_e01)
+
+                self.texto_saida.append("\n=== AQUISIÇÃO E01 FINALIZADA COM SUCESSO ===")
+                self.texto_saida.append(f"Metodologia: {self._raw_metodo_escolhido}")
+                self.texto_saida.append(f"Dispositivo: {device_path}")
+                self.texto_saida.append(f"Imagem gerada: {caminho_imagem}\n")
+            except Exception as e:
+                self.texto_saida.append(f"\n ❌  ERRO NA AQUISIÇÃO E01:\n{str(e)}\n")
+
+            self._desativar_modo_admin_visual()
+            self.destravar_interface()
+            self.barra_arquivo.setValue(0)
+            self.barra_total.setValue(100)
+            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
+            self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
+            return
+
+        # =========================================================
+        # FLUXO ORIGINAL: SE FOR .DD / RAW
+        # =========================================================
+        out_json, progress_json, cancel_flag = self._temp_paths_raw()
         self._raw_out_json = out_json
         self._raw_progress_json = progress_json
         self._raw_cancel_flag = cancel_flag
         self._raw_device = device_path
 
-        # trava UI e ativa modo admin VISUAL enquanto o helper roda
         self.travar_interface()
         self.barra_total.setMaximum(100)
         self.barra_total.setValue(0)
         self.lbl_progresso_total.setText("Progresso RAW - Iniciando...")
         self._ativar_modo_admin_visual()
+
         self.cancelar_operacao = False
         self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
         self.btn_cancelar.setEnabled(True)
@@ -2916,7 +3023,7 @@ class JanelaHashes(QWidget):
         rc = run_raw_helper_elevated(
             device_path=device_path,
             algos=algos,
-            chunk_size=1024 * 1024,  # 1MB
+            chunk_size=1024 * 1024,
             out_json_path=out_json,
             progress_json_path=progress_json,
             cancel_flag_path=cancel_flag,
@@ -2926,24 +3033,19 @@ class JanelaHashes(QWidget):
         if rc <= 32:
             self._desativar_modo_admin_visual()
             self.destravar_interface()
-
             if rc == 5:
-                QMessageBox.critical(self, "Acesso Negado",
-                                     "Você não tem privilégios de administrador neste computador ou as credenciais falharam.")
+                QMessageBox.critical(self, "Acesso Negado", "Falta de privilégios de administrador (Código 5).")
             elif rc == 1223 or rc == 0:
-                QMessageBox.warning(self, "Cancelado",
-                                    "A operação foi cancelada pelo usuário no prompt do Windows (UAC).")
+                QMessageBox.warning(self, "Cancelado", "A operação foi cancelada no prompt do UAC.")
             else:
-                QMessageBox.warning(self, "Erro", f"Falha ao iniciar o modo administrador. Código de erro: {rc}")
+                QMessageBox.warning(self, "Erro",
+                                    f"Falha ao iniciar o helper RAW como administrador. Código retornado: {rc}")
             return
 
-        # Timer para acompanhar progresso/resultado
         self._raw_tempo_inicio = time.time()
-
-        # Timer para acompanhar progresso/resultado
         self._raw_timer = QTimer(self)
         self._raw_timer.timeout.connect(self._poll_raw_hash_status)
-        self._raw_timer.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)
+        self._raw_timer.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL * 1000)
 
 
     def _poll_raw_hash_status(self):
@@ -6082,7 +6184,7 @@ class JanelaHashes(QWidget):
 
 
 class DialogoMetadadosKML(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, texto_botao="Continuar e Salvar KML"):
         super().__init__(parent)
         self.setWindowTitle("Identificação Forense do KML")
         self.setMinimumWidth(450)
@@ -6091,7 +6193,7 @@ class DialogoMetadadosKML(QDialog):
 
         # Texto instrutivo
         lbl_info = QLabel(
-            "Preencha os dados abaixo para identificar o caso dentro do arquivo mapa.<br><i>(Deixe em branco o que não quiser preencher)</i>")
+            "Preencha os dados forenses abaixo para a identificação do arquivo gerado.<br><i>(Deixe em branco o que não quiser preencher)</i>")
         layout.addWidget(lbl_info)
         layout.addSpacing(10)
 
@@ -6126,7 +6228,7 @@ class DialogoMetadadosKML(QDialog):
 
         # Botões de Ação
         btn_layout = QHBoxLayout()
-        btn_ok = QPushButton("Continuar e Salvar KML")
+        btn_ok = QPushButton(texto_botao)
         # Adicionado efeito hover (muda para um cinza ligeiramente mais escuro ao passar o mouse)
         btn_ok.setStyleSheet("""
             QPushButton {

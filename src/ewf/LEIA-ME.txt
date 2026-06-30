@@ -1,0 +1,22 @@
+=========================================================
+      SOBRE A GERAÇÃO DE IMAGENS .E01 (ewfacquire)
+=========================================================
+
+Este programa utiliza o utilitário 'ewfacquire.exe' para a
+geração de imagens forenses no formato Expert Witness (.E01).
+
+O 'ewfacquire' faz parte do projeto de código aberto 'libewf',
+criado e mantido por Joachim Metz, e é distribuído sob a 
+licença LGPL-3.0 (consulte o ficheiro COPYING em anexo).
+
+Para fins de transparência pericial e conformidade de licença:
+
+1. CÓDIGO-FONTE ORIGINAL (Projeto libewf):
+   O código-fonte original da ferramenta pode ser auditado em:
+   https://github.com/libyal/libewf
+
+2. BINÁRIOS PRÉ-COMPILADOS (Origem do executável):
+   O ficheiro executável (.exe) incluído nesta pasta foi 
+   compilado a partir do código original e disponibilizado 
+   pela comunidade (Alpine Security) no repositório:
+   https://github.com/alpine-sec/ewf-tools/releases
