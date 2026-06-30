@@ -409,6 +409,50 @@ def traduzir_erro_windows(err_code: int, operacao: str) -> str:
     descricao = erros.get(err_code, f"Erro desconhecido documentado pela Microsoft.")
     return f"Falha na operação '{operacao}' (Código OS: {err_code}) -> {descricao}"
 
+
+def obter_info_hardware_por_letra(letra_unidade: str) -> dict:
+    """
+    Mapeia a letra de unidade para o disco físico e extrai metadados de hardware.
+    Não requer privilégios de Administrador.
+    """
+    letra = letra_unidade.replace(":\\", "").replace(":", "").strip().upper()
+
+    # Script que captura Tipo de Conexão, Nome (Fabricante/Modelo) e Serial
+    # Retorna as 3 informações em linhas separadas
+    ps_script = (
+        f"$disk = Get-Partition -DriveLetter {letra} | Get-Disk; "
+        "if ($disk) { "
+        "Write-Output $disk.BusType; "
+        "Write-Output $disk.FriendlyName; "
+        "Write-Output $disk.SerialNumber "
+        "}"
+    )
+
+    info_hw = {
+        "bus_type": "Não detectado",
+        "modelo_fabricante": "Não detectado",
+        "serial": "Não detectado"
+    }
+
+    try:
+        resultado = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            capture_output=True, text=True, creationflags=0x08000000
+        )
+
+        # Filtra as linhas de saída vazias
+        linhas = [linha.strip() for linha in resultado.stdout.splitlines() if linha.strip()]
+
+        if len(linhas) >= 3:
+            info_hw["bus_type"] = linhas[0]
+            info_hw["modelo_fabricante"] = linhas[1]
+            info_hw["serial"] = linhas[2]
+
+    except Exception:
+        pass
+
+    return info_hw
+
 def open_device_readonly(device_path: str) -> int:
     h = CreateFileW(
         device_path,
@@ -457,6 +501,21 @@ def volume_to_physical_drives(volume_device: str) -> list[int]:
         return sorted(set(drives))
     finally:
         CloseHandle(h)
+
+def obter_serial_hardware(disk_number: int) -> str:
+    """Busca o serial físico de fábrica do dispositivo usando o WMIC do Windows."""
+    try:
+        # Usa o creationflags=subprocess.CREATE_NO_WINDOW para não piscar a tela do CMD
+        resultado = subprocess.run(
+            ["wmic", "diskdrive", "where", f"Index={disk_number}", "get", "SerialNumber"],
+            capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        linhas = resultado.stdout.strip().split('\n')
+        if len(linhas) > 1:
+            return linhas[1].strip() # Retorna o serial na segunda linha
+    except Exception as e:
+        pass
+    return "Não detectado"
 
 def normalize_drive_root(drive_letter: str) -> str:
     d = drive_letter.strip().replace("/", "\\")
@@ -2599,6 +2658,30 @@ class JanelaHashes(QWidget):
         letter, root, dtype = combo.currentData()
         info = obter_info_volume(root)
 
+        info = obter_info_volume(root)
+
+        # Tenta buscar o serial físico contornando a falta de UAC via PowerShell
+        serial_hardware = "Não detectado"
+        try:
+            if info.get('unidade'):  # Vai vir como 'I:\'
+                letra = info['unidade'].replace(":\\", "").strip()  # Limpa para ficar só 'I'
+
+                ps_script = f"Get-Partition -DriveLetter {letra} | Get-Disk | Select-Object -ExpandProperty SerialNumber"
+
+                # 0x08000000 é o valor de subprocess.CREATE_NO_WINDOW
+                resultado = subprocess.run(
+                    ["powershell", "-NoProfile", "-Command", ps_script],
+                    capture_output=True, text=True, creationflags=0x08000000
+                )
+
+                saida = resultado.stdout.strip()
+                if saida:
+                    serial_hardware = saida
+        except Exception as e:
+            pass
+
+        info['serial_hardware'] = serial_hardware
+
         # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES (RAW) ---
         texto_atual = self.texto_saida.toPlainText().strip()
         if texto_atual and texto_atual != MENSAGEM_INICIAL:
@@ -2625,12 +2708,29 @@ class JanelaHashes(QWidget):
 
         if info:
             self.texto_saida.append("=== UNIDADE SELECIONADA (RAW) ===")
-            self.texto_saida.append(f"Letra: {info['unidade']}")
-            self.texto_saida.append(f"Rótulo: {info['rotulo']}")
-            self.texto_saida.append(f"Serial: {info['serial']}")
-            self.texto_saida.append(f"FS: {info['sistema_arquivos']}")
-            self.texto_saida.append(f"Capacidade do Volume Lógico (Partição): {info.get('capacidade', 'Não identificada')}")
+            self.texto_saida.append(f"Letra: {info.get('unidade', 'Desconhecida')}")
+            self.texto_saida.append(f"Rótulo: {info.get('rotulo', 'Sem Rótulo')}")
+            self.texto_saida.append(f"Serial do Volume (Lógico): {info.get('serial', 'Não detectado')}")
+            self.texto_saida.append(f"FS: {info.get('sistema_arquivos', 'RAW')}")
+
+            if 'capacidade' in info:
+                self.texto_saida.append(f"Capacidade do Volume Lógico (Partição): {info['capacidade']}")
+
+            # --- SEÇÃO DE HARDWARE FÍSICO (Via PowerShell s/ UAC) ---
             self.texto_saida.append("")
+            self.texto_saida.append("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+
+            # Pega a letra da unidade selecionada no combo box (ex: 'I:\')
+            letra_limpa = info.get('unidade', '')
+            if letra_limpa:
+                hw_info = obter_info_hardware_por_letra(letra_limpa)
+                self.texto_saida.append(f"Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
+                self.texto_saida.append(f"Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
+                self.texto_saida.append(f"Serial de Fábrica (Hardware): {hw_info['serial']}")
+            else:
+                self.texto_saida.append("Hardware físico: Não foi possível mapear a letra da unidade.")
+
+            self.texto_saida.append("")  # Linha em branco para separar do restante do log
 
         # --- Diálogo customizado de UAC (Botões Centralizados) ---
         dialog_uac = QDialog(self)
@@ -5362,11 +5462,22 @@ class JanelaHashes(QWidget):
         # --- IMPRIME AS INFOS DA UNIDADE APENAS SE FOR RAIZ ---
         if info_drive:
             self.texto_saida.append("💿 INFORMAÇÕES DA UNIDADE DE ORIGEM (Extração de Unidade Lógica):")
-            self.texto_saida.append(f"  ↳ Letra: {info_drive['unidade']}")
-            self.texto_saida.append(f"  ↳ Rótulo (Label): {info_drive['rotulo']}")
-            self.texto_saida.append(f"  ↳ Serial do Volume: {info_drive['serial']}")
-            self.texto_saida.append(f"  ↳ Formato (FS): {info_drive['sistema_arquivos']}")
-            self.texto_saida.append(f"  ↳ Capacidade Total: {info_drive.get('capacidade', 'Não identificada')}")
+            self.texto_saida.append(f" ↳ Letra: {info_drive['unidade']}")
+            self.texto_saida.append(f" ↳ Rótulo (Label): {info_drive['rotulo']}")
+            self.texto_saida.append(f" ↳ Serial do Volume (Lógico): {info_drive['serial']}")
+            self.texto_saida.append(f" ↳ Formato (FS): {info_drive['sistema_arquivos']}")
+            self.texto_saida.append(f" ↳ Capacidade Total: {info_drive.get('capacidade', 'Não identificada')}")
+
+            # --- SEÇÃO DE HARDWARE FÍSICO (Via PowerShell s/ UAC) ---
+            self.texto_saida.append("")
+            self.texto_saida.append("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+
+            letra_limpa = info_drive['unidade']
+            hw_info = obter_info_hardware_por_letra(letra_limpa)
+
+            self.texto_saida.append(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
+            self.texto_saida.append(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
+            self.texto_saida.append(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}")
             self.texto_saida.append("")  # Linha em branco para separar
         # ------------------------------------------------------
 
