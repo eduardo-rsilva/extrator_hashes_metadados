@@ -3058,6 +3058,11 @@ class JanelaHashes(QWidget):
             # Chama a função de processamento (Note o novo parâmetro metadados adicionado!)
             self._iniciar_raw_hash_elevado(device_path, caminho_imagem, formato_escolhido["meta"])
 
+        elif resultado_imagem == 2:
+            # O usuário quer APENAS extrair o hash RAW, sem gerar arquivo .dd ou .E01
+            self._iniciar_raw_hash_elevado(device_path)
+
+
     def _iniciar_raw_hash_elevado(self, device_path: str, caminho_imagem: str = "", metadados_e01: dict = None):
         lf, _ = try_acquire_raw_device_lock(device_path)
         if lf is None:
