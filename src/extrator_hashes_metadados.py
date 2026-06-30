@@ -3095,8 +3095,75 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append(f"Metodologia: {self._raw_metodo_escolhido}")
                 self.texto_saida.append(f"Dispositivo: {device_path}")
                 self.texto_saida.append(f"Imagem gerada: {caminho_imagem}\n")
+
+                # ========================================================
+                # ETAPA: HASHING PÓS-AQUISIÇÃO DO E01 E GERAÇÃO DE LOG
+                # ========================================================
+                self.texto_saida.append("Verificando integridade dos arquivos de imagem gerados...")
+                QApplication.processEvents()
+
+                import glob
+                import datetime
+                base_name = os.path.splitext(caminho_imagem)[0]
+                arquivos_imagem = sorted(glob.glob(f"{base_name}.[eE]*"))
+
+                # Lista para acumular o texto que vai para o log de auditoria
+                linhas_log_auditoria = []
+
+                if not arquivos_imagem:
+                    self.texto_saida.append(
+                        "⚠️ Aviso: O arquivo de imagem não foi localizado no disco após a extração.")
+                    linhas_log_auditoria.append("FALHA: Arquivos de imagem não localizados após a extração ewfacquire.")
+                else:
+                    for arq_img in arquivos_imagem:
+                        nome_arq = os.path.basename(arq_img)
+                        msg_hash = f"\n📄 Hashes pós-aquisição ({nome_arq}):"
+
+                        self.texto_saida.append(msg_hash)
+                        linhas_log_auditoria.append(msg_hash.strip())  # Tira a quebra de linha extra pro TXT
+
+                        # Reutiliza sua função de hash sem os metadados pesados
+                        res_hash = self.obter_metadados_e_hashes(arq_img, algos, extrair_metadados=False)
+
+                        if res_hash.get('sucesso'):
+                            for algo in algos:
+                                if algo in res_hash['hashes']:
+                                    linha_h = f"   {algo}: {res_hash['hashes'][algo]}"
+                                    self.texto_saida.append(linha_h)
+                                    linhas_log_auditoria.append(linha_h)
+                        else:
+                            erro_msg = f"   ❌ Erro ao calcular hash: {res_hash.get('erro')}"
+                            self.texto_saida.append(erro_msg)
+                            linhas_log_auditoria.append(erro_msg)
+
+                self.texto_saida.append("")
+
+                # --- GRAVAÇÃO DO ARQUIVO DE AUDITORIA FÍSICO (.TXT) ---
+                if hasattr(self, '_caminho_audit_log') and self._caminho_audit_log:
+                    try:
+                        with open(self._caminho_audit_log, "w", encoding="utf-8") as f_log:
+                            f_log.write("=" * 55 + "\n")
+                            f_log.write(f"LOG DE AUDITORIA FORENSE - {NOME_APP} - versão {VERSAO_APP}\n")
+                            f_log.write("=" * 55 + "\n\n")
+
+                            f_log.write(
+                                f"Data/Hora Conclusão: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+                            if hasattr(self, '_raw_metodo_escolhido'):
+                                f_log.write(f"Metodologia: {self._raw_metodo_escolhido}\n")
+                            f_log.write(f"Alvo da Extração: {device_path}\n")
+                            f_log.write(f"Imagem gerada: {caminho_imagem}\n\n")
+
+                            f_log.write("HASHES DA IMAGEM E01 (PÓS-AQUISIÇÃO):\n")
+                            for linha in linhas_log_auditoria:
+                                f_log.write(f"{linha}\n")
+
+                            f_log.write("\n" + "=" * 55 + "\n")
+                    except Exception as e:
+                        self.texto_saida.append(f"\nERRO: Falha ao gerar arquivo de auditoria físico: {e}")
+                # ========================================================
+
             except Exception as e:
-                self.texto_saida.append(f"\n ❌  ERRO NA AQUISIÇÃO E01:\n{str(e)}\n")
+                self.texto_saida.append(f"\n ❌ ERRO NA AQUISIÇÃO E01:\n{str(e)}\n")
 
             self._desativar_modo_admin_visual()
             self.destravar_interface()
