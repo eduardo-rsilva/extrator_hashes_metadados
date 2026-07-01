@@ -249,7 +249,19 @@ def is_running_compiled() -> bool:
 
 BASE_DIR = get_base_dir()
 ICON_PATH = str(BASE_DIR / "app.ico")
-MENSAGEM_INICIAL = "Arraste e solte arquivos ou pastas em qualquer lugar desta janela."
+MENSAGEM_INICIAL = "Arraste e solte arquivo(s), diretório(s) ou ícones de unidades em qualquer lugar desta janela para extração de HASHES e/ou METADADOS."
+
+# Mensagem em HTML para embelezar a caixa de texto (aceita Modo Escuro automaticamente)
+MENSAGEM_VISUAL = f"""
+<div style="text-align: center;">
+    <span style="font-size: 32pt;">📥</span><br><br>
+    <span style="font-size: 16pt; font-weight: bold; color: #0078D7;">ÁREA DE EXTRAÇÃO FORENSE</span><br><br>
+    <span style="font-size: 11pt;">
+        <b>Arraste e solte</b> arquivo(s), diretório(s) ou ícones de unidades<br>
+        em qualquer lugar desta janela para extração de <b>HASHES</b> e/ou <b>METADADOS</b>.
+    </span>
+</div>
+"""
 
 CONFIG_FILE = BASE_DIR / "config.dat"
 KEY = b'cN8vZ8jK8vJk9sLk2jHfGdSdFgJkLmQnRtYwXzPqLmN='
@@ -1808,7 +1820,7 @@ class JanelaHashes(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{NOME_APP} - v.{VERSAO_APP}")
-        self.resize(900, 680)
+        self.resize(900, 730)
 
         if os.path.exists(ICON_PATH):
             self.setWindowIcon(QIcon(ICON_PATH))
@@ -2116,8 +2128,10 @@ class JanelaHashes(QWidget):
         self.texto_saida.clear = clear_seguro
         # ==========================================================
 
-        # Re-escreve a mensagem inicial usando o append seguro
-        self.texto_saida.append(MENSAGEM_INICIAL + "\n")
+        # Insere o texto plano na memória (para o TXT) e o HTML na tela
+        self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
+        self.texto_saida._original_append(MENSAGEM_VISUAL)
+        self._chars_na_tela += len(MENSAGEM_VISUAL)
 
         # Adiciona a saída também no splitter, para ficar embaixo da validação
         splitter.addWidget(self.texto_saida)
@@ -2682,9 +2696,9 @@ class JanelaHashes(QWidget):
 
         info['serial_hardware'] = serial_hardware
 
-        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES (RAW) ---
-        texto_atual = self.texto_saida.toPlainText().strip()
-        if texto_atual and texto_atual != MENSAGEM_INICIAL:
+        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
+        # Checa se há dados de extração na memória (se for > 1, já tem resultados)
+        if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
             msg_box.setText("Já existem resultados de extrações anteriores na tela.")
@@ -5328,8 +5342,10 @@ class JanelaHashes(QWidget):
         # raise RuntimeError("CRASH FORÇADO: Testando o sistema de log de erros!")
         # # ------------------------------------------------------------
 
-        self.texto_saida.clear()
-        self.texto_saida.append(MENSAGEM_INICIAL + "\n")
+        self.texto_saida.clear() # Limpa a tela e a memória
+        self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
+        self.texto_saida._original_append(MENSAGEM_VISUAL)
+        self._chars_na_tela += len(MENSAGEM_VISUAL)
         self.barra_arquivo.setValue(0)
         self.barra_total.setValue(0)
         self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual:")
@@ -5458,10 +5474,8 @@ class JanelaHashes(QWidget):
         self.coordenadas_gps_encontradas = []  # Lista para armazenar GPS desta extração
         self._hashes_com_gps = set()
 
-        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES ---
-        texto_atual = self.texto_saida.toPlainText().strip()
-        # Checa se há texto e se não é apenas a mensagem inicial
-        if texto_atual and texto_atual != MENSAGEM_INICIAL:
+        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES (RAW) ---
+        if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
             msg_box.setText("Já existem resultados de extrações anteriores na tela.")
