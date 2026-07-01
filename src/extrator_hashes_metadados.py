@@ -1216,6 +1216,23 @@ def detectar_ads_windows(caminho_arquivo):
     return streams_ocultos
 
 
+def formatar_bytes_dinamico(tamanho_bytes: int) -> str:
+    """Converte bytes para a unidade de medida mais adequada (KB, MB, GB, TB)."""
+    if not isinstance(tamanho_bytes, (int, float)) or tamanho_bytes == 0:
+        return "0 B"
+
+    unidades = ["B", "KB", "MB", "GB", "TB", "PB"]
+    indice = 0
+    valor = float(tamanho_bytes)
+
+    while valor >= 1024 and indice < len(unidades) - 1:
+        valor /= 1024
+        indice += 1
+
+    # Retorna formatado com vírgula no padrão brasileiro
+    return f"{valor:.2f}".replace(".", ",") + f" {unidades[indice]}"
+
+
 def obter_info_volume(caminho):
     """Obtém o rótulo (Label), Serial, Sistema de Arquivos e Capacidade da unidade selecionada."""
     if os.name != 'nt':
@@ -1264,18 +1281,16 @@ def obter_info_volume(caminho):
         # Formata o texto de capacidade
         if sucesso_tamanho and total_bytes.value > 0:
             tamanho_bytes = total_bytes.value
-            tamanho_gb = tamanho_bytes / (1024 ** 3)
 
-            # Formata os números no padrão brasileiro
-            # (GB com vírgula no decimal, Bytes com pontos de milhar)
-            gb_str = f"{tamanho_gb:.2f}".replace(".", ",")
+            # Usa a nova função dinâmica
+            tamanho_dinamico = formatar_bytes_dinamico(tamanho_bytes)
             bytes_str = f"{tamanho_bytes:,}".replace(",", ".")
 
             if tipo_unidade == 5:
                 # Tratamento especial forense para mídias ópticas
-                str_capacidade = f"{gb_str} GB ({bytes_str} bytes) [Nota: Em mídias ópticas, este é o tamanho da sessão gravada, não a capacidade física do disco]"
+                str_capacidade = f"{tamanho_dinamico} ({bytes_str} bytes) [Nota: Em mídias ópticas, este é o tamanho da sessão gravada, não a capacidade física do disco]"
             else:
-                str_capacidade = f"{gb_str} GB ({bytes_str} bytes)"
+                str_capacidade = f"{tamanho_dinamico} ({bytes_str} bytes)"
         else:
             str_capacidade = "[Indisponível - Mídia vazia, corrompida ou formato inacessível pelo Windows]"
 
@@ -2493,8 +2508,11 @@ class JanelaHashes(QWidget):
         else:
             str_restante = "Calculando..."
 
+        fmt_processados = formatar_bytes_dinamico(self.bytes_processados_total)
+        fmt_total = formatar_bytes_dinamico(self.total_bytes_processar)
+
         self.lbl_progresso_total.setText(
-            f"Progresso Total (Arquivos) - Decorrido: {str_decorrido} | Restante: {str_restante}"
+            f"Progresso Total ({fmt_processados} / {fmt_total}) - Decorrido: {str_decorrido} | Restante: {str_restante}"
         )
 
     def exportar_codigo_fonte(self):
@@ -3244,10 +3262,13 @@ class JanelaHashes(QWidget):
                 pct = int(p.get("percent", 0))
                 self.barra_arquivo.setValue(max(0, min(100, pct)))
                 self.barra_total.setValue(max(0, min(100, pct)))
-                self.lbl_progresso_arquivo.setText(f"RAW {pct}% - {self._raw_device}")
 
                 bytes_read = p.get("bytes_read", 0)
                 bytes_total = p.get("bytes_total", 0)
+
+                fmt_lidos = formatar_bytes_dinamico(bytes_read)
+                fmt_total = formatar_bytes_dinamico(bytes_total)
+                self.lbl_progresso_arquivo.setText(f"RAW {pct}% ({fmt_lidos} / {fmt_total}) - {self._raw_device}")
 
                 if hasattr(self, "_raw_tempo_inicio"):
                     import time  # Certifique-se de que time está importado no topo do arquivo
@@ -3272,7 +3293,7 @@ class JanelaHashes(QWidget):
                         str_restante = "Calculando..."
 
                     self.lbl_progresso_total.setText(
-                        f"Progresso RAW - Decorrido: {str_decorrido} | Restante: {str_restante}"
+                        f"Progresso RAW ({fmt_lidos} / {fmt_total}) - Decorrido: {str_decorrido} | Restante: {str_restante}"
                     )
         except Exception:
             pass
@@ -3297,7 +3318,15 @@ class JanelaHashes(QWidget):
 
             if payload.get("ok"):
                 res = payload.get("result", {})
-                str_bytes = f"Bytes lidos: {res.get('bytes_read')} / {res.get('bytes_total')}"
+                b_lidos = res.get('bytes_read', 0)
+                b_total = res.get('bytes_total', 0)
+
+                # Traduz os bytes usando a nova função
+                fmt_lidos = formatar_bytes_dinamico(b_lidos)
+                fmt_total = formatar_bytes_dinamico(b_total)
+
+                # Exibe o valor bruto e o formatado ao lado
+                str_bytes = f"Bytes lidos: {b_lidos} / {b_total} ({fmt_lidos} / {fmt_total})"
                 self.texto_saida.append(str_bytes)
 
                 hashes = res.get("hashes", {})
