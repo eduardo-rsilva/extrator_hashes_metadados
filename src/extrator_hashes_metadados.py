@@ -972,13 +972,17 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     caminho_destino = os.path.normpath(caminho_destino)
     caminho_ewf_norm = os.path.normpath(caminho_ewf)
 
+    # Criamos o caminho do log baseado no caminho de destino
+    caminho_log_ewf = f"{caminho_destino}.ewf.log"
+
     def escapar_ps(texto):
         return texto.replace("'", "''")
 
     args = [
         "-u",
         "-c", "fast",
-        "-t", f'"{caminho_destino}"'
+        "-t", f'"{caminho_destino}"',
+        "-l", f'"{caminho_log_ewf}"'  # Ativa a gravação do log físico
     ]
 
     caso = metadados.get("caso", "").strip()
@@ -3126,7 +3130,35 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append("\n=== AQUISIÇÃO E01 FINALIZADA COM SUCESSO ===")
                 self.texto_saida.append(f"Metodologia: {self._raw_metodo_escolhido}")
                 self.texto_saida.append(f"Dispositivo: {device_path}")
-                self.texto_saida.append(f"Imagem gerada: {caminho_imagem}\n")
+                self.texto_saida.append(f"Imagem gerada: {caminho_imagem}")
+
+                # ========================================================
+                # NOVA SEÇÃO: CAPTURA DO HASH NATIVO DO EWFACQUIRE
+                # ========================================================
+                caminho_log_ewf = os.path.splitext(caminho_imagem)[0] + ".ewf.log"
+                if os.path.exists(caminho_log_ewf):
+                    try:
+                        import re
+                        with open(caminho_log_ewf, "r", encoding="utf-8", errors="ignore") as f_log_ewf:
+                            conteudo_ewf = f_log_ewf.read()
+
+                            # O ewfacquire escreve no formato: "MD5 hash calculated over data: [HASH]"
+                            match_hash = re.search(r'(MD5|SHA1|SHA256)\s+hash calculated over data:\s+([a-fA-F0-9]+)',
+                                                   conteudo_ewf, re.IGNORECASE)
+
+                            if match_hash:
+                                algo_nativo = match_hash.group(1).upper()
+                                hash_nativo = match_hash.group(2).upper()
+
+                                self.texto_saida.append("📄 Hash Nativo (gerado pelo ewfacquire):")
+                                self.texto_saida.append(f"   {algo_nativo} do Payload: {hash_nativo}")
+                                self.texto_saida.append(
+                                    "   (Nota: Este valor representa os dados brutos da mídia e pode ser conferido ao carregar o arquivo .E01 em softwares forenses, como o FTK Imager)\n")
+                    except Exception as e:
+                        self.texto_saida.append(f"⚠️ Aviso: Não foi possível ler o log do ewfacquire: {e}")
+
+                self.texto_saida.append("\n")
+                # ========================================================
 
                 # ========================================================
                 # ETAPA: HASHING PÓS-AQUISIÇÃO DO E01 E GERAÇÃO DE LOG
