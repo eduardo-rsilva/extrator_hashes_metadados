@@ -6543,5 +6543,5 @@ if __name__ == "__main__":
         app.setWindowIcon(QIcon(ICON_PATH))
 
     janela = JanelaHashes()
-    janela.show()
+    janela.showMaximized()
     sys.exit(app.exec())
