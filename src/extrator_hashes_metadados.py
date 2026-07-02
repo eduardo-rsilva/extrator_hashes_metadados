@@ -3268,7 +3268,7 @@ class JanelaHashes(QWidget):
                         self.texto_saida.append(msg_hash_logico)
                         linhas_log_auditoria.append(msg_hash_logico.strip())
 
-                        self.texto_saida.append("   🔄 Lendo dados internos em segundo plano. Aguarde...")
+                        self.texto_saida._original_append("   🔄 Lendo dados internos em segundo plano. Aguarde...")
                         QApplication.processEvents()
 
                         sucesso, msg_verificacao = verificar_integridade_automatica(arq_principal, sha256_coleta)
