@@ -3285,8 +3285,15 @@ class JanelaHashes(QWidget):
         # =========================================================
         if caminho_imagem.lower().endswith('.e01'):
             self.travar_interface()
-            self.barra_total.setMaximum(100)
-            self.barra_total.setValue(0)
+
+            # --- ATIVA A ANIMAÇÃO DE "VAI E VEM" (MODO INDETERMINADO) ---
+            self.barra_arquivo.setMinimum(0)
+            self.barra_arquivo.setMaximum(0)
+            self.barra_total.setMinimum(0)
+            self.barra_total.setMaximum(0)
+            # ------------------------------------------------------------
+
+            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Gerando imagem .E01 (Aguarde...)")
             self.lbl_progresso_total.setText("Executando aquisição forense via ewfacquire...")
             self._ativar_modo_admin_visual()
             self.cancelar_operacao = False
@@ -3456,6 +3463,14 @@ class JanelaHashes(QWidget):
 
             self._desativar_modo_admin_visual()
             self.destravar_interface()
+
+            # --- RESTAURA AS BARRAS PARA O MODO PORCENTAGEM PADRÃO ---
+            self.barra_arquivo.setMinimum(0)
+            self.barra_arquivo.setMaximum(100)
+            self.barra_total.setMinimum(0)
+            self.barra_total.setMaximum(100)
+            # ---------------------------------------------------------
+
             self.barra_arquivo.setValue(100)
             self.barra_total.setValue(100)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
