@@ -1066,12 +1066,13 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     caminho_ewf_ps = escapar_ps(str(caminho_ewf_norm))
 
     # Removemos o cmd /k. Agora ele fecha sozinho quando terminar a extração.
+    # Adicionamos um bloco try/catch nativo do PowerShell. Se o UAC for negado, ele força a saída com erro (código 1).
     ps_cmd = [
         "powershell",
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-Command",
-        f"$p = Start-Process -FilePath '{caminho_ewf_ps}' -ArgumentList '{args_str}' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+        f"try {{ $p = Start-Process -FilePath '{caminho_ewf_ps}' -ArgumentList '{args_str}' -Verb RunAs -Wait -PassThru -ErrorAction Stop; if ($null -ne $p) {{ exit $p.ExitCode }} else {{ exit 1 }} }} catch {{ exit 1 }}"
     ]
 
     creationflags = 0x08000000 if os.name == 'nt' else 0
@@ -3460,7 +3461,22 @@ class JanelaHashes(QWidget):
 
             except Exception as e:
                 self.texto_saida.append(f"\n ❌ ERRO NA AQUISIÇÃO E01:\n{str(e)}\n")
+                self._desativar_modo_admin_visual()
+                self.destravar_interface()
 
+                # Restaura as barras parando a animação e zera os valores
+                self.barra_arquivo.setMinimum(0)
+                self.barra_arquivo.setMaximum(100)
+                self.barra_total.setMinimum(0)
+                self.barra_total.setMaximum(100)
+                self.barra_arquivo.setValue(0)
+                self.barra_total.setValue(0)
+
+                self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Cancelado / Erro")
+                self.lbl_progresso_total.setText("Progresso RAW - Cancelado / Erro")
+                return
+
+            # SE DEU TUDO CERTO, RODA A FINALIZAÇÃO NORMAL DE SUCESSO AQUI:
             self._desativar_modo_admin_visual()
             self.destravar_interface()
 
