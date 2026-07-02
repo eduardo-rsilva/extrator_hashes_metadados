@@ -3166,13 +3166,21 @@ class JanelaHashes(QWidget):
             # --- 1. JANELA DE SELEÇÃO: DD vs E01 ---
             dialog_formato = QDialog(self)
             dialog_formato.setWindowTitle("Selecionar Formato da Imagem")
+            dialog_formato.setMinimumWidth(450)  # Aumenta a largura da janela
             layout_formato = QVBoxLayout(dialog_formato)
 
             lbl_f = QLabel("Escolha o formato de saída para a cópia bit-a-bit:")
+            lbl_f.setStyleSheet("font-size: 12pt; font-weight: bold; margin-bottom: 10px;")  # Aumenta a fonte do aviso
             layout_formato.addWidget(lbl_f)
 
             btn_dd = QPushButton("Formato RAW / DD (.dd)")
             btn_e01 = QPushButton("Formato Expert Witness (.E01)")
+
+            # --- AUMENTANDO OS CARACTERES E O PREENCHIMENTO DOS BOTÕES ---
+            estilo_botoes_formato = "font-size: 11pt; font-weight: bold; padding: 8px;"
+            btn_dd.setStyleSheet(estilo_botoes_formato)
+            btn_e01.setStyleSheet(estilo_botoes_formato)
+
             layout_formato.addWidget(btn_dd)
             layout_formato.addWidget(btn_e01)
 
