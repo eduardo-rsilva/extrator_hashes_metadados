@@ -2859,12 +2859,33 @@ class JanelaHashes(QWidget):
         btn_autorizar.setMinimumWidth(120)
         btn_nao_autorizar.setMinimumWidth(120)
 
-        # Adiciona uma cor leve ao botão de autorizar para destacá-lo
+        # Adiciona uma cor leve ao botão de autorizar para destacá-lo e implementa os efeitos de interação
         if hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked():
-            btn_autorizar.setStyleSheet(
-                "font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; color: #f0f0f0;")
+            btn_autorizar.setStyleSheet("""
+                        QPushButton {
+                            font-weight: bold; 
+                            background-color: #3c3f41; 
+                            border: 1px solid #555555; 
+                            color: #f0f0f0;
+                            border-radius: 4px;
+                            padding: 6px;
+                        }
+                        QPushButton:hover { background-color: #4b4d4f; }
+                        QPushButton:pressed { background-color: #2b2b2b; }
+                    """)
         else:
-            btn_autorizar.setStyleSheet("font-weight: bold; background-color: #e0e0e0;")
+            btn_autorizar.setStyleSheet("""
+                        QPushButton {
+                            font-weight: bold; 
+                            background-color: #e0e0e0;
+                            border: 1px solid #cccccc;
+                            color: #111111;
+                            border-radius: 4px;
+                            padding: 6px;
+                        }
+                        QPushButton:hover { background-color: #d4d4d4; }
+                        QPushButton:pressed { background-color: #c5c5c5; }
+                    """)
 
         # Conecta os botões às ações de aceitar/rejeitar o diálogo
         btn_autorizar.clicked.connect(dialog_uac.accept)
