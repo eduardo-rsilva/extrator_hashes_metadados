@@ -978,11 +978,13 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     def escapar_ps(texto):
         return texto.replace("'", "''")
 
+
     args = [
         "-u",
         "-c", "fast",
         "-t", f'"{caminho_destino}"',
-        "-l", f'"{caminho_log_ewf}"'  # Ativa a gravação do log físico
+        "-l", f'"{caminho_log_ewf}"', # Ativa a gravação do log físico
+        "-d", "sha256"  # <--- CORREÇÃO: -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
     ]
 
     caso = metadados.get("caso", "").strip()
@@ -3142,18 +3144,27 @@ class JanelaHashes(QWidget):
                         with open(caminho_log_ewf, "r", encoding="utf-8", errors="ignore") as f_log_ewf:
                             conteudo_ewf = f_log_ewf.read()
 
-                            # O ewfacquire escreve no formato: "MD5 hash calculated over data: [HASH]"
-                            match_hash = re.search(r'(MD5|SHA1|SHA256)\s+hash calculated over data:\s+([a-fA-F0-9]+)',
-                                                   conteudo_ewf, re.IGNORECASE)
+                            # Trocamos re.search por re.finditer para achar TODOS os hashes
+                            matches = re.finditer(r'(MD5|SHA1|SHA256)\s+hash calculated over data:\s+([a-fA-F0-9]+)',
+                                                  conteudo_ewf, re.IGNORECASE)
 
-                            if match_hash:
-                                algo_nativo = match_hash.group(1).upper()
-                                hash_nativo = match_hash.group(2).upper()
+                            teve_hash = False
+                            for match in matches:
+                                if not teve_hash:
+                                    self.texto_saida.append("📄 Hashes Nativos (gerados pelo ewfacquire):")
+                                    teve_hash = True
 
-                                self.texto_saida.append("📄 Hash Nativo (gerado pelo ewfacquire):")
+                                algo_nativo = match.group(1).upper()
+                                hash_nativo = match.group(2).upper()
                                 self.texto_saida.append(f"   {algo_nativo} do Payload: {hash_nativo}")
-                                self.texto_saida.append(
-                                    "   (Nota: Este valor representa os dados brutos da mídia e pode ser conferido ao carregar o arquivo .E01 em softwares forenses, como o FTK Imager)\n")
+
+                            # Se achou pelo menos um hash, coloca a nossa nota pericial no final
+                            if teve_hash:
+                                self.texto_saida.append("   (Nota: Estes valores representam os dados brutos da mídia. O duplo hash pode ser validado integralmente em softwares forenses modernos, como o Autopsy, X-Ways Forensics ou utilitários nativos libewf)\n")
+
+                            # if teve_hash:
+                            #     self.texto_saida.append(
+                            #         "   (Nota: Estes valores representam os dados brutos da mídia e podem ser conferidos ao carregar o arquivo .E01 em softwares forenses, como o FTK Imager)\n")
                     except Exception as e:
                         self.texto_saida.append(f"⚠️ Aviso: Não foi possível ler o log do ewfacquire: {e}")
 
