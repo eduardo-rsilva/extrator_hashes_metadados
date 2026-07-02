@@ -3072,11 +3072,31 @@ class JanelaHashes(QWidget):
         bg_nota = "#2b2b2b" if is_dark else "#f9f9f9"
         borda_nota = "#555555" if is_dark else "#ddd"
         cor_nota = "#d4d4d4" if is_dark else "#333"
+        cor_link = "#66b2ff" if is_dark else "#0056b3"
+
+        # --- BOTÃO EXPANSÍVEL (TOGGLE) ---
+        btn_toggle_nota = QPushButton("▶ Mostrar Nota Técnica sobre Montagem de Imagens RAW")
+        btn_toggle_nota.setCheckable(True)
+        btn_toggle_nota.setCursor(Qt.CursorShape.PointingHandCursor)  # Muda o cursor para "mãozinha"
+        btn_toggle_nota.setStyleSheet(f"""
+                    QPushButton {{
+                        text-align: left;
+                        border: none;
+                        background: transparent;
+                        font-weight: bold;
+                        font-size: 11pt;
+                        color: {cor_link};
+                        padding: 5px 0px;
+                    }}
+                    QPushButton:hover {{
+                        text-decoration: underline;
+                    }}
+                """)
 
         # --- NOTA TÉCNICA SOBRE ABERTURA DE ARQUIVOS .DD ---
+        # Removi o título em negrito de dentro da caixa HTML, pois o botão já faz esse papel
         lbl_nota_tecnica = QLabel(
             f"<div style='background-color: {bg_nota}; border: 1px solid {borda_nota}; padding: 12px; border-radius: 5px; color: {cor_nota};'>"
-            "<b>ℹ️ Nota Técnica sobre Montagem de Imagens RAW:</b><br><br>"
             "O uso de softwares como <b>Daemon Tools não é recomendado</b> para perícia. Ele foi projetado para "
             "emular mídias ópticas (ISO, MDS) e não interpreta corretamente tabelas de partição (MBR/GPT) ou sistemas "
             "de arquivos (NTFS, exFAT) embutidos em imagens de discos rígidos e pendrives.<br><br>"
@@ -3089,7 +3109,25 @@ class JanelaHashes(QWidget):
             "</div>"
         )
         lbl_nota_tecnica.setWordWrap(True)
-        lbl_nota_tecnica.setStyleSheet("font-size: 11pt; color: #444;")
+        lbl_nota_tecnica.setStyleSheet("font-size: 11pt;")
+        lbl_nota_tecnica.setVisible(False)  # <-- O SEGREDO: Começa invisível
+
+        # Função para alternar a visibilidade da caixa e o texto da setinha do botão
+        def alternar_nota(checked):
+            lbl_nota_tecnica.setVisible(checked)
+            if checked:
+                btn_toggle_nota.setText("▼ Ocultar Nota Técnica sobre Montagem de Imagens RAW")
+            else:
+                btn_toggle_nota.setText("▶ Mostrar Nota Técnica sobre Montagem de Imagens RAW")
+
+            # Força a janela a recalcular seu tamanho para não deixar espaços em branco
+            dialog_imagem.adjustSize()
+
+        # Conecta o clique do botão à função acima
+        btn_toggle_nota.toggled.connect(alternar_nota)
+
+        # Adiciona os novos widgets ao layout da janela
+        layout_img.addWidget(btn_toggle_nota)
         layout_img.addWidget(lbl_nota_tecnica)
 
         dialog_imagem.setLayout(layout_img)
