@@ -38,7 +38,7 @@ Um diferencial crítico é o **bloqueio automático de arquivos "Apenas Online"*
 * **Triagem de Unidades:** Caso o usuário selecione a raiz de uma unidade (Pendrive ou HD), o programa extrai automaticamente o Rótulo (Label), o Serial do Volume, o Sistema de Arquivos (FS) e a **Capacidade Total** (formatada no padrão brasileiro), incluindo alertas técnicos quando mídias ópticas (CD/DVD) forem detectadas para evitar confusões em laudos.
 * **Proteção Anti-Thrashing (Hardware Lock):** O sistema mapeia em baixo nível a relação entre Volumes Lógicos e Discos Físicos reais. Impede ativamente que duas instâncias do programa realizem aquisições simultâneas no mesmo disco magnético ou SSD, prevenindo saturação severa de I/O e protegendo a vida útil da evidência física.
 * **Aquisição RAW:** Funcionalidade de **Aquisição Bit-a-bit**, exigindo elevação de privilégios (UAC). É possível escolher entre a extração do **Disco Físico Inteiro** (MBR/GPT, espaço não alocado e partições ocultas) ou apenas do Volume Lógico.
-* **Cópia Forense:** Durante essa extração, o sistema permite a geração simultânea de uma imagem **.dd**.
+* **Cópia Forense:** Durante essa extração, o sistema permite a geração simultânea de uma imagem **.dd** ou **.e01**.
 
 ---
 
