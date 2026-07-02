@@ -3453,9 +3453,9 @@ class JanelaHashes(QWidget):
 
             self._desativar_modo_admin_visual()
             self.destravar_interface()
-            self.barra_arquivo.setValue(0)
+            self.barra_arquivo.setValue(100)
             self.barra_total.setValue(100)
-            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
+            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
             return
 
@@ -3632,9 +3632,9 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("")
             self._desativar_modo_admin_visual()
             self.destravar_interface()
-            self.barra_arquivo.setValue(0)
+            self.barra_arquivo.setValue(100)
             self.barra_total.setValue(100)
-            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual")
+            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
 
             # --- LIMPEZA DO DIRETÓRIO TEMPORÁRIO ---
