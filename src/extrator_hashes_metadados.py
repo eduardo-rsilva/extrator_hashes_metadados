@@ -3470,6 +3470,7 @@ class JanelaHashes(QWidget):
         self._raw_progress_json = progress_json
         self._raw_cancel_flag = cancel_flag
         self._raw_device = device_path
+        self._raw_caminho_imagem = caminho_imagem
 
         self.travar_interface()
         self.barra_total.setMaximum(100)
@@ -3573,6 +3574,9 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append(f"Metodologia: {self._raw_metodo_escolhido}")
             self.texto_saida.append(f"Dispositivo: {self._raw_device}")
 
+            if hasattr(self, '_raw_caminho_imagem') and self._raw_caminho_imagem:
+                self.texto_saida.append(f"Imagem gerada: {self._raw_caminho_imagem}")
+
             if payload.get("ok"):
                 res = payload.get("result", {})
                 b_lidos = res.get('bytes_read', 0)
@@ -3622,6 +3626,10 @@ class JanelaHashes(QWidget):
                                 f_log.write(f"Metodologia: {self._raw_metodo_escolhido}\n")
 
                             f_log.write(f"Alvo da Extração: {self._raw_device}\n")
+
+                            if hasattr(self, '_raw_caminho_imagem') and self._raw_caminho_imagem:
+                                f_log.write(f"Imagem gerada: {self._raw_caminho_imagem}\n")
+
                             f_log.write(f"{str_bytes}\n\n")
                             f_log.write("CADEIA DE CUSTÓDIA - HASHE(S) DA IMAGEM:\n")
                             for linha in texto_hashes:
