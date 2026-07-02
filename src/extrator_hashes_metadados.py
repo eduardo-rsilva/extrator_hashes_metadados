@@ -2727,25 +2727,44 @@ class JanelaHashes(QWidget):
             QMessageBox.information(self, "Unidades", "Nenhuma unidade removível/fixa/CD detectada.")
             return
 
-        # Dialog simples com combo
+        # Dialog simples com combo configurado com o novo padrão visual
         dialog = QDialog(self)
         dialog.setWindowTitle("Selecionar unidade para HASH RAW")
-        dialog.setMinimumWidth(500)
+        dialog.setMinimumWidth(550)  # Janela mais larga para melhor leitura das mídias
 
         layout = QVBoxLayout()
+        layout.setSpacing(15)  # Espaçamento equilibrado entre os elementos
+        layout.setContentsMargins(20, 20, 20, 20)  # Margens internas da janela
+
         combo = QComboBox()
+        combo.setStyleSheet("font-size: 11pt; padding: 6px;")  # Elemento de seleção maior
 
         for letter, root, dtype in unidades:
             combo.addItem(f"{root}  -  {self._tipo_unidade_texto(dtype)}", (letter, root, dtype))
 
-        layout.addWidget(QLabel("Escolha a unidade:"))
+        lbl_unidade = QLabel("Escolha a unidade para análise:")
+        lbl_unidade.setStyleSheet("font-size: 12pt; font-weight: bold;")  # Título em destaque
+
+        layout.addWidget(lbl_unidade)
         layout.addWidget(combo)
+
+        layout.addSpacing(5)  # Pequeno respiro antes da linha de comando
 
         btns = QHBoxLayout()
         btn_ok = QPushButton("OK")
         btn_cancel = QPushButton("Cancelar")
+
+        # --- AUMENTANDO OS CARACTERES E O PREENCHIMENTO DOS BOTÕES ---
+        estilo_botoes_unidade = "font-size: 11pt; font-weight: bold; padding: 6px;"
+        btn_ok.setStyleSheet(estilo_botoes_unidade)
+        btn_cancel.setStyleSheet(estilo_botoes_unidade)
+        btn_ok.setMinimumWidth(110)
+        btn_cancel.setMinimumWidth(110)
+
         btn_ok.clicked.connect(dialog.accept)
         btn_cancel.clicked.connect(dialog.reject)
+
+        btns.addStretch()
         btns.addWidget(btn_ok)
         btns.addWidget(btn_cancel)
         layout.addLayout(btns)
