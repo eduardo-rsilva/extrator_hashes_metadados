@@ -3244,6 +3244,9 @@ class JanelaHashes(QWidget):
                                                                        options=opcoes_dir)
 
                 if diretorio_escolhido:
+                    # Normaliza a barra invertida (\) do Windows logo na saída do Qt
+                    diretorio_escolhido = os.path.normpath(diretorio_escolhido)
+
                     pasta_evidencia = os.path.join(diretorio_escolhido, f"{nome_da_imagem}_evidencia")
                     os.makedirs(pasta_evidencia, exist_ok=True)
 
