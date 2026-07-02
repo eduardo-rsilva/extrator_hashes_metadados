@@ -3016,29 +3016,35 @@ class JanelaHashes(QWidget):
         caminho_imagem = ""
         dialog_imagem = QDialog(self)
         dialog_imagem.setWindowTitle("Aquisição de Imagem Forense")
-        dialog_imagem.setMinimumWidth(550)  # Aumentado levemente para acomodar a explicação
+        dialog_imagem.setMinimumWidth(800)  # Aumentado levemente para acomodar a explicação
 
         layout_img = QVBoxLayout()
 
-        # Texto de aviso principal
+        # Texto de aviso principal atualizado para abranger a compactação do E01
         lbl_aviso_img = QLabel(
-            "Deseja também salvar uma cópia bit-a-bit (imagem .dd) desta unidade durante a extração do Hash?\n\n"
-            "⚠️ ATENÇÃO: Você precisará de espaço livre no destino igual ou superior ao tamanho total da unidade de origem. "
-            "NUNCA salve a imagem dentro da própria unidade que está sendo periciada."
+            "Deseja também salvar uma cópia bit-a-bit (imagem .dd ou .E01) desta unidade durante a extração do Hash?\n\n"
+            "⚠️ ATENÇÃO AOS REQUISITOS DE ESPAÇO:\n"
+            " • Formato RAW (.dd): Requer espaço livre no destino RIGOROSAMENTE IGUAL ao tamanho total da unidade de origem.\n"
+            " • Formato Expert Witness (.E01): O arquivo gerado é COMPACTADO, o que pode requerer significativamente menos espaço em disco do que o tamanho físico total da mídia periciada.\n\n"
+            "🚨 NUNCA salve a imagem dentro da própria unidade que está sendo analisada."
         )
         lbl_aviso_img.setWordWrap(True)
-        lbl_aviso_img.setStyleSheet("font-size: 10pt; font-weight: bold;")
+        lbl_aviso_img.setStyleSheet("font-size: 13pt; font-weight: bold;")
         layout_img.addWidget(lbl_aviso_img)
 
         layout_img.addSpacing(15)
 
         # Layout dos botões centralizados
         layout_botoes_img = QHBoxLayout()
-        btn_sim = QPushButton("SIM. Gere o HASH e a cópia bit-a-bit.")
-        btn_nao = QPushButton("NÃO. Gere apenas o HASH.")
+        btn_sim = QPushButton("SIM.\nGere o HASH e a cópia bit-a-bit.")
+        btn_nao = QPushButton("NÃO.\nGere apenas o HASH.")
 
         btn_sim.setMinimumWidth(250)
         btn_nao.setMinimumWidth(200)
+
+        # --- AUMENTANDO O TAMANHO DO TEXTO DOS BOTÕES ---
+        btn_sim.setStyleSheet("font-size: 11pt; font-weight: bold; padding: 6px;")
+        btn_nao.setStyleSheet("font-size: 11pt; font-weight: bold; padding: 6px;")
 
         # Conexões explícitas com inteiros
         btn_sim.clicked.connect(lambda: dialog_imagem.done(1))  # 1 = SIM
@@ -3051,6 +3057,16 @@ class JanelaHashes(QWidget):
 
         layout_img.addLayout(layout_botoes_img)
 
+        # --- LINHA DE SEPARAÇÃO ---
+        layout_img.addSpacing(10)  # Espaço antes da linha
+
+        linha_divisoria = QFrame()
+        linha_divisoria.setFrameShape(QFrame.Shape.HLine)
+        linha_divisoria.setFrameShadow(QFrame.Shadow.Sunken)
+        layout_img.addWidget(linha_divisoria)
+
+        layout_img.addSpacing(10)  # Espaço depois da linha
+
         # --- Cores dinâmicas para a Nota Técnica ---
         is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
         bg_nota = "#2b2b2b" if is_dark else "#f9f9f9"
@@ -3060,7 +3076,7 @@ class JanelaHashes(QWidget):
         # --- NOTA TÉCNICA SOBRE ABERTURA DE ARQUIVOS .DD ---
         lbl_nota_tecnica = QLabel(
             f"<div style='background-color: {bg_nota}; border: 1px solid {borda_nota}; padding: 12px; border-radius: 5px; color: {cor_nota};'>"
-            "<b>ℹ️ Nota Técnica sobre Montagem de Imagens RAW (.dd):</b><br><br>"
+            "<b>ℹ️ Nota Técnica sobre Montagem de Imagens RAW:</b><br><br>"
             "O uso de softwares como <b>Daemon Tools não é recomendado</b> para perícia. Ele foi projetado para "
             "emular mídias ópticas (ISO, MDS) e não interpreta corretamente tabelas de partição (MBR/GPT) ou sistemas "
             "de arquivos (NTFS, exFAT) embutidos em imagens de discos rígidos e pendrives.<br><br>"
@@ -3073,7 +3089,7 @@ class JanelaHashes(QWidget):
             "</div>"
         )
         lbl_nota_tecnica.setWordWrap(True)
-        lbl_nota_tecnica.setStyleSheet("font-size: 9pt; color: #444;")
+        lbl_nota_tecnica.setStyleSheet("font-size: 11pt; color: #444;")
         layout_img.addWidget(lbl_nota_tecnica)
 
         dialog_imagem.setLayout(layout_img)
