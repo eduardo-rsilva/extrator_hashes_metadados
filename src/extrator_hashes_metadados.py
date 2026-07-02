@@ -3879,7 +3879,7 @@ class JanelaHashes(QWidget):
             "<li><b>Tratamento Transparente de Erros:</b> Diferencia claramente bibliotecas ausentes, arquivos corrompidos e metadados intencionalmente removidos.</li>"
             "</ul>"
 
-            "<h3>💾 Aquisição RAW e Imagem Forense (.dd):</h3>"
+            "<h3>💾 Aquisição RAW e Imagem Forense (.dd ou .e01):</h3>"
             "<ul>"
             "<li><b>Extração Setor-por-Setor:</b> Realiza a leitura sequencial completa da mídia, capturando dados ativos, remanescentes em espaços não alocados (Unallocated Space) e artefatos de arquivos deletados.</li>"
             "<li><b>Integridade On-the-Fly:</b> O cálculo dos hashes selecionados ocorre simultaneamente à leitura e gravação, garantindo a autenticidade da evidência sem a necessidade de reprocessamento da imagem gerada.</li>"
