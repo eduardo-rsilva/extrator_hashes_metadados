@@ -954,6 +954,67 @@ def obter_caminho_ewfacquire():
             return str(caminho)
     return None
 
+def obter_caminho_ewfverify():
+    """Procura o ewfverify.exe na pasta 'ewf' ou na raiz do script."""
+    nome_executavel = "ewfverify.exe"
+    caminhos_tentativa = [
+        BASE_DIR / "ewf" / nome_executavel,
+        BASE_DIR / nome_executavel,
+        BASE_DIR / "bin" / nome_executavel
+    ]
+    for caminho in caminhos_tentativa:
+        if caminho.exists():
+            return str(caminho)
+    return None
+
+
+def verificar_integridade_automatica(caminho_imagem_e01, hash_sha256_log):
+    """Roda o ewfverify sem travar a interface e compara os hashes."""
+    caminho_ewfverify = obter_caminho_ewfverify()
+    if not caminho_ewfverify:
+        return False, "   ⚠️ Erro: O executável 'ewfverify.exe' não foi localizado. Validação automática pulada."
+
+    # LIMPEZA DO CAMINHO: Força o uso estrito de barras invertidas (\) e resolve o caminho absoluto
+    caminho_limpo = os.path.normpath(os.path.abspath(caminho_imagem_e01))
+
+    comando = [caminho_ewfverify, "-d", "md5,sha256", caminho_limpo]
+
+    # Formata a string do comando perfeitamente para exibir no laudo
+    comando_str = f'"{caminho_ewfverify}" -d md5,sha256 "{caminho_limpo}"'
+
+    try:
+        # Usa Popen + loop de eventos para não congelar o aplicativo
+        creationflags = 0x08000000 if os.name == 'nt' else 0
+        processo = subprocess.Popen(comando, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                    creationflags=creationflags)
+
+        while processo.poll() is None:
+            QApplication.processEvents()
+            time.sleep(0.1)
+
+        saida_terminal = processo.communicate()[0]
+
+        import re
+        match = re.search(r"SHA256 hash calculated over data:\s+([a-fA-F0-9]{64})", saida_terminal, re.IGNORECASE)
+        match_md5 = re.search(r"MD5 hash calculated over data:\s+([a-fA-F0-9]{32})", saida_terminal, re.IGNORECASE)
+
+        if match:
+            hash_recalculado = match.group(1).upper()
+            hash_original = hash_sha256_log.upper()
+            md5_recalc = match_md5.group(1).upper() if match_md5 else "N/A"
+
+            if hash_recalculado == hash_original:
+                # Removemos a exibição redundante do SHA-256 Original aqui
+                return True, f"   ✅ INTEGRIDADE CONFIRMADA MATEMATICAMENTE VIA EWFVERIFIY\n   Comando para cmd: {comando_str}\n   MD5 Recalculado:     {md5_recalc}\n   SHA-256 Recalculado: {hash_recalculado}"
+            else:
+                # Mas mantemos no 'else', pois se der erro, o perito precisa comparar onde divergiu!
+                return False, f"   ❌ ALERTA CRÍTICO: QUEBRA DE INTEGRIDADE!\n   Comando: {comando_str}\n   SHA-256 Original:    {hash_original}\n   SHA-256 Recalculado: {hash_recalculado}"
+        else:
+            return False, f"   ⚠️ Erro: Não foi possível localizar a linha do SHA-256.\n\n--- SAÍDA BRUTA DO EWFVERIFY ---\n{saida_terminal}\n--------------------------------"
+
+    except Exception as e:
+        return False, f"   ⚠️ Erro crítico na execução do ewfverify: {e}"
+
 
 def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     """Executa o ewfacquire com UAC, corrigindo caminhos e mantendo a GUI fluida."""
@@ -984,7 +1045,7 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
         "-c", "fast",
         "-t", f'"{caminho_destino}"',
         "-l", f'"{caminho_log_ewf}"', # Ativa a gravação do log físico
-        "-d", "sha256"  # <--- CORREÇÃO: -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
+        "-d", "sha256"  # -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
     ]
 
     caso = metadados.get("caso", "").strip()
@@ -3139,12 +3200,14 @@ class JanelaHashes(QWidget):
                 # ========================================================
                 caminho_log_ewf = os.path.splitext(caminho_imagem)[0] + ".ewf.log"
                 if os.path.exists(caminho_log_ewf):
+                    # Guarda o SHA-256 da coleta para usar na verificação
+                    sha256_coleta = None
+
                     try:
                         import re
                         with open(caminho_log_ewf, "r", encoding="utf-8", errors="ignore") as f_log_ewf:
                             conteudo_ewf = f_log_ewf.read()
 
-                            # Trocamos re.search por re.finditer para achar TODOS os hashes
                             matches = re.finditer(r'(MD5|SHA1|SHA256)\s+hash calculated over data:\s+([a-fA-F0-9]+)',
                                                   conteudo_ewf, re.IGNORECASE)
 
@@ -3158,9 +3221,9 @@ class JanelaHashes(QWidget):
                                 hash_nativo = match.group(2).upper()
                                 self.texto_saida.append(f"   {algo_nativo} do Payload: {hash_nativo}")
 
-                            # Se achou pelo menos um hash, coloca a nossa nota pericial no final
-                            if teve_hash:
-                                self.texto_saida.append("   (Nota: Estes valores representam os dados brutos da mídia. O duplo hash pode ser validado integralmente em softwares forenses modernos, como o Autopsy, X-Ways Forensics ou utilitários nativos libewf)\n")
+                                # SE FOR SHA-256, GUARDA NA MEMÓRIA!
+                                if algo_nativo == "SHA256":
+                                    sha256_coleta = hash_nativo
 
                             # if teve_hash:
                             #     self.texto_saida.append(
@@ -3174,15 +3237,21 @@ class JanelaHashes(QWidget):
                 # ========================================================
                 # ETAPA: HASHING PÓS-AQUISIÇÃO DO E01 E GERAÇÃO DE LOG
                 # ========================================================
-                self.texto_saida.append("Verificando integridade dos arquivos de imagem gerados...")
+                # Removemos o print fixo na tela e usamos apenas a barra de status como "pulmão"
+                self.lbl_progresso_total.setText("Verificando integridade pós-aquisição. Aguarde...")
                 QApplication.processEvents()
 
                 import glob
                 import datetime
                 base_name = os.path.splitext(caminho_imagem)[0]
-                arquivos_imagem = sorted(glob.glob(f"{base_name}.[eE]*"))
 
-                # Lista para acumular o texto que vai para o log de auditoria
+                # Coleta apenas os pedaços da imagem (.e01, .e02...)
+                arquivos_imagem = sorted([f for f in glob.glob(f"{base_name}.*") if
+                                          f.lower().endswith(('.e01')) or re.match(r'\.e\d{2}$',
+                                                                                            os.path.splitext(f)[
+                                                                                                1].lower())])
+                arquivo_log = f"{base_name}.ewf.log"
+
                 linhas_log_auditoria = []
 
                 if not arquivos_imagem:
@@ -3190,16 +3259,37 @@ class JanelaHashes(QWidget):
                         "⚠️ Aviso: O arquivo de imagem não foi localizado no disco após a extração.")
                     linhas_log_auditoria.append("FALHA: Arquivos de imagem não localizados após a extração ewfacquire.")
                 else:
+                    arq_principal = arquivos_imagem[0]
+                    nome_arq_principal = os.path.basename(arq_principal)
+
+                    # 1. VALIDAÇÃO CRIPTOGRÁFICA (EWFVERIFY)
+                    if sha256_coleta and arq_principal.lower().endswith(('.e01')):
+                        msg_hash_logico = f"\n📄 Validação Criptográfica Automática Pós-extração ({nome_arq_principal}):"
+                        self.texto_saida.append(msg_hash_logico)
+                        linhas_log_auditoria.append(msg_hash_logico.strip())
+
+                        self.texto_saida.append("   🔄 Lendo dados internos em segundo plano. Aguarde...")
+                        QApplication.processEvents()
+
+                        sucesso, msg_verificacao = verificar_integridade_automatica(arq_principal, sha256_coleta)
+
+                        # Apaga o "Aguarde..." da tela
+                        cursor = self.texto_saida.textCursor()
+                        cursor.movePosition(QTextCursor.End)
+                        cursor.select(QTextCursor.BlockUnderCursor)
+                        cursor.removeSelectedText()
+
+                        self.texto_saida.append(msg_verificacao)
+                        linhas_log_auditoria.append(msg_verificacao)
+
+                    # 2. HASH DOS ARQUIVOS FÍSICOS DA IMAGEM (.E01, .E02...)
                     for arq_img in arquivos_imagem:
                         nome_arq = os.path.basename(arq_img)
-                        msg_hash = f"\n📄 Hashes pós-aquisição ({nome_arq}):"
+                        msg_hash_fisico = f"\n📄 Hashes do Arquivo Físico ({nome_arq}):"
+                        self.texto_saida.append(msg_hash_fisico)
+                        linhas_log_auditoria.append(msg_hash_fisico.strip())
 
-                        self.texto_saida.append(msg_hash)
-                        linhas_log_auditoria.append(msg_hash.strip())  # Tira a quebra de linha extra pro TXT
-
-                        # Reutiliza sua função de hash sem os metadados pesados
                         res_hash = self.obter_metadados_e_hashes(arq_img, algos, extrair_metadados=False)
-
                         if res_hash.get('sucesso'):
                             for algo in algos:
                                 if algo in res_hash['hashes']:
@@ -3207,7 +3297,26 @@ class JanelaHashes(QWidget):
                                     self.texto_saida.append(linha_h)
                                     linhas_log_auditoria.append(linha_h)
                         else:
-                            erro_msg = f"   ❌ Erro ao calcular hash: {res_hash.get('erro')}"
+                            erro_msg = f"   ❌ Erro ao calcular hash físico: {res_hash.get('erro')}"
+                            self.texto_saida.append(erro_msg)
+                            linhas_log_auditoria.append(erro_msg)
+
+                    # 3. HASH DO ARQUIVO DE LOG DE AUDITORIA (.ewf.log) NO FINAL
+                    if os.path.exists(arquivo_log):
+                        nome_log = os.path.basename(arquivo_log)
+                        msg_hash_log = f"\n📄 Hashes do Arquivo Físico ({nome_log}):"
+                        self.texto_saida.append(msg_hash_log)
+                        linhas_log_auditoria.append(msg_hash_log.strip())
+
+                        res_hash_log = self.obter_metadados_e_hashes(arquivo_log, algos, extrair_metadados=False)
+                        if res_hash_log.get('sucesso'):
+                            for algo in algos:
+                                if algo in res_hash_log['hashes']:
+                                    linha_h = f"   {algo}: {res_hash_log['hashes'][algo]}"
+                                    self.texto_saida.append(linha_h)
+                                    linhas_log_auditoria.append(linha_h)
+                        else:
+                            erro_msg = f"   ❌ Erro ao calcular hash físico do log: {res_hash_log.get('erro')}"
                             self.texto_saida.append(erro_msg)
                             linhas_log_auditoria.append(erro_msg)
 
