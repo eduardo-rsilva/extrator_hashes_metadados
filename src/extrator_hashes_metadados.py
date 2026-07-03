@@ -7421,17 +7421,25 @@ class DialogoMetadadosKML(QDialog):
 
         # Campos de entrada
         self.inp_caso = QLineEdit()
-        self.inp_caso.setPlaceholderText("Ex: Operação X / Inquérito 123/2026")
+        self.inp_caso.setMaxLength(255)
+        self.inp_caso.setPlaceholderText("Ex: Operação X / Inquérito 123/2026 (Máx: 255 caracteres)")
+        self.inp_caso.setToolTip("Limite de segurança: 255 caracteres.")
 
         self.inp_laudo = QLineEdit()
-        self.inp_laudo.setPlaceholderText("Ex: Laudo Pericial nº 4567/2026")
+        self.inp_laudo.setMaxLength(255)
+        self.inp_laudo.setPlaceholderText("Ex: Laudo Pericial nº 4567/2026 (Máx: 255 caracteres)")
+        self.inp_laudo.setToolTip("Limite de segurança: 255 caracteres.")
 
         self.inp_perito = QLineEdit()
-        self.inp_perito.setPlaceholderText("Ex: Perito Criminal Fulano de Tal")
+        self.inp_perito.setMaxLength(255)
+        self.inp_perito.setPlaceholderText("Ex: Perito Criminal Fulano de Tal (Máx: 255 caracteres)")
+        self.inp_perito.setToolTip("Limite de segurança: 255 caracteres.")
 
         self.inp_desc = QTextEdit()
         self.inp_desc.setMaximumHeight(80)
-        self.inp_desc.setPlaceholderText("Descrição adicional ou observações relevantes...")
+        self.inp_desc.setPlaceholderText("Descrição adicional ou observações relevantes... (Máx: 1500 caracteres)")
+        self.inp_desc.setToolTip(
+            "Limite de segurança: 1500 caracteres.\nQuebras de linha serão convertidas\nem traços no E01 final.")
 
         # --- Combo box para definir o limite de fragmentação do E01 ---
         self.combo_split = QComboBox()
