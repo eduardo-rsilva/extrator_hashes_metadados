@@ -1139,7 +1139,31 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     # Criamos o caminho do log baseado no caminho de destino
     caminho_log_ewf = f"{caminho_destino}.ewf.log"
 
+    def higienizar_ewf(texto, max_len):
+        """Limpa o texto para não quebrar a sintaxe da linha de comando do Windows e do ewfacquire."""
+        if not texto: return ""
+
+        # 1. Trunca o tamanho de acordo com o limite seguro passado para cada campo
+        texto = texto[:max_len]
+
+        # 2. Remove quebras de linha reais (o ewfacquire via CLI não lida bem com multiline)
+        # Substituímos por um traço para manter legibilidade
+        texto = texto.replace('\n', ' - ').replace('\r', '')
+
+        # 3. Escapa aspas duplas (para não quebrar o envelopamento do argumento)
+        texto = texto.replace('"', '\\"')
+
+        # 4. Escapa aspas simples para o PowerShell
+        texto = texto.replace("'", "''")
+
+        # 5. Previne que uma barra invertida no final engula a aspa de fechamento do Windows
+        if texto.endswith('\\'):
+            texto += '\\'
+
+        return texto
+
     def escapar_ps(texto):
+        """Escapa aspas simples para inserção segura de caminhos de arquivo no PowerShell."""
         return texto.replace("'", "''")
 
     args = [
@@ -1156,17 +1180,19 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
         args.extend(["-S", tamanho_split])
     # -------------------------------------------------------------------
 
-    caso = metadados.get("caso", "").strip()
-    if caso: args.extend(["-C", f'"{escapar_ps(caso)}"'])
+    # Distribuímos limites seguros: 1500 para descrição (que é mais longa) e 255 para campos curtos.
+    # Total máximo no pior cenário: ~2265 caracteres, muito seguro para o limite de 8191 do Windows.
+    caso = higienizar_ewf(metadados.get("caso", "").strip(), 255)
+    if caso: args.extend(["-C", f'"{caso}"'])
 
-    descricao = metadados.get("descricao", "").strip()
-    if descricao: args.extend(["-D", f'"{escapar_ps(descricao)}"'])
+    descricao = higienizar_ewf(metadados.get("descricao", "").strip(), 1500)
+    if descricao: args.extend(["-D", f'"{descricao}"'])
 
-    laudo = metadados.get("laudo", "").strip()
-    if laudo: args.extend(["-E", f'"{escapar_ps(laudo)}"'])
+    laudo = higienizar_ewf(metadados.get("laudo", "").strip(), 255)
+    if laudo: args.extend(["-E", f'"{laudo}"'])
 
-    perito = metadados.get("perito", "").strip()
-    if perito: args.extend(["-e", f'"{escapar_ps(perito)}"'])
+    perito = higienizar_ewf(metadados.get("perito", "").strip(), 255)
+    if perito: args.extend(["-e", f'"{perito}"'])
 
     args.append(device_path)
 
