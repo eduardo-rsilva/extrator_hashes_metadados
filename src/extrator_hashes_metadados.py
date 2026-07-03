@@ -2347,23 +2347,37 @@ class JanelaHashes(QWidget):
 
         # Carregar configurações salvas
         config = carregar_config()
+
         if config:
+            # JÁ EXISTE CONFIGURAÇÃO SALVA: Respeita a escolha anterior do usuário
             # Restaura o Modo Escuro primeiro para não piscar a tela clara
             self.chk_modo_escuro.setChecked(config.get('chk_modo_escuro', False))
+
             # Restaura estado do checkbox de metadados
             self.chk_metadados.setChecked(config.get('chk_metadados', True))
-            # Restaura o Raw Dump (Padrão: False) <---
+
+            # Restaura o Raw Dump (Padrão: False)
             self.chk_metadados_raw.setChecked(config.get('chk_metadados_raw', False))
+
             # Garante que não iniciem ambas marcadas pelo cache antigo
             if self.chk_metadados.isChecked() and self.chk_metadados_raw.isChecked():
                 self.chk_metadados_raw.setChecked(False)
 
             # Restaura estado do checkbox de subdiretórios
             self.chk_subdiretorios.setChecked(config.get('chk_subdiretorios', True))
+
             # Restaura estados dos algoritmos
             hash_states = config.get('hashes', {})
             for algo, chk in self.chk_hashes.items():
                 chk.setChecked(hash_states.get(algo, algo in ["SHA-256", "SHA-512"]))
+
+        else:
+            # PRIMEIRA EXECUÇÃO (config.dat não existe): Detecta o tema do Windows
+            esquema_cor = QApplication.styleHints().colorScheme()
+
+            # Se o Windows estiver configurado para o Modo Escuro, ativa o checkbox
+            if esquema_cor == Qt.ColorScheme.Dark:
+                self.chk_modo_escuro.setChecked(True)
 
         # --- Salvar em tempo real ---
         self.chk_metadados.toggled.connect(self.salvar_estado_atual)
