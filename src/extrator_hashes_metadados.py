@@ -3941,7 +3941,7 @@ class JanelaHashes(QWidget):
                     return
 
                 # --- 3. COLETAR METADADOS (Pode vir vazio, o Passo 1 já lida com isso) ---
-                dialogo_meta = DialogoMetadadosKML(self, texto_botao="Continuar e Gerar Imagem .E01")
+                dialogo_meta = DialogoMetadadosKML(self, texto_botao="Continuar e Gerar Imagem .E01", modo_e01=True)
                 dialogo_meta.setWindowTitle("Cabeçalho Forense do Arquivo E01")
                 if dialogo_meta.exec() != QDialog.Accepted:
                     self.texto_saida.append("\n[!] Operação cancelada pelo usuário na tela de metadados.")
@@ -7406,10 +7406,11 @@ class JanelaHashes(QWidget):
 
 
 class DialogoMetadadosKML(QDialog):
-    def __init__(self, parent=None, texto_botao="Continuar e Salvar KML"):
+    def __init__(self, parent=None, texto_botao="Continuar e Salvar KML", modo_e01=False):
         super().__init__(parent)
         self.setWindowTitle("Identificação Forense do KML")
         self.setMinimumWidth(450)
+        self.modo_e01 = modo_e01
 
         layout = QVBoxLayout(self)
 
@@ -7438,8 +7439,12 @@ class DialogoMetadadosKML(QDialog):
         self.inp_desc = QTextEdit()
         self.inp_desc.setMaximumHeight(80)
         self.inp_desc.setPlaceholderText("Descrição adicional ou observações relevantes... (Máx: 1500 caracteres)")
-        self.inp_desc.setToolTip(
-            "Limite de segurança: 1500 caracteres.\nQuebras de linha serão convertidas\nem traços no E01 final.")
+
+        # Ajusta dinamicamente a informação do Tooltip
+        desc_tooltip = "Limite de segurança: 1500 caracteres."
+        if self.modo_e01:
+            desc_tooltip += " Quebras de linha serão convertidas em traços no E01 final."
+        self.inp_desc.setToolTip(desc_tooltip)
 
         # --- Combo box para definir o limite de fragmentação do E01 ---
         self.combo_split = QComboBox()
@@ -7469,13 +7474,17 @@ class DialogoMetadadosKML(QDialog):
         layout.addWidget(QLabel("<b>Nome do Perito / Analista:</b>"))
         layout.addWidget(self.inp_perito)
 
-        layout.addWidget(QLabel("<b>Tamanho Máximo da Imagem (Fragmentação):</b>"))
-        layout.addWidget(self.combo_split)
+        # Adiciona o seletor de tamanho apenas se for o modo E01
+        if self.modo_e01:
+            layout.addWidget(QLabel("<b>Tamanho Máximo da Imagem (Fragmentação):</b>"))
+            layout.addWidget(self.combo_split)
 
         layout.addWidget(QLabel("<b>Descrição (Opcional):</b>"))
         layout.addWidget(self.inp_desc)
 
-        layout.addWidget(self.chk_validacao)
+        # Adiciona a checagem de validação apenas se for o modo E01
+        if self.modo_e01:
+            layout.addWidget(self.chk_validacao)
 
         layout.addSpacing(15)
 
@@ -7517,8 +7526,8 @@ class DialogoMetadadosKML(QDialog):
             "laudo": self.inp_laudo.text().strip() or "Não informado",
             "perito": self.inp_perito.text().strip() or "Não informado",
             "descricao": self.inp_desc.toPlainText().strip() or "Sem descrição adicional.",
-            "split": self.combo_split.currentData(),  # Pega a sigla silenciosa (ex: "4G")
-            "fazer_validacao": self.chk_validacao.isChecked()
+            "split": self.combo_split.currentData() if self.modo_e01 else None,
+            "fazer_validacao": self.chk_validacao.isChecked() if self.modo_e01 else True
         }
 
 
