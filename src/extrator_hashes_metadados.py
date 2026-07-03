@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.6.1"
+VERSAO_APP = "7.0.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -465,6 +465,35 @@ def obter_info_hardware_por_letra(letra_unidade: str) -> dict:
         pass
 
     return info_hw
+
+
+import struct
+
+def identificar_arquitetura_executavel(caminho_arquivo):
+    """Lê os cabeçalhos binários puros para identificar a arquitetura real do executável."""
+    try:
+        with open(caminho_arquivo, 'rb') as f:
+            dos_header = f.read(64)
+            # Verifica se começa com 'MZ' (Mark Zbikowski - Assinatura clássica do DOS)
+            if len(dos_header) < 64 or dos_header[0:2] != b'MZ':
+                return None
+
+            # Lê o offset 'e_lfanew' (posição 0x3C) que aponta para o cabeçalho real
+            e_lfanew = struct.unpack('<I', dos_header[60:64])[0]
+
+            f.seek(e_lfanew)
+            assinatura = f.read(2)
+
+            if assinatura == b'PE':
+                return "PE (32/64-bits Moderno)"
+            elif assinatura == b'NE':
+                return "NE (16-bits Legado - Windows 3.x)"
+            elif assinatura == b'LE' or assinatura == b'LX':
+                return "LE/LX (OS/2 ou Virtual Device Driver)"
+            else:
+                return "Assinatura Desconhecida"
+    except Exception:
+        return None
 
 def open_device_readonly(device_path: str) -> int:
     h = CreateFileW(
@@ -3082,7 +3111,7 @@ class JanelaHashes(QWidget):
             DRIVE_REMOTE: "Rede",
         }.get(dtype, "Desconhecido")
 
-    def selecionar_unidade_raw(self):
+    def selecionar_unidade_raw(self, unidade_pre_selecionada=None):
         if self.processando:
             return
 
@@ -3110,8 +3139,12 @@ class JanelaHashes(QWidget):
         combo = QComboBox()
         combo.setStyleSheet("font-size: 11pt; padding: 6px;")  # Elemento de seleção maior
 
-        for letter, root, dtype in unidades:
+        for indice, (letter, root, dtype) in enumerate(unidades):
             combo.addItem(f"{root}  -  {self._tipo_unidade_texto(dtype)}", (letter, root, dtype))
+
+            # Se a unidade pre-selecionada via Drag & Drop bater com a unidade atual do loop, foca nela
+            if unidade_pre_selecionada and root.upper() == unidade_pre_selecionada.upper():
+                combo.setCurrentIndex(indice)
 
         lbl_unidade = QLabel("Escolha a unidade para análise:")
         lbl_unidade.setStyleSheet("font-size: 12pt; font-weight: bold;")  # Título em destaque
@@ -4823,7 +4856,7 @@ class JanelaHashes(QWidget):
                                         raw_dump.append(f"{k}: [Dados Binários / Estrutura Complexa]")
                     except Exception as e:
                         if not usou_exiftool:
-                            metadados_extras.append(f"⚠️ Erro ao ler metadados com Pillow: {e}")
+                            metadados_extras.append(f"⚠️ Erro ao ler metadados com Pillow (possivelmente não é um arquivo de imagem): {e}")
                 else:
                     if not usou_exiftool:
                         metadados_extras.append(
@@ -5485,8 +5518,22 @@ class JanelaHashes(QWidget):
                                             if chave in ['OriginalFilename', 'CompanyName', 'FileDescription']:
                                                 metadados_extras.append(f"{chave}: {valor}")
 
+
                 except Exception as e:
-                    metadados_extras.append(f"⚠️ Erro ao ler metadados do PE (Executável): {e}")
+                    msg_erro = str(e)
+
+                    # Intercepta especificamente o erro de cabeçalho NE do pefile
+                    if 'Invalid NT Headers signature' in msg_erro:
+                        arquitetura = identificar_arquitetura_executavel(caminho_arquivo)
+
+                        if arquitetura == "NE (16-bits Legado - Windows 3.x)":
+                            metadados_extras.append(
+                                "ℹ️ Executável Legado de 16-bits (Formato NE). Extração de metadados internos não suportada, mas integridade e hashes garantidos.")
+                        else:
+                            metadados_extras.append(f"⚠️ Erro ao ler metadados do PE: {msg_erro}")
+                    else:
+                        # Se for outro erro de PE, exibe normalmente
+                        metadados_extras.append(f"⚠️ Erro ao ler metadados do PE (Executável): {msg_erro}")
             else:
                 metadados_extras.append(
                     "⚠️ Biblioteca ausente: O módulo 'pefile' não foi encontrado. Impossível extrair dados do executável.")
@@ -6114,6 +6161,70 @@ class JanelaHashes(QWidget):
             caminhos = [url.toLocalFile() for url in urls]
 
             event.acceptProposedAction()
+
+            # --- NOVA LÓGICA DE INTERCEPTAÇÃO DE UNIDADE RAIZ ---
+            # Só analisa se o usuário arrastar exatamente 1 item
+            if len(caminhos) == 1:
+                caminho = caminhos[0]
+                drive, tail = os.path.splitdrive(caminho)
+
+                # Verifica se é uma raiz de drive no Windows (ex: "D:/", "E:\")
+                if drive and tail in ('/', '\\', ''):
+                    caminho_raiz = drive.upper() + "\\"  # Normaliza para o padrão (ex: "D:\")
+
+                    msg_box = QMessageBox(self)
+                    msg_box.setWindowTitle("Análise de Unidade Inteira (RAW)")
+                    msg_box.setText(f"Você arrastou a unidade raiz: <b>{caminho_raiz}</b>")
+                    msg_box.setInformativeText("Como deseja processar esta evidência?")
+                    msg_box.setIcon(QMessageBox.Icon.Question)
+
+                    btn_arquivos = msg_box.addButton("Extrair Hashes dos Arquivos", QMessageBox.ButtonRole.ActionRole)
+                    btn_raw = msg_box.addButton("Extrair Hash RAW (Bit-a-bit)", QMessageBox.ButtonRole.ActionRole)
+                    btn_cancelar = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+
+                    # --- APLICANDO O ESTILO VISUAL AO BOTÃO RAW ---
+                    is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+                    if is_dark:
+                        btn_raw.setStyleSheet("""
+                                                QPushButton { 
+                                                    font-weight: bold; 
+                                                    color: #ff6666; 
+                                                    background-color: #3c3f41; 
+                                                    border: 1px solid #ff6666;
+                                                    border-radius: 4px;
+                                                    padding: 6px;
+                                                }
+                                                QPushButton:hover { background-color: #4b4d4f; }
+                                                QPushButton:pressed { background-color: #2b2b2b; }
+                                            """)
+                    else:
+                        btn_raw.setStyleSheet("""
+                                                QPushButton {
+                                                    font-weight: bold; 
+                                                    color: #800000; 
+                                                    background-color: #e6e6e6;
+                                                    border: 1px solid #cccccc;
+                                                    border-radius: 4px;
+                                                    padding: 6px;
+                                                }
+                                                QPushButton:hover { background-color: #d4d4d4; }
+                                                QPushButton:pressed { background-color: #c5c5c5; }
+                                            """)
+
+                    msg_box.exec()
+
+                    if msg_box.clickedButton() == btn_arquivos:
+                        QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos))
+                    elif msg_box.clickedButton() == btn_raw:
+                        # Redireciona para a janela RAW, passando a raiz para pré-seleção
+                        QTimer.singleShot(100,
+                                          lambda: self.selecionar_unidade_raw(unidade_pre_selecionada=caminho_raiz))
+
+                    return  # Encerra o dropEvent, pois o usuário já tomou a decisão
+            # ----------------------------------------------------
+
+            # Comportamento padrão: Se for arquivo, pasta comum ou múltiplos itens
             QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos))
 
     def copiar_para_area_transferencia(self):
