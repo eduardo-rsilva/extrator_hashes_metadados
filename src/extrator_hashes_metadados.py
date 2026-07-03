@@ -1039,14 +1039,19 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     def escapar_ps(texto):
         return texto.replace("'", "''")
 
-
     args = [
         "-u",
         "-c", "fast",
         "-t", f'"{caminho_destino}"',
-        "-l", f'"{caminho_log_ewf}"', # Ativa a gravação do log físico
+        "-l", f'"{caminho_log_ewf}"',  # Ativa a gravação do log físico
         "-d", "sha256"  # -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
     ]
+
+    # Define o tamanho máximo de cada fragmento (.e01, .e02) ---
+    tamanho_split = metadados.get("split", "")
+    if tamanho_split:
+        args.extend(["-S", tamanho_split])
+    # -------------------------------------------------------------------
 
     caso = metadados.get("caso", "").strip()
     if caso: args.extend(["-C", f'"{escapar_ps(caso)}"'])
@@ -6735,6 +6740,20 @@ class DialogoMetadadosKML(QDialog):
         self.inp_desc.setMaximumHeight(80)
         self.inp_desc.setPlaceholderText("Descrição adicional ou observações relevantes...")
 
+        # --- Combo box para definir o limite de fragmentação do E01 ---
+        self.combo_split = QComboBox()
+        self.combo_split.setStyleSheet("padding: 4px; font-size: 10pt;")
+        # O segundo valor é o argumento exato que vai pro ewfacquire
+        self.combo_split.addItem("Padrão (1.4 GB) - ewfacquire nativo", "")
+        self.combo_split.addItem("640 MB (Tamanho de CD)", "640M")
+        self.combo_split.addItem("4.3 GB (Tamanho de DVD)", "4.3G")
+        self.combo_split.addItem("1 GB", "1G")
+        self.combo_split.addItem("2 GB", "2G")
+        self.combo_split.addItem("4 GB (Compatível com discos FAT32)", "4G")
+        self.combo_split.addItem("8 GB", "8G")
+        self.combo_split.addItem("16 GB", "16G")
+        self.combo_split.addItem("Arquivo Único (Não dividir)", "7.9E")
+
         # Adicionando os campos ao layout com rótulos
         layout.addWidget(QLabel("<b>Nome da Operação / Caso:</b>"))
         layout.addWidget(self.inp_caso)
@@ -6744,6 +6763,9 @@ class DialogoMetadadosKML(QDialog):
 
         layout.addWidget(QLabel("<b>Nome do Perito / Analista:</b>"))
         layout.addWidget(self.inp_perito)
+
+        layout.addWidget(QLabel("<b>Tamanho Máximo da Imagem (Fragmentação):</b>"))
+        layout.addWidget(self.combo_split)
 
         layout.addWidget(QLabel("<b>Descrição (Opcional):</b>"))
         layout.addWidget(self.inp_desc)
@@ -6787,7 +6809,8 @@ class DialogoMetadadosKML(QDialog):
             "caso": self.inp_caso.text().strip() or "Não informado",
             "laudo": self.inp_laudo.text().strip() or "Não informado",
             "perito": self.inp_perito.text().strip() or "Não informado",
-            "descricao": self.inp_desc.toPlainText().strip() or "Sem descrição adicional."
+            "descricao": self.inp_desc.toPlainText().strip() or "Sem descrição adicional.",
+            "split": self.combo_split.currentData()  # Pega a sigla silenciosa (ex: "4G")
         }
 
 
