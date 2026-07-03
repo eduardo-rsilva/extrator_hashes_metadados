@@ -3205,23 +3205,78 @@ class JanelaHashes(QWidget):
             # --- 1. JANELA DE SELEÇÃO: DD vs E01 ---
             dialog_formato = QDialog(self)
             dialog_formato.setWindowTitle("Selecionar Formato da Imagem")
-            dialog_formato.setMinimumWidth(450)  # Aumenta a largura da janela
+            dialog_formato.setMinimumWidth(480)  # Aumentada um pouco para acomodar os novos textos
             layout_formato = QVBoxLayout(dialog_formato)
 
             lbl_f = QLabel("Escolha o formato de saída para a cópia bit-a-bit:")
-            lbl_f.setStyleSheet("font-size: 12pt; font-weight: bold; margin-bottom: 10px;")  # Aumenta a fonte do aviso
+            lbl_f.setStyleSheet("font-size: 12pt; font-weight: bold; margin-bottom: 10px;")
             layout_formato.addWidget(lbl_f)
 
-            btn_dd = QPushButton("Formato RAW / DD (.dd)")
-            btn_e01 = QPushButton("Formato Expert Witness (.E01)")
+            # --- INSTÂNCIA DOS BOTÕES (E01 ganha precedência na tela) ---
+            btn_e01 = QPushButton("Formato Expert Witness (.E01) - RECOMENDADO")
+            btn_dd = QPushButton("Formato RAW / Bruto (.dd)")
 
-            # --- AUMENTANDO OS CARACTERES E O PREENCHIMENTO DOS BOTÕES ---
-            estilo_botoes_formato = "font-size: 11pt; font-weight: bold; padding: 8px;"
-            btn_dd.setStyleSheet(estilo_botoes_formato)
-            btn_e01.setStyleSheet(estilo_botoes_formato)
+            # --- TOOLTIPS FORENSES (Explicando as vantagens) ---
+            btn_e01.setToolTip(
+                "<table width='350'><tr><td style='padding: 5px; font-size: 11pt; line-height: 1.3;'>"
+                "<p><b>Padrão-Ouro da Perícia Digital</b></p>"
+                "<ul>"
+                "<li><b>Espaço:</b> Utiliza compactação de dados avançada, economizando gigabytes no seu HD de destino.</li>"
+                "<li><b>Integridade:</b> Embute hashes (MD5) bloco a bloco dentro do contêiner para blindar a prova contra corrupção parcial.</li>"
+                "<li><b>Metadados:</b> Salva o nome do perito, laudo e descrição selados junto com a imagem.</li>"
+                "</ul></td></tr></table>"
+            )
 
-            layout_formato.addWidget(btn_dd)
+            btn_dd.setToolTip(
+                "<table width='350'><tr><td style='padding: 5px; font-size: 11pt; line-height: 1.3;'>"
+                "<p><b>Cópia Bruta (1:1)</b></p>"
+                "<ul>"
+                "<li><b>Espaço:</b> Ocupará EXATAMENTE o mesmo tamanho físico da mídia original (Ex: Pendrive de 64GB = Arquivo de 64GB), mesmo se o disco estiver completamente vazio.</li>"
+                "<li><b>Integridade:</b> Não possui compressão, nem cabeçalhos, nem hashes embutidos.</li>"
+                "<li><b>Uso:</b> Recomendado apenas se o software de análise posterior não suportar contêineres modernos.</li>"
+                "</ul></td></tr></table>"
+            )
+
+            # --- CORES DINÂMICAS PARA DAR ÊNFASE AO E01 ---
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+            # Estilo de Destaque para o E01 (Azul Suave/Profundo)
+            bg_e01 = "#004080" if is_dark else "#e6f2ff"
+            fg_e01 = "#ffffff" if is_dark else "#005a9e"
+            bd_e01 = "#003366" if is_dark else "#b3d4ff"
+            hv_e01 = "#0059b3" if is_dark else "#cce5ff"
+            pr_e01 = "#002b5e" if is_dark else "#99ccff"
+
+            btn_e01.setStyleSheet(f"""
+                            QPushButton {{
+                                font-size: 11pt; font-weight: bold; padding: 12px;
+                                background-color: {bg_e01}; color: {fg_e01}; 
+                                border: 2px solid {bd_e01}; border-radius: 5px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_e01}; }}
+                            QPushButton:pressed {{ background-color: {pr_e01}; }}
+                        """)
+
+            # Estilo Neutro para o DD (Cinza Padrão)
+            bg_dd = "#3c3f41" if is_dark else "#f4f4f4"
+            fg_dd = "#d4d4d4" if is_dark else "#555555"
+            bd_dd = "#555555" if is_dark else "#cccccc"
+            hv_dd = "#4b4d4f" if is_dark else "#e0e0e0"
+            pr_dd = "#2b2b2b" if is_dark else "#d0d0d0"
+
+            btn_dd.setStyleSheet(f"""
+                            QPushButton {{
+                                font-size: 11pt; font-weight: normal; padding: 8px;
+                                background-color: {bg_dd}; color: {fg_dd}; 
+                                border: 1px solid {bd_dd}; border-radius: 4px;
+                            }}
+                            QPushButton:hover {{ background-color: {hv_dd}; }}
+                            QPushButton:pressed {{ background-color: {pr_dd}; }}
+                        """)
+
+            # --- INVERSÃO NA TELA: Adiciona o E01 Primeiro ---
             layout_formato.addWidget(btn_e01)
+            layout_formato.addWidget(btn_dd)
 
             formato_escolhido = {"ext": ".dd", "meta": {}}
 
