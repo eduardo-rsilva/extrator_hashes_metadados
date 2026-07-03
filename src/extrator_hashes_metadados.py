@@ -5675,6 +5675,13 @@ class JanelaHashes(QWidget):
                 # Captura a falha ANTES mesmo do arquivo abrir (ex: aberto no Word/Excel ou falta de privilégios)
                 return {'sucesso': False,
                         'erro': 'ACESSO NEGADO / ARQUIVO EM USO: O sistema operacional bloqueou a leitura (arquivo aberto em outro programa ou falta de privilégios de Administrador).'}
+            except OSError as e:
+                # Tratamento explícito para falhas físicas/corrupção (Erro 22, 23, etc.)
+                return {'sucesso': False,
+                        'erro': f'ERRO DE DISCO/CORRUPÇÃO (Código {e.errno}): O Windows abortou a leitura. Possível dano físico no setor do disco ou sistema de arquivos corrompido.'}
+
+            except Exception as e:
+                return {'sucesso': False, 'erro': repr(e)}
 
             self.barra_arquivo.setValue(100)
 
