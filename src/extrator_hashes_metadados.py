@@ -1910,15 +1910,20 @@ class ValidadorCustodia:
             texto_algos = ' e '.join(algos_alerta) if len(algos_alerta) < 3 else ', '.join(algos_alerta[:-1]) + ' e ' + \
                                                                                  algos_alerta[-1]
 
+            sufixo = 's' if len(algos_alerta) > 1 else ''
+
             hash_principal = hashes_calculados.get(algos_alerta[0], "N/A")
             nome_limpo = os.path.basename(caminho_arquivo)
 
             if not hasattr(self, 'arquivos_validados_dict'): self.arquivos_validados_dict = {}
             if nome_limpo not in self.arquivos_validados_dict:
                 self.arquivos_validados_dict[nome_limpo] = {}
-            self.arquivos_validados_dict[nome_limpo][algos_alerta[0]] = f"{hash_principal} (NOME DIVERGENTE)"
 
-            return 2, f"⚠️ ALERTA - Hash confere ({texto_algos}), mas o nome diverge."
+            # Salva estritamente o hash, sem notas adicionais
+            self.arquivos_validados_dict[nome_limpo][algos_alerta[0]] = hash_principal
+
+            # Retorna a mensagem de sucesso absoluto, idêntica ao fluxo padrão
+            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
 
         return 3, "❌ DIVERGÊNCIA - Nenhum hash calculado para este arquivo consta na relação original da Cadeia de Custódia."
 
@@ -2233,7 +2238,7 @@ class WorkerExtracao(QThread):
     def run(self):
         total_arquivos = len(self.lista_arquivos)
         validador = None
-        qtd_validados = qtd_alertas = qtd_nao_validados = qtd_alertas_parciais = 0
+        qtd_validados = qtd_nao_validados = qtd_alertas_parciais = 0
 
         if self.texto_custodia:
             validador = ValidadorCustodia(self.texto_custodia, is_pdf=self.veio_de_pdf)
@@ -2337,8 +2342,6 @@ class WorkerExtracao(QThread):
 
                     if status == 1:
                         qtd_validados += 1
-                    elif status == 2:
-                        qtd_alertas += 1
                     elif status == 4:
                         qtd_alertas_parciais += 1
                     else:
@@ -2356,7 +2359,6 @@ class WorkerExtracao(QThread):
             "arquivos_processados_qtd": self.arquivos_processados_qtd,
             "arquivos_por_hash": self.arquivos_por_hash,
             "qtd_validados": qtd_validados,
-            "qtd_alertas": qtd_alertas,
             "qtd_alertas_parciais": qtd_alertas_parciais,
             "qtd_nao_validados": qtd_nao_validados,
             "lista_referencia": validador.obter_lista_limpa() if validador else None,
@@ -7363,12 +7365,12 @@ class JanelaHashes(QWidget):
 
             self.texto_saida.append("\n" + "-" * 60)
             self.texto_saida.append("\n=== RESUMO DA VALIDAÇÃO DE CUSTÓDIA ===")
-            self.texto_saida.append(f"✅ Arquivos validados com sucesso: {payload['qtd_validados']}")
-            if payload["qtd_alertas"] > 0: self.texto_saida.append(
-                f"⚠️ Arquivos com alerta (hash bate, nome diverge): {payload['qtd_alertas']}")
+            self.texto_saida.append(
+                f"✅ Arquivos validados com sucesso (Integridade mantida): {payload['qtd_validados']}")
             if payload["qtd_alertas_parciais"] > 0: self.texto_saida.append(
-                f"⚠️ Arquivos com alerta (algum hash com divergência): {payload['qtd_alertas_parciais']}")
-            self.texto_saida.append(f"❌ Arquivos não validados/não encontrados: {payload['qtd_nao_validados']}")
+                f"⚠️ Arquivos com alerta parcial (algum hash com divergência): {payload['qtd_alertas_parciais']}")
+            self.texto_saida.append(
+                f"❌ Arquivos não validados (Hash divergente ou não encontrados): {payload['qtd_nao_validados']}")
             self.texto_saida.append("-" * 60)
 
         # Finalização de Tempo
