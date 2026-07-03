@@ -2379,7 +2379,11 @@ class JanelaHashes(QWidget):
             if esquema_cor == Qt.ColorScheme.Dark:
                 self.chk_modo_escuro.setChecked(True)
 
+            # Força a criação do config.dat imediatamente na primeira abertura
+            self.salvar_estado_atual()
+
         # --- Salvar em tempo real ---
+        self.chk_modo_escuro.toggled.connect(self.salvar_estado_atual)
         self.chk_metadados.toggled.connect(self.salvar_estado_atual)
         self.chk_metadados_raw.toggled.connect(self.salvar_estado_atual)
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
