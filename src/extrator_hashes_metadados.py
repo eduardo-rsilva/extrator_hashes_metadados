@@ -102,6 +102,7 @@ import os
 import re
 import subprocess
 import traceback
+import threading
 from cryptography.fernet import Fernet
 import zlib
 import zipfile
@@ -115,7 +116,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
                                QTabWidget, QFrame, QGroupBox, QLineEdit)
 from PySide6.QtGui import QIcon, QTextCursor
-from PySide6.QtCore import QTimer, QEvent, Signal, Qt
+from PySide6.QtCore import QTimer, QEvent, QThread, Signal, Qt
 
 # imports para hash bit a bit
 import argparse
@@ -1914,6 +1915,338 @@ class ValidadorCustodia:
             lista_limpa.append(f"📄 {nome}   |   {hashes_str}")
 
         return lista_limpa
+
+
+class WorkerExtracao(QThread):
+    sig_texto_append = Signal(str)
+    sig_progresso_arquivo = Signal(int)
+    sig_progresso_total = Signal(int)
+    sig_lbl_arquivo = Signal(str)
+    sig_lbl_total = Signal(str)
+    sig_sync_bytes = Signal(int)
+    sig_apagar_ultima_linha = Signal()
+    sig_perguntar_nuvem = Signal(dict)
+    sig_conclusao = Signal(dict)
+
+    def __init__(self, lista_arquivos, info_drive, texto_custodia, veio_de_pdf, algos_selecionados, extrair_meta,
+                 extrair_raw, janela):
+        super().__init__()
+        self.lista_arquivos = lista_arquivos
+        self.info_drive = info_drive
+        self.texto_custodia = texto_custodia
+        self.veio_de_pdf = veio_de_pdf
+        self.algos_selecionados = algos_selecionados
+        self.extrair_meta = extrair_meta
+        self.extrair_raw = extrair_raw
+        self.janela = janela  # Referência segura, pois os métodos chamados não tocam na GUI
+
+        self.cancelar_operacao = False
+        self.ignorar_google_drive = None
+        self.ignorar_nuvem_nativa = None
+
+        self.nuvem_resposta = None
+        self.nuvem_event = threading.Event()
+
+        self.bytes_processados_total = 0
+        self.arquivos_processados_qtd = 0
+        self.contagem_extensoes = {}
+        self.arquivos_por_hash = {}
+        self.coordenadas_gps_encontradas = []
+        self._hashes_com_gps = set()
+
+    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False):
+        """Versão Thread-Safe da sua função original."""
+        try:
+            stat_info = os.lstat(caminho_arquivo)
+            if os.name == 'nt':
+                # 1. BLOQUEIO NUVEM MICROSOFT
+                if hasattr(stat_info, 'st_file_attributes'):
+                    atributos = stat_info.st_file_attributes
+                    if (atributos & 0x400000) or (atributos & 0x1000) or (atributos & 0x100000) or (
+                            atributos & 0x40000):
+                        if self.ignorar_nuvem_nativa is False:
+                            return {'sucesso': False,
+                                    'erro': 'ARQUIVO EM NUVEM DETECTADO: Proteção mantida pelo perito.'}
+                        elif self.ignorar_nuvem_nativa is None:
+                            payload = {
+                                "titulo": "Aviso Forense - Atributos de Nuvem",
+                                "texto": "<b>Foi detectado um arquivo com atributos de 'Nuvem / Apenas Online'.</b>",
+                                "info": "O Windows informou que este arquivo pertence a um serviço de nuvem (OneDrive, Dropbox, etc.).\n\nVocê garante que o arquivo é local e deseja ignorar essa proteção para forçar a extração deste e de TODOS os demais arquivos na mesma situação neste lote?"
+                            }
+                            self.sig_perguntar_nuvem.emit(payload)
+                            self.nuvem_event.wait()  # Trava a Thread até o usuário responder na GUI
+                            self.ignorar_nuvem_nativa = self.nuvem_resposta
+                            self.nuvem_event.clear()
+                            if not self.ignorar_nuvem_nativa:
+                                return {'sucesso': False,
+                                        'erro': 'ARQUIVO EM NUVEM DETECTADO: Proteção mantida pelo perito.'}
+
+                # 2. BLOQUEIO GOOGLE DRIVE
+                try:
+                    drive = os.path.splitdrive(caminho_arquivo)[0] + "\\"
+                    if len(drive) >= 3:
+                        info_vol = obter_info_volume(drive)
+                        if info_vol:
+                            rotulo = info_vol.get('rotulo', '').lower()
+                            fs = info_vol.get('sistema_arquivos', '').upper()
+                            if 'google drive' in rotulo or 'cbfs' in fs:
+                                if self.ignorar_google_drive is False:
+                                    return {'sucesso': False,
+                                            'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): Leitura bloqueada.'}
+                                elif self.ignorar_google_drive is None:
+                                    payload = {
+                                        "titulo": "Risco Forense - Google Drive Detectado",
+                                        "texto": "<b>Foi detectada uma origem de disco virtual do Google Drive.</b>",
+                                        "info": "Como Perito, deseja ignorar a proteção de nuvem e extrair os hashes assim mesmo (assumindo o risco de download da internet)?"
+                                    }
+                                    self.sig_perguntar_nuvem.emit(payload)
+                                    self.nuvem_event.wait()
+                                    self.ignorar_google_drive = self.nuvem_resposta
+                                    self.nuvem_event.clear()
+                                    if not self.ignorar_google_drive:
+                                        return {'sucesso': False,
+                                                'erro': f'DISCO VIRTUAL EM NUVEM DETECTADO ({rotulo.upper()}): Leitura bloqueada.'}
+                except Exception:
+                    pass
+
+            tamanho_bytes = stat_info.st_size
+            tamanho_mb = tamanho_bytes / (1024 * 1024)
+            data_modificacao = datetime.datetime.fromtimestamp(stat_info.st_mtime).strftime('%d/%m/%Y %H:%M:%S')
+
+            objetos_hash = {}
+            if "CRC32" in algos_selecionados: objetos_hash["CRC32"] = 0
+            if "MD5" in algos_selecionados: objetos_hash["MD5"] = hashlib.md5()
+            if "SHA-1" in algos_selecionados: objetos_hash["SHA-1"] = hashlib.sha1()
+            if "SHA-256" in algos_selecionados: objetos_hash["SHA-256"] = hashlib.sha256()
+            if "SHA-384" in algos_selecionados: objetos_hash["SHA-384"] = hashlib.sha384()
+            if "SHA-512" in algos_selecionados: objetos_hash["SHA-512"] = hashlib.sha512()
+
+            contagem_bytes = Counter() if extrair_metadados else None
+
+            self.sig_progresso_arquivo.emit(0)
+            bytes_processados = 0
+            tamanho_chunk = 65536
+
+            try:
+                with open(caminho_arquivo, 'rb') as f:
+                    if os.name == 'nt' and tamanho_bytes > 0:
+                        try:
+                            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                        except OSError:
+                            return {'sucesso': False, 'erro': 'ARQUIVO EM USO: Modificação ativa detectada.'}
+                    try:
+                        while True:
+                            chunk = f.read(tamanho_chunk)
+                            if not chunk: break
+                            if self.cancelar_operacao:
+                                return {'sucesso': False, 'erro': 'OPERAÇÃO CANCELADA PELO USUÁRIO'}
+
+                            for algo in algos_selecionados:
+                                if algo == "CRC32":
+                                    objetos_hash["CRC32"] = zlib.crc32(chunk, objetos_hash["CRC32"])
+                                else:
+                                    objetos_hash[algo].update(chunk)
+
+                            if extrair_metadados:
+                                contagem_bytes.update(chunk)
+
+                            bytes_processados += len(chunk)
+                            self.bytes_processados_total += len(chunk)
+
+                            if bytes_processados % (tamanho_chunk * 16) == 0:
+                                percentual = int(
+                                    (bytes_processados / tamanho_bytes) * 100) if tamanho_bytes > 0 else 100
+                                self.sig_progresso_arquivo.emit(percentual)
+                                self.sig_sync_bytes.emit(
+                                    self.bytes_processados_total)  # Sincroniza a barra ETA da tela principal
+                    finally:
+                        if os.name == 'nt' and tamanho_bytes > 0:
+                            try:
+                                f.seek(0)
+                                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+                            except Exception:
+                                pass
+            except PermissionError:
+                return {'sucesso': False,
+                        'erro': 'ACESSO NEGADO / ARQUIVO EM USO (Sistema Operacional bloqueou a leitura).'}
+            except OSError as e:
+                return {'sucesso': False,
+                        'erro': f'ERRO DE DISCO/CORRUPÇÃO/TIMEOUT (Código {e.errno}): Falha na controladora ou Hardware.'}
+            except Exception as e:
+                return {'sucesso': False, 'erro': repr(e)}
+
+            self.sig_progresso_arquivo.emit(100)
+
+            resultado_entropia = None
+            if extrair_metadados:
+                entropia = 0.0
+                if tamanho_bytes > 0:
+                    for contagem in contagem_bytes.values():
+                        probabilidade = contagem / tamanho_bytes
+                        entropia -= probabilidade * math.log2(probabilidade)
+
+                _, ext_arquivo = os.path.splitext(caminho_arquivo)
+                ext_arquivo = ext_arquivo.lower().replace('.', '')
+                formatos_comprimidos = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'gz', 'mp4', 'mkv',
+                                        'avi', 'mp3', 'm4a', 'pdf']
+
+                status_entropia = ""
+                if entropia > 7.9:
+                    status_entropia = " (Normal para o formato comprimido deste arquivo)" if ext_arquivo in formatos_comprimidos else " (⚠️ ALERTA: Alta entropia - Possível Criptografia / Arquivo Packed)"
+                elif entropia < 1.0:
+                    status_entropia = " (Baixa entropia - Arquivo altamente repetitivo ou vazio)"
+                else:
+                    status_entropia = " (Entropia normal - Sem indícios de ofuscação ou criptografia)"
+                resultado_entropia = f"{entropia:.4f}{status_entropia}"
+
+            resultados_hash = {}
+            for algo in algos_selecionados:
+                if algo == "CRC32":
+                    resultados_hash["CRC32"] = f"{objetos_hash['CRC32'] & 0xFFFFFFFF:08X}"
+                else:
+                    resultados_hash[algo] = objetos_hash[algo].hexdigest().upper()
+
+            hashes_arquivo_vazio = {"CRC32": "00000000", "MD5": "D41D8CD98F00B204E9800998ECF8427E",
+                                    "SHA-256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"}
+            arquivo_vazio_detectado = any(
+                alg in resultados_hash and resultados_hash[alg] == h for alg, h in hashes_arquivo_vazio.items())
+
+            return {'sucesso': True, 'hashes': resultados_hash, 'bytes': tamanho_bytes, 'mb': tamanho_mb,
+                    'data': data_modificacao, 'entropia': resultado_entropia, 'arquivo_vazio': arquivo_vazio_detectado}
+        except Exception as e:
+            return {'sucesso': False, 'erro': repr(e)}
+
+    def run(self):
+        total_arquivos = len(self.lista_arquivos)
+        validador = None
+        qtd_validados = qtd_alertas = qtd_nao_validados = qtd_alertas_parciais = 0
+
+        if self.texto_custodia:
+            validador = ValidadorCustodia(self.texto_custodia, is_pdf=self.veio_de_pdf)
+
+        if self.info_drive:
+            self.sig_texto_append.emit("💿 INFORMAÇÕES DA UNIDADE DE ORIGEM (Extração de Unidade Lógica):")
+            self.sig_texto_append.emit(f" ↳ Letra: {self.info_drive['unidade']}")
+            self.sig_texto_append.emit(f" ↳ Rótulo (Label): {self.info_drive['rotulo']}")
+            self.sig_texto_append.emit(f" ↳ Serial do Volume (Lógico): {self.info_drive['serial']}")
+            self.sig_texto_append.emit(f" ↳ Formato (FS): {self.info_drive['sistema_arquivos']}")
+            self.sig_texto_append.emit(
+                f" ↳ Capacidade Total: {self.info_drive.get('capacidade', 'Não identificada')}\n")
+
+            letra_limpa = self.info_drive['unidade']
+            hw_info = obter_info_hardware_por_letra(letra_limpa)
+            self.sig_texto_append.emit("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+            self.sig_texto_append.emit(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
+            self.sig_texto_append.emit(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
+            self.sig_texto_append.emit(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}\n")
+
+        self.sig_texto_append.emit("-" * 60 + "\n")
+
+        for indice, arquivo in enumerate(self.lista_arquivos):
+            if self.cancelar_operacao:
+                self.sig_texto_append.emit("\n[!] PROCESSO INTERROMPIDO PELO USUÁRIO.\n")
+                self.sig_lbl_arquivo.emit("Progresso do Arquivo Atual: Cancelado")
+                break
+
+            nome_arquivo = os.path.basename(arquivo)
+            self.sig_lbl_arquivo.emit(f"Progresso do Arquivo Atual: {nome_arquivo}")
+            self.sig_texto_append.emit(f"===== ARQUIVO #{indice + 1}/{total_arquivos} =====")
+            self.sig_texto_append.emit(f"Arquivo: {arquivo}")
+
+            resultado = self._obter_metadados_e_hashes_worker(arquivo, self.algos_selecionados,
+                                                              extrair_metadados=(self.extrair_meta or self.extrair_raw))
+
+            if resultado['sucesso']:
+                self.arquivos_processados_qtd += 1
+                _, extensao = os.path.splitext(arquivo)
+                extensao = extensao.upper()[1:] if extensao else "SEM EXTENSÃO"
+                self.contagem_extensoes[extensao] = self.contagem_extensoes.get(extensao, 0) + 1
+
+                hashes_calculados = resultado.get('hashes', {})
+                chave_agrupamento = tuple(sorted((k, v) for k, v in hashes_calculados.items() if k != "CRC32"))
+                if not chave_agrupamento:
+                    chave_agrupamento = tuple(sorted(hashes_calculados.items()))
+
+                if chave_agrupamento not in self.arquivos_por_hash:
+                    self.arquivos_por_hash[chave_agrupamento] = []
+                self.arquivos_por_hash[chave_agrupamento].append(arquivo)
+
+                self.sig_texto_append.emit(f"Tamanho: {resultado['bytes']} bytes ({resultado['mb']:.2f} MB)")
+                self.sig_texto_append.emit(f"Modificado em: {resultado['data']}")
+
+                for algo in self.algos_selecionados:
+                    self.sig_texto_append.emit(f"{algo}: {resultado['hashes'][algo]}")
+
+                self.sig_texto_append.emit("")
+
+                if resultado.get('entropia'):
+                    self.sig_texto_append.emit(f"Entropia (Shannon): {resultado['entropia']}")
+
+                if resultado.get('arquivo_vazio', False):
+                    self.sig_texto_append.emit(
+                        "ℹ️ ARQUIVO VAZIO: Hash universalmente conhecido (0 bytes - Criado pelo sistema mas nunca utilizado)")
+
+                if self.extrair_meta or self.extrair_raw:
+                    if self.extrair_raw:
+                        self.sig_texto_append.emit(
+                            "⏳ AVISO: Renderizando Raw Dump massivo... A interface pode pausar por alguns instantes...")
+
+                    # Chamada 100% segura, a lógica dele roda na Thread e não altera a GUI
+                    metadados_midia = self.janela.obter_metadados_avancados(arquivo, extrair_raw=self.extrair_raw)
+
+                    if self.extrair_raw:
+                        self.sig_apagar_ultima_linha.emit()
+
+                    if metadados_midia:
+                        self.sig_texto_append.emit("\n".join(metadados_midia))
+
+                        import re
+                        for linha in metadados_midia:
+                            match = re.search(r"📍 GPS \(Latitude, Longitude\):\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)", linha)
+                            if match:
+                                lat, lon = match.groups()
+                                tem_hash_forte = any(algo != "CRC32" for algo in self.algos_selecionados)
+                                if not tem_hash_forte:
+                                    self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
+                                else:
+                                    chave_coordenada = (chave_agrupamento, lat, lon)
+                                    if chave_coordenada not in self._hashes_com_gps:
+                                        self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
+                                        self._hashes_com_gps.add(chave_coordenada)
+
+                if validador:
+                    status, msg_custodia = validador.validar(arquivo, resultado['hashes'])
+                    self.sig_texto_append.emit("")
+                    self.sig_texto_append.emit(msg_custodia)
+
+                    if status == 1:
+                        qtd_validados += 1
+                    elif status == 2:
+                        qtd_alertas += 1
+                    elif status == 4:
+                        qtd_alertas_parciais += 1
+                    else:
+                        qtd_nao_validados += 1
+
+            else:
+                self.sig_texto_append.emit(f"Erro: {resultado['erro']}")
+
+            self.sig_texto_append.emit("-" * 60 + "\n")
+            self.sig_progresso_total.emit(indice + 1)
+
+        payload_final = {
+            "cancelar_operacao": self.cancelar_operacao,
+            "contagem_extensoes": self.contagem_extensoes,
+            "arquivos_processados_qtd": self.arquivos_processados_qtd,
+            "arquivos_por_hash": self.arquivos_por_hash,
+            "qtd_validados": qtd_validados,
+            "qtd_alertas": qtd_alertas,
+            "qtd_alertas_parciais": qtd_alertas_parciais,
+            "qtd_nao_validados": qtd_nao_validados,
+            "lista_referencia": validador.obter_lista_limpa() if validador else None,
+            "coordenadas_gps_encontradas": self.coordenadas_gps_encontradas
+        }
+        self.sig_conclusao.emit(payload_final)
 
 
 class JanelaHashes(QWidget):
@@ -3796,6 +4129,11 @@ class JanelaHashes(QWidget):
         self.cancelar_operacao = True
         self.btn_cancelar.setText("CANCELANDO PROCESSAMENTO...")
         self.btn_cancelar.setEnabled(False)
+
+        # Força o cancelamento imediato dentro da Thread
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.worker.cancelar_operacao = True
+
         QApplication.processEvents()
 
         # Verifica se está em um processo de RAW Hash
@@ -5942,14 +6280,9 @@ class JanelaHashes(QWidget):
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
         if not lista_arquivos:
             return
+
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
-
-        # Reseta a escolha do usuário sobre o Google Drive para cada nova extração
-        self.ignorar_google_drive = None
-        self.ignorar_nuvem_nativa = None
-
-        # Verifica se o usuário quer extrair metadados extras
         extrair_meta = self.chk_metadados.isChecked()
         extrair_raw = getattr(self, 'chk_metadados_raw', None) and self.chk_metadados_raw.isChecked()
 
@@ -5957,13 +6290,10 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("Nenhum arquivo encontrado para processamento.\n")
             return
 
-        # Reseta as flags de detecção de fps em vídeos para o novo relatório
+        # Reseta as flags para o novo relatório (são populadas na obtenção de metadados)
         self.video_teve_fps_geral = False
         self.video_teve_fps_min_max = False
-        self.coordenadas_gps_encontradas = []  # Lista para armazenar GPS desta extração
-        self._hashes_com_gps = set()
 
-        # --- VERIFICAÇÃO DE RESULTADOS ANTERIORES (RAW) ---
         if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
@@ -5979,13 +6309,11 @@ class JanelaHashes(QWidget):
             msg_box.exec()
 
             if msg_box.clickedButton() == btn_cancelar:
-                return  # Aborta a extração
+                return
             elif msg_box.clickedButton() == btn_limpar:
                 self.texto_saida.clear()
         else:
-            # Se for só a mensagem inicial (ou vazio), limpa direto sem perguntar
             self.texto_saida.clear()
-        # --------------------------------------------
 
         self.travar_interface()
 
@@ -5993,8 +6321,7 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
 
         if extrair_meta and not HAS_PIL and not HAS_CV2 and not HAS_PYPDF:
-            self.texto_saida.append(
-                "[AVISO] Nenhuma biblioteca extra (Pillow, OpenCV, pypdf) detectada. Metadados de PDFs, Imagens e Vídeos serão ignorados.\n")
+            self.texto_saida.append("[AVISO] Nenhuma biblioteca extra detectada. Metadados avançados ignorados.\n")
 
         self.cancelar_operacao = False
         self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
@@ -6002,337 +6329,46 @@ class JanelaHashes(QWidget):
         self.barra_total.setMaximum(total_arquivos)
         self.barra_total.setValue(0)
 
-        # Inicializa o validador se houver texto
-        validador = None
-        qtd_validados = 0
-        qtd_alertas = 0
-        qtd_nao_validados = 0
-        qtd_alertas_parciais = 0
-
-        if texto_custodia:
-            # Verifica se o texto veio de um PDF arrastado
-            veio_de_pdf = False
-            nome_ref = getattr(self.texto_referencia, 'nome_arquivo_origem', None)
-            if nome_ref and nome_ref.lower().endswith('.pdf'):
-                veio_de_pdf = True
-
-            validador = ValidadorCustodia(texto_custodia, is_pdf=veio_de_pdf)
-
-        # Pré-calcula o tamanho total em bytes para o ETA funcionar
+        # Atualiza pré-cálculo para o ETA (mantém a checagem segura anti-nuvem via os.lstat)
         self.total_bytes_processar = 0
         for arq in lista_arquivos:
             try:
-                # Usa lstat para NÃO engatilhar downloads acidentais do OneDrive na triagem
                 self.total_bytes_processar += os.lstat(arq).st_size
             except OSError:
-                pass  # Ignora arquivos inacessíveis no pré-cálculo
+                pass
 
         self.bytes_processados_total = 0
         self.tempo_inicio_total = time.time()
-        self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL*1000)
 
         palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
         self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
 
-        # --- IMPRIME AS INFOS DA UNIDADE APENAS SE FOR RAIZ ---
-        if info_drive:
-            self.texto_saida.append("💿 INFORMAÇÕES DA UNIDADE DE ORIGEM (Extração de Unidade Lógica):")
-            self.texto_saida.append(f" ↳ Letra: {info_drive['unidade']}")
-            self.texto_saida.append(f" ↳ Rótulo (Label): {info_drive['rotulo']}")
-            self.texto_saida.append(f" ↳ Serial do Volume (Lógico): {info_drive['serial']}")
-            self.texto_saida.append(f" ↳ Formato (FS): {info_drive['sistema_arquivos']}")
-            self.texto_saida.append(f" ↳ Capacidade Total: {info_drive.get('capacidade', 'Não identificada')}")
+        # Verifica se Custódia veio de PDF
+        veio_de_pdf = False
+        if texto_custodia:
+            nome_ref = getattr(self.texto_referencia, 'nome_arquivo_origem', None)
+            if nome_ref and nome_ref.lower().endswith('.pdf'): veio_de_pdf = True
 
-            # --- SEÇÃO DE HARDWARE FÍSICO (Via PowerShell s/ UAC) ---
-            self.texto_saida.append("")
-            self.texto_saida.append("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+        # --- INICIA O WORKER ---
+        self.worker = WorkerExtracao(
+            lista_arquivos, info_drive, texto_custodia, veio_de_pdf,
+            algos_selecionados, extrair_meta, extrair_raw, janela=self
+        )
 
-            letra_limpa = info_drive['unidade']
-            hw_info = obter_info_hardware_por_letra(letra_limpa)
+        # Conexões Thread-Safe Seguras
+        self.worker.sig_texto_append.connect(self.texto_saida.append)
+        self.worker.sig_progresso_arquivo.connect(self.barra_arquivo.setValue)
+        self.worker.sig_progresso_total.connect(self.barra_total.setValue)
+        self.worker.sig_lbl_arquivo.connect(self.lbl_progresso_arquivo.setText)
+        self.worker.sig_lbl_total.connect(self.lbl_progresso_total.setText)
 
-            self.texto_saida.append(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
-            self.texto_saida.append(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
-            self.texto_saida.append(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}")
-            self.texto_saida.append("")  # Linha em branco para separar
-        # ------------------------------------------------------
+        self.worker.sig_sync_bytes.connect(self.sync_bytes_lidos)
+        self.worker.sig_apagar_ultima_linha.connect(self.apagar_ultima_linha)
+        self.worker.sig_perguntar_nuvem.connect(self.responder_pergunta_nuvem)
+        self.worker.sig_conclusao.connect(self.finalizar_processamento)
 
-        self.texto_saida.append("-" * 60 + "\n")
-        QApplication.processEvents()
-
-        contagem_extensoes = {}
-        arquivos_processados_qtd = 0
-        arquivos_por_hash = {}  # Dicionário para rastrear duplicatas
-
-        for indice, arquivo in enumerate(lista_arquivos):
-            if self.cancelar_operacao:
-                self.texto_saida.append("\n[!] PROCESSO INTERROMPIDO PELO USUÁRIO.\n")
-                self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Cancelado")
-                break
-
-            nome_arquivo = os.path.basename(arquivo)
-            self.lbl_progresso_arquivo.setText(f"Progresso do Arquivo Atual: {nome_arquivo}")
-
-            self.texto_saida.append(f"===== ARQUIVO #{indice + 1}/{total_arquivos} =====")
-            self.texto_saida.append(f"Arquivo: {arquivo}")
-
-            # Passa a flag extrair_metadados avisando se a entropia deve ser calculada
-            resultado = self.obter_metadados_e_hashes(arquivo, algos_selecionados,
-                                                      extrair_metadados=(extrair_meta or extrair_raw))
-
-            if resultado['sucesso']:
-                arquivos_processados_qtd += 1
-                _, extensao = os.path.splitext(arquivo)
-                extensao = extensao.upper()
-                if not extensao:
-                    extensao = "SEM EXTENSÃO"
-                else:
-                    extensao = extensao[1:]
-                contagem_extensoes[extensao] = contagem_extensoes.get(extensao, 0) + 1
-
-                # --- RASTREAMENTO PARA DETECÇÃO DE DUPLICATAS ---
-                # Extrai os hashes para uma variável garantindo que seja um dicionário
-                hashes_calculados: dict = resultado.get('hashes', {})
-
-                # Cria uma chave única com os hashes gerados (ignora CRC32 se houver opções criptográficas para evitar colisão)
-                chave_agrupamento = tuple(sorted((k, v) for k, v in hashes_calculados.items() if k != "CRC32"))
-                if not chave_agrupamento:
-                    chave_agrupamento = tuple(sorted(hashes_calculados.items()))
-
-                if chave_agrupamento not in arquivos_por_hash:
-                    arquivos_por_hash[chave_agrupamento] = []
-                arquivos_por_hash[chave_agrupamento].append(arquivo)
-                # ------------------------------------------------
-
-                # 1. BLOCO BÁSICO E HASHES NO TOPO
-                self.texto_saida.append(f"Tamanho: {resultado['bytes']} bytes ({resultado['mb']:.2f} MB)")
-                self.texto_saida.append(f"Modificado em: {resultado['data']}")
-
-                for algo in algos_selecionados:
-                    self.texto_saida.append(f"{algo}: {resultado['hashes'][algo]}")
-
-                # 2. PULA UMA LINHA PARA SEPARAR OS ASSUNTOS
-                self.texto_saida.append("")
-
-                # 3. BLOCO DE ANÁLISES (ENTROPIA E METADADOS) NA PARTE INFERIOR
-                if resultado.get('entropia'):
-                    self.texto_saida.append(f"Entropia (Shannon): {resultado['entropia']}")
-
-                if resultado.get('arquivo_vazio', False):
-                    self.texto_saida.append(
-                        "ℹ️ ARQUIVO VAZIO: Hash universalmente conhecido (0 bytes - Criado pelo sistema mas nunca utilizado)")
-
-                # --- Força a interface a mostrar a primeira parte ANTES de ler metadados pesados
-                QApplication.processEvents()
-
-                # --- INSERÇÃO DOS METADADOS EXTRAS AQUI ---
-                if extrair_meta or extrair_raw:
-
-                    # 1. Avisa o usuário ANTES de iniciar a extração (assume que pode demorar)
-                    if extrair_raw:
-                        self.texto_saida.append("⏳ AVISO: Renderizando Raw Dump massivo... A interface pode pausar por alguns instantes mostrando a mensagem 'Não está respondendo'.")
-                        self.texto_saida.repaint()
-                        QApplication.processEvents()
-
-                    # 2. Chamada da função pesada (o "congelamento" da interface poderá ocorrer aqui)
-                    metadados_midia = self.obter_metadados_avancados(arquivo, extrair_raw=extrair_raw)
-
-                    # 3. O processamento terminou e a mensagem de aviso é apagada
-                    if extrair_raw:
-                        # Se a interface gráfica não estourou o limite, apagamos a linha visualmente
-                        if not self._limite_tela_atingido:
-                            cursor = self.texto_saida.textCursor()
-                            cursor.movePosition(QTextCursor.End)
-                            cursor.select(QTextCursor.BlockUnderCursor)
-                            cursor.removeSelectedText()
-                            cursor.deletePreviousChar()
-                            self.texto_saida.setTextCursor(cursor)
-
-                        # Remove a mensagem temporária também do relatório real em memória
-                        if self._relatorio_memoria and "Renderizando Raw Dump" in self._relatorio_memoria[-1]:
-                            self._relatorio_memoria.pop()
-
-                    # 4. Inserção do resultado final num bloco único (evitando que o QTextEdit trave)
-                    if metadados_midia:
-                        texto_gigante = "\n".join(metadados_midia)
-                        self.texto_saida.append(texto_gigante)
-
-                        # Captura as coordenadas usando Expressão Regular para o alerta final
-                        for linha in metadados_midia:
-                            match = re.search(r"📍 GPS \(Latitude, Longitude\):\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)", linha)
-                            if match:
-                                lat, lon = match.groups()
-
-                                # Verifica se há algum algoritmo forte (além do CRC32) selecionado
-                                tem_hash_forte = any(algo != "CRC32" for algo in algos_selecionados)
-
-                                # Se não houver hash forte, adiciona a coordenada incondicionalmente
-                                if not tem_hash_forte:
-                                    self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
-                                else:
-                                    # Se houver hash forte, usa a combinação para não repetir a coordenada em arquivos idênticos
-                                    chave_coordenada = (chave_agrupamento, lat, lon)
-                                    if chave_coordenada not in self._hashes_com_gps:
-                                        self.coordenadas_gps_encontradas.append((arquivo, lat, lon))
-                                        self._hashes_com_gps.add(chave_coordenada)
-                # --------------------------------------------------------
-
-                # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA ---
-                if validador:
-                    status, msg_custodia = validador.validar(arquivo, resultado['hashes'])
-                    self.texto_saida.append("")
-                    self.texto_saida.append(msg_custodia)
-
-                    # Atualiza os contadores pro resumo final
-                    if status == 1:
-                        qtd_validados += 1
-                    elif status == 2:
-                        qtd_alertas += 1
-                    elif status == 4:
-                        qtd_alertas_parciais += 1
-                    else:
-                        qtd_nao_validados += 1
-
-                # --------------------------------------------------------
-            else:
-                self.texto_saida.append(f"Erro: {resultado['erro']}")
-
-            self.texto_saida.append("-" * 60 + "\n")
-
-            self.barra_total.setValue(indice + 1)
-
-            scrollbar = self.texto_saida.verticalScrollBar()
-            scrollbar.setValue(scrollbar.maximum())
-            QApplication.processEvents()
-
-        # Adiciona a legenda de FPS na tela se houver vídeos
-        legenda_fps_tela = ""
-        if self.video_teve_fps_geral:
-            legenda_fps_tela += "\n=== NOTAS SOBRE TAXA DE QUADROS (FPS) ===\n"
-            legenda_fps_tela += "- FPS Média/Base: É o número de quadros por segundo informado pelo reprodutor/cabeçalho oficial do arquivo.\n"
-            legenda_fps_tela += "- FPS Calculado (Frames/Duração): É a média matemática exata obtida ao dividir o número total de quadros pela duração do vídeo.\n"
-
-        if self.video_teve_fps_min_max:
-            legenda_fps_tela += "- FPS Mínimo: Indica o menor número de quadros registrados em um segundo (comum em vídeos com Taxa de Quadros Variável [VFR], quando a câmera grava cenas mais estáticas).\n"
-            legenda_fps_tela += "- FPS Máximo: Indica o maior número de quadros registrados em um segundo (a câmera acelerou a captura para compensar movimentação rápida no vídeo [VFR]).\n"
-
-        if legenda_fps_tela:
-            self.texto_saida.append(legenda_fps_tela)
-
-        self.btn_copiar.setEnabled(True)
-        self.btn_salvar.setEnabled(True)
-
-        self.texto_saida.append("Resumo do conteúdo:")
-
-        extensoes_ordenadas = sorted(contagem_extensoes.items(), key=lambda item: item[1], reverse=True)
-        for ext, qtd in extensoes_ordenadas:
-            palavra_arq_ext = "arquivo" if qtd == 1 else "arquivos"
-            self.texto_saida.append(f"{qtd} {palavra_arq_ext} {ext}")
-
-        palavra_arq_total = "arquivo" if arquivos_processados_qtd == 1 else "arquivos"
-        self.texto_saida.append(f"Total de arquivos processados: {arquivos_processados_qtd} {palavra_arq_total}\n")
-
-        # --- DETECÇÃO DE ARQUIVOS DUPLICADOS ---
-        # Só executa a detecção se houver mais de 1 arquivo E pelo menos um algoritmo de hash selecionado
-        if algos_selecionados and arquivos_processados_qtd > 1:
-            self.texto_saida.append(
-                "Arquivos idênticos entre si (CRC32 comparado apenas na ausência de algoritmos criptográficos):")
-
-            tem_duplicados = False
-            for chave_hash, lista_caminhos in arquivos_por_hash.items():
-                # Só considera duplicata se houver mais de 1 arquivo E a chave de hash não for vazia
-                if len(lista_caminhos) > 1 and chave_hash:
-                    tem_duplicados = True
-                    algoritmos_coincidentes = " + ".join([item[0] for item in chave_hash])
-                    algo_principal, valor_principal = chave_hash[-1]
-                    nome_hash = f"Idênticos em {algoritmos_coincidentes} ({algo_principal}: {valor_principal})"
-
-                    self.texto_saida.append(f"\n  [Grupo idêntico - {nome_hash}]")
-                    for caminho_dup in lista_caminhos:
-                        self.texto_saida.append(f"  ↳ {caminho_dup}")
-
-            if not tem_duplicados:
-                self.texto_saida.append("\n  ↳ não foram encontrados arquivos idênticos entre si")
-
-            self.texto_saida.append("\n" + "-" * 60)
-        # ---------------------------------------
-
-        # --- RESUMO FINAL DA CADEIA DE CUSTÓDIA ---
-        if validador:
-            # --- LISTA LIMPA DE REFERÊNCIA ENVIADA PELA DELEGACIA OU REQUISITANTE DO EXAME ---
-            lista_referencia = validador.obter_lista_limpa()
-            if lista_referencia:
-                # Verifica se a caixa lembra do nome e do hash
-                nome_ref = self.texto_referencia.nome_arquivo_origem
-                hash_ref = getattr(self.texto_referencia, 'hash_arquivo_origem', None)
-
-                if nome_ref and hash_ref:
-                    self.texto_saida.append(
-                        f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref} - SHA-256: {hash_ref}) ===")
-                elif nome_ref:
-                    self.texto_saida.append(f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref}) ===")
-                else:
-                    self.texto_saida.append("\n=== RELAÇÃO ORIGINAL DE HASHES (CADEIA DE CUSTÓDIA) ===")
-
-                for item in lista_referencia:
-                    self.texto_saida.append(item)
-                self.texto_saida.append("\n" + "-" * 60)
-
-            self.texto_saida.append("\n=== RESUMO DA VALIDAÇÃO DE CUSTÓDIA ===")
-            self.texto_saida.append(f"✅ Arquivos validados com sucesso: {qtd_validados}")
-            if qtd_alertas > 0:
-                self.texto_saida.append(f"⚠️ Arquivos com alerta (hash bate, nome diverge): {qtd_alertas}")
-
-            if qtd_alertas_parciais > 0:
-                self.texto_saida.append(f"⚠️ Arquivos com alerta (algum hash com divergência): {qtd_alertas_parciais}")
-
-            self.texto_saida.append(f"❌ Arquivos não validados/não encontrados: {qtd_nao_validados}")
-            self.texto_saida.append("-" * 60)
-            # ------------------------------------------
-        # ------------------------------------------
-
-        # --- BLOCO DE FINALIZAÇÃO DO TEMPO (FORMATO AMIGÁVEL) ---
-        self.timer_tempo.stop()  # Para o cronômetro
-
-        if not self.cancelar_operacao:
-            # Calcula o tempo total exato que a operação levou
-            tempo_total = time.time() - self.tempo_inicio_total
-            horas, resto = divmod(tempo_total, 3600)
-            minutos, segundos = divmod(resto, 60)
-
-            h = int(horas)
-            m = int(minutos)
-            s = int(segundos)
-
-            # Constrói o texto dinamicamente (ex: 1h20min30s, 35min20s ou 17s)
-            if h > 0:
-                str_tempo_final = f"{h}h{m}min{s}s"
-            elif m > 0:
-                str_tempo_final = f"{m}min{s}s"
-            else:
-                str_tempo_final = f"{s}s" if s > 0 else "< 1s"
-
-            # Atualiza a barra mantendo o tempo final visível
-            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
-            self.lbl_progresso_total.setText(
-                f"Progresso Total (Arquivos) - Concluído! (Tempo Decorrido: {str_tempo_final})")
-
-            # Adiciona o tempo no relatório de texto para ficar salvo se o usuário exportar
-            self.texto_saida.append(f"Processamento concluído com sucesso em {str_tempo_final}!\n")
-        else:
-            self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
-        # ------------------------------------------------------
-
-        self.btn_cancelar.setEnabled(False)
-        self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
-
-        scrollbar = self.texto_saida.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-
-        self.destravar_interface()
-
-        # Chama a janela de alerta se houver coordenadas capturadas
-        if hasattr(self, 'coordenadas_gps_encontradas') and self.coordenadas_gps_encontradas:
-            self.mostrar_alerta_gps()
+        self.timer_tempo.start(INTERVALO_ATUALIZACAO_BARRA_PREVISAO_PROGRESSO_TOTAL * 1000)
+        self.worker.start()
 
     def mostrar_alerta_gps(self):
         """Abre uma janela exibindo os links clicáveis para o Google Maps."""
@@ -6867,6 +6903,140 @@ class JanelaHashes(QWidget):
             QMessageBox.information(self, "Sucesso", "Arquivo KML de polígono gerado com perímetro organizado!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o KML:\n{e}")
+
+    def sync_bytes_lidos(self, valor):
+        self.bytes_processados_total = valor
+
+    def apagar_ultima_linha(self):
+        """Apaga visualmente a linha de renderização pesada para não poluir a tela."""
+        if not self._limite_tela_atingido:
+            cursor = self.texto_saida.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            cursor.select(QTextCursor.BlockUnderCursor)
+            cursor.removeSelectedText()
+            cursor.deletePreviousChar()
+            self.texto_saida.setTextCursor(cursor)
+        if self._relatorio_memoria and "Renderizando Raw Dump" in self._relatorio_memoria[-1]:
+            self._relatorio_memoria.pop()
+
+    def responder_pergunta_nuvem(self, payload):
+        """Abre a caixa de diálogo na Main Thread travando a extração com segurança."""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(payload["titulo"])
+        msg_box.setText(payload["texto"])
+        msg_box.setInformativeText(payload["info"])
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+
+        btn_sim = msg_box.addButton("Sim, ignorar proteção e forçar extração", QMessageBox.ButtonRole.AcceptRole)
+        btn_nao = msg_box.addButton("Não, manter bloqueio pericial seguro", QMessageBox.ButtonRole.RejectRole)
+        msg_box.exec()
+
+        self.worker.nuvem_resposta = (msg_box.clickedButton() == btn_sim)
+        self.worker.nuvem_event.set()  # Libera a Thread do Worker para continuar
+
+    def finalizar_processamento(self, payload):
+        """Slot chamado automaticamente quando o Worker conclui o laço for principal."""
+        cancelado = payload["cancelar_operacao"]
+        self.coordenadas_gps_encontradas = payload["coordenadas_gps_encontradas"]
+
+        legenda_fps_tela = ""
+        if self.video_teve_fps_geral:
+            legenda_fps_tela += "\n=== NOTAS SOBRE TAXA DE QUADROS (FPS) ===\n- FPS Média/Base: É o número de quadros por segundo informado pelo reprodutor/cabeçalho oficial do arquivo.\n- FPS Calculado (Frames/Duração): É a média matemática exata obtida ao dividir o número total de quadros pela duração do vídeo.\n"
+        if self.video_teve_fps_min_max:
+            legenda_fps_tela += "- FPS Mínimo: Indica o menor número de quadros registrados em um segundo (comum em vídeos VFR).\n- FPS Máximo: Indica o maior número de quadros registrados em um segundo (a câmera acelerou a captura).\n"
+
+        if legenda_fps_tela:
+            self.texto_saida.append(legenda_fps_tela)
+
+        self.btn_copiar.setEnabled(True)
+        self.btn_salvar.setEnabled(True)
+
+        self.texto_saida.append("Resumo do conteúdo:")
+        extensoes_ordenadas = sorted(payload["contagem_extensoes"].items(), key=lambda item: item[1], reverse=True)
+        for ext, qtd in extensoes_ordenadas:
+            palavra_arq_ext = "arquivo" if qtd == 1 else "arquivos"
+            self.texto_saida.append(f"{qtd} {palavra_arq_ext} {ext}")
+
+        palavra_arq_total = "arquivo" if payload["arquivos_processados_qtd"] == 1 else "arquivos"
+        self.texto_saida.append(
+            f"Total de arquivos processados: {payload['arquivos_processados_qtd']} {palavra_arq_total}\n")
+
+        # Arquivos Duplicados
+        if payload["arquivos_processados_qtd"] > 1:
+            self.texto_saida.append(
+                "Arquivos idênticos entre si (CRC32 ignorado na comparação se houver outro hash forte):")
+            tem_duplicados = False
+            for chave_hash, lista_caminhos in payload["arquivos_por_hash"].items():
+                if len(lista_caminhos) > 1 and chave_hash:
+                    tem_duplicados = True
+                    algoritmos_coincidentes = " + ".join([item[0] for item in chave_hash])
+                    algo_principal, valor_principal = chave_hash[-1]
+                    nome_hash = f"Idênticos em {algoritmos_coincidentes} ({algo_principal}: {valor_principal})"
+                    self.texto_saida.append(f"\n  [Grupo idêntico - {nome_hash}]")
+                    for caminho_dup in lista_caminhos:
+                        self.texto_saida.append(f"  ↳ {caminho_dup}")
+
+            if not tem_duplicados: self.texto_saida.append("\n  ↳ não foram encontrados arquivos idênticos entre si")
+            self.texto_saida.append("\n" + "-" * 60)
+
+        # Resumo Cadeia de Custódia
+        if payload["lista_referencia"] is not None:
+            nome_ref = self.texto_referencia.nome_arquivo_origem
+            hash_ref = getattr(self.texto_referencia, 'hash_arquivo_origem', None)
+
+            if nome_ref and hash_ref:
+                self.texto_saida.append(
+                    f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref} - SHA-256: {hash_ref}) ===")
+            elif nome_ref:
+                self.texto_saida.append(f"\n=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref}) ===")
+            else:
+                self.texto_saida.append("\n=== RELAÇÃO ORIGINAL DE HASHES (CADEIA DE CUSTÓDIA) ===")
+
+            for item in payload["lista_referencia"]:
+                self.texto_saida.append(item)
+
+            self.texto_saida.append("\n" + "-" * 60)
+            self.texto_saida.append("\n=== RESUMO DA VALIDAÇÃO DE CUSTÓDIA ===")
+            self.texto_saida.append(f"✅ Arquivos validados com sucesso: {payload['qtd_validados']}")
+            if payload["qtd_alertas"] > 0: self.texto_saida.append(
+                f"⚠️ Arquivos com alerta (hash bate, nome diverge): {payload['qtd_alertas']}")
+            if payload["qtd_alertas_parciais"] > 0: self.texto_saida.append(
+                f"⚠️ Arquivos com alerta (algum hash com divergência): {payload['qtd_alertas_parciais']}")
+            self.texto_saida.append(f"❌ Arquivos não validados/não encontrados: {payload['qtd_nao_validados']}")
+            self.texto_saida.append("-" * 60)
+
+        # Finalização de Tempo
+        self.timer_tempo.stop()
+        if not cancelado:
+            tempo_total = time.time() - self.tempo_inicio_total
+            horas, resto = divmod(tempo_total, 3600)
+            minutos, segundos = divmod(resto, 60)
+            h, m, s = int(horas), int(minutos), int(segundos)
+
+            if h > 0:
+                str_tempo_final = f"{h}h{m}min{s}s"
+            elif m > 0:
+                str_tempo_final = f"{m}min{s}s"
+            else:
+                str_tempo_final = f"{s}s" if s > 0 else "< 1s"
+
+            self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
+            self.lbl_progresso_total.setText(
+                f"Progresso Total (Arquivos) - Concluído! (Tempo Decorrido: {str_tempo_final})")
+            self.texto_saida.append(f"Processamento concluído com sucesso em {str_tempo_final}!\n")
+        else:
+            self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
+
+        self.btn_cancelar.setEnabled(False)
+        self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
+
+        scrollbar = self.texto_saida.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+        self.destravar_interface()
+
+        if self.coordenadas_gps_encontradas:
+            self.mostrar_alerta_gps()
 
 
 class DialogoMetadadosKML(QDialog):
