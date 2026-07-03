@@ -3276,9 +3276,9 @@ class JanelaHashes(QWidget):
                     }
                 """)
 
-        # Trava a altura visual para acomodar cerca de 6 a 7 itens.
-        # A partir do 8º (até o infinito), a barra de rolagem resolve!
-        lista_unidades.setFixedHeight(260)
+        # Define uma altura mínima para acomodar cerca de 6 a 7 itens,
+        # mas permite que a lista expanda livremente caso o usuário redimensione a janela.
+        lista_unidades.setMinimumHeight(260)
 
         # Preenche a lista com as unidades
         for indice, (nome_curto, root, dtype, nivel, modelo, capacidade) in enumerate(unidades):
