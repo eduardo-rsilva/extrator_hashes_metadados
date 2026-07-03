@@ -110,6 +110,40 @@ Para lidar com extrações massivas (Terabytes de dados), a ferramenta foi redes
 
 ---
 
+## 💻 Comandos Internos (Under the Hood)
+
+Para fins de reprodutibilidade, transparência e auditoria pericial, abaixo estão as chamadas exatas de linha de comando (CLI) que o extrator executa em segundo plano para realizar as operações críticas:
+
+**1. Extração de Metadados via ExifTool:**
+O extrator padroniza a chamada do ExifTool para todas as mídias (Imagens, Vídeos, Áudios e Documentos) forçando a saída estruturada e a formatação de coordenadas:
+`exiftool -charset filename=latin -charset utf8 -j -G -a -ee -api largefilesupport=1 -c "%+.6f" "caminho_da_evidencia.ext"`
+
+* **`-charset`**: Força a leitura correta de caminhos e nomes de arquivos com acentuação e caracteres latinos.
+* **`-j`**: Retorna a saída formatada nativamente em JSON para *parsing* seguro no Python.
+* **`-G`**: Imprime o grupo estrutural ao qual o metadado pertence (ex: `QuickTime`, `EXIF`, `IFD0`).
+* **`-a`**: Permite a extração de tags duplicadas (útil para trilhas de vídeo/áudio múltiplas).
+* **`-ee`**: Extrai informações embutidas (*extract embedded*), vital para geolocalização dinâmica de drones e GoPros.
+* **`-api largefilesupport=1`**: Habilita o suporte a vídeos e arquivos pesados com mais de 4 GB.
+* **`-c "%+.6f"`**: Padroniza a saída das coordenadas geográficas em graus decimais para a geração correta dos links do Google Maps e KMLs.
+
+**2. Aquisição de Imagem Forense (.E01) via libewf (ewfacquire):**
+Executado encapsulado em uma sessão do PowerShell com elevação de privilégios (UAC) e em modo *unattended* (automação):
+`ewfacquire -u -c fast -t "caminho_destino" -l "caminho_destino.ewf.log" -d sha256 -S 4G -C "Nome da Operação" -D "Descrição do Arquivo" -E "Laudo" -e "Perito" "\\.\PhysicalDrive0"`
+
+* **`-u`**: Modo não-interativo (*unattended*), desativando os prompts do terminal original.
+* **`-c fast`**: Define o nível de compressão do contêiner EWF.
+* **`-t`**: Caminho alvo (*target*) sem a extensão do arquivo.
+* **`-l`**: Caminho exato para a escrita espelhada do log de auditoria física nativo do ewfacquire.
+* **`-d sha256`**: Força a injeção do hash SHA-256 (além do MD5 embutido por padrão) no cabeçalho dos blocos E01.
+* **`-S` / `-C` / `-D` / `-E` / `-e`**: Argumentos dinâmicos preenchidos através da janela "Cabeçalho Forense" para fragmentação (ex: `4G`, `640M`) e metadados de custódia.
+* **`\\.\PhysicalDrive0`**: Caminho UNC de baixo nível para o disco físico ou volume lógico alvo (ex: `\\.\E:`).
+
+**3. Verificação de Integridade Criptográfica (ewfverify):**
+Ao finalizar a aquisição de uma imagem `.E01`, o sistema valida os hashes gravados dentro do contêiner para atestar que a imagem não sofreu corrupção durante a escrita:
+`ewfverify -d md5,sha256 "caminho_destino.e01"`
+
+---
+
 ## ⚠️ Aviso Legal e Isenção de Responsabilidade (Disclaimer)
 
 Esta é uma ferramenta desenvolvida com propósitos acadêmicos, forenses e de pesquisa. O autor **não se responsabiliza** por quaisquer danos, perdas de dados ou consequências jurídicas advindas do uso deste software. 
