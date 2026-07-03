@@ -969,30 +969,46 @@ def obter_caminho_ewfverify():
 
 
 def verificar_integridade_automatica(caminho_imagem_e01, hash_sha256_log):
-    """Roda o ewfverify sem travar a interface e compara os hashes."""
+    """Roda o ewfverify em um terminal visível nativo e resolve o erro de UTF-16 do PowerShell."""
     caminho_ewfverify = obter_caminho_ewfverify()
     if not caminho_ewfverify:
         return False, "   ⚠️ Erro: O executável 'ewfverify.exe' não foi localizado. Validação automática pulada."
 
     # LIMPEZA DO CAMINHO: Força o uso estrito de barras invertidas (\) e resolve o caminho absoluto
     caminho_limpo = os.path.normpath(os.path.abspath(caminho_imagem_e01))
-
-    comando = [caminho_ewfverify, "-d", "md5,sha256", caminho_limpo]
-
-    # Formata a string do comando perfeitamente para exibir no laudo
     comando_str = f'"{caminho_ewfverify}" -d md5,sha256 "{caminho_limpo}"'
 
-    try:
-        # Usa Popen + loop de eventos para não congelar o aplicativo
-        creationflags = 0x08000000 if os.name == 'nt' else 0
-        processo = subprocess.Popen(comando, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                    creationflags=creationflags)
+    # Arquivo temporário para guardar a saída do terminal
+    caminho_log_temp = caminho_limpo + ".verify_temp.txt"
 
+    # O Tee-Object joga a saída na tela do PowerShell e salva no arquivo simultaneamente
+    comando_ps = f'& "{caminho_ewfverify}" -d md5,sha256 "{caminho_limpo}" | Tee-Object -FilePath "{caminho_log_temp}"'
+    comando = ["powershell", "-NoProfile", "-Command", comando_ps]
+
+    try:
+        # 0x00000010 = CREATE_NEW_CONSOLE (Força o Windows a abrir a janela do terminal para o perito)
+        creationflags = 0x00000010 if os.name == 'nt' else 0
+
+        processo = subprocess.Popen(comando, creationflags=creationflags)
+
+        # Pulmão da interface principal enquanto o terminal trabalha
         while processo.poll() is None:
             QApplication.processEvents()
             time.sleep(0.1)
 
-        saida_terminal = processo.communicate()[0]
+        # Lê o log bruto em BYTES para remover os Null Bytes injetados pelo UTF-16 do PowerShell
+        saida_terminal = ""
+        if os.path.exists(caminho_log_temp):
+            with open(caminho_log_temp, "rb") as f:
+                raw_bytes = f.read()
+                # Essa linha mágica conserta o Clipboard do Windows e o formato da string!
+                saida_terminal = raw_bytes.replace(b'\x00', b'').decode('utf-8', errors='ignore')
+
+            # Apaga o arquivo temporário silenciosamente
+            try:
+                os.remove(caminho_log_temp)
+            except Exception:
+                pass
 
         import re
         match = re.search(r"SHA256 hash calculated over data:\s+([a-fA-F0-9]{64})", saida_terminal, re.IGNORECASE)
@@ -1004,10 +1020,8 @@ def verificar_integridade_automatica(caminho_imagem_e01, hash_sha256_log):
             md5_recalc = match_md5.group(1).upper() if match_md5 else "N/A"
 
             if hash_recalculado == hash_original:
-                # Removemos a exibição redundante do SHA-256 Original aqui
-                return True, f"   ✅ INTEGRIDADE CONFIRMADA MATEMATICAMENTE VIA EWFVERIFIY\n   Comando para cmd: {comando_str}\n   MD5 Recalculado:     {md5_recalc}\n   SHA-256 Recalculado: {hash_recalculado}"
+                return True, f"   ✅ INTEGRIDADE CONFIRMADA MATEMATICAMENTE VIA EWFVERIFIY\n   Comando executado: {comando_str}\n   MD5 Recalculado:     {md5_recalc}\n   SHA-256 Recalculado: {hash_recalculado}"
             else:
-                # Mas mantemos no 'else', pois se der erro, o perito precisa comparar onde divergiu!
                 return False, f"   ❌ ALERTA CRÍTICO: QUEBRA DE INTEGRIDADE!\n   Comando: {comando_str}\n   SHA-256 Original:    {hash_original}\n   SHA-256 Recalculado: {hash_recalculado}"
         else:
             return False, f"   ⚠️ Erro: Não foi possível localizar a linha do SHA-256.\n\n--- SAÍDA BRUTA DO EWFVERIFY ---\n{saida_terminal}\n--------------------------------"
@@ -3382,23 +3396,32 @@ class JanelaHashes(QWidget):
 
                     # 1. VALIDAÇÃO CRIPTOGRÁFICA (EWFVERIFY)
                     if sha256_coleta and arq_principal.lower().endswith(('.e01')):
-                        msg_hash_logico = f"\n📄 Validação Criptográfica Automática Pós-extração ({nome_arq_principal}):"
-                        self.texto_saida.append(msg_hash_logico)
-                        linhas_log_auditoria.append(msg_hash_logico.strip())
 
-                        self.texto_saida._original_append("   🔄 Lendo dados internos em segundo plano. Aguarde...")
-                        QApplication.processEvents()
+                        # Verifica se o usuário desmarcou a validação
+                        if metadados_e01 and not metadados_e01.get("fazer_validacao", True):
+                            msg_pulo = f"\n📄 Validação Criptográfica Automática ({nome_arq_principal}): IGNORADA (Desmarcada pelo usuário)."
+                            self.texto_saida.append(msg_pulo)
+                            linhas_log_auditoria.append(msg_pulo.strip())
 
-                        sucesso, msg_verificacao = verificar_integridade_automatica(arq_principal, sha256_coleta)
+                        else:
+                            msg_hash_logico = f"\n📄 Validação Criptográfica Automática Pós-extração ({nome_arq_principal}):"
+                            self.texto_saida.append(msg_hash_logico)
+                            linhas_log_auditoria.append(msg_hash_logico.strip())
 
-                        # Apaga o "Aguarde..." da tela
-                        cursor = self.texto_saida.textCursor()
-                        cursor.movePosition(QTextCursor.End)
-                        cursor.select(QTextCursor.BlockUnderCursor)
-                        cursor.removeSelectedText()
+                            self.texto_saida._original_append(
+                                "   🔄 Terminal de verificação aberto. Acompanhe o progresso na nova janela...")
+                            QApplication.processEvents()
 
-                        self.texto_saida.append(msg_verificacao)
-                        linhas_log_auditoria.append(msg_verificacao)
+                            sucesso, msg_verificacao = verificar_integridade_automatica(arq_principal, sha256_coleta)
+
+                            # Apaga o "Aguarde..." da tela
+                            cursor = self.texto_saida.textCursor()
+                            cursor.movePosition(QTextCursor.End)
+                            cursor.select(QTextCursor.BlockUnderCursor)
+                            cursor.removeSelectedText()
+
+                            self.texto_saida.append(msg_verificacao)
+                            linhas_log_auditoria.append(msg_verificacao)
 
                     # 2. HASH DOS ARQUIVOS FÍSICOS DA IMAGEM (.E01, .E02...)
                     for arq_img in arquivos_imagem:
@@ -6754,6 +6777,10 @@ class DialogoMetadadosKML(QDialog):
         self.combo_split.addItem("16 GB", "16G")
         self.combo_split.addItem("Arquivo Único (Não dividir)", "7.9E")
 
+        self.chk_validacao = QCheckBox("Fazer validação criptográfica automática pós-extração")
+        self.chk_validacao.setChecked(True)
+        self.chk_validacao.setStyleSheet("font-size: 10pt; font-weight: bold; margin-top: 10px;")
+
         # Adicionando os campos ao layout com rótulos
         layout.addWidget(QLabel("<b>Nome da Operação / Caso:</b>"))
         layout.addWidget(self.inp_caso)
@@ -6769,6 +6796,8 @@ class DialogoMetadadosKML(QDialog):
 
         layout.addWidget(QLabel("<b>Descrição (Opcional):</b>"))
         layout.addWidget(self.inp_desc)
+
+        layout.addWidget(self.chk_validacao)
 
         layout.addSpacing(15)
 
@@ -6810,7 +6839,8 @@ class DialogoMetadadosKML(QDialog):
             "laudo": self.inp_laudo.text().strip() or "Não informado",
             "perito": self.inp_perito.text().strip() or "Não informado",
             "descricao": self.inp_desc.toPlainText().strip() or "Sem descrição adicional.",
-            "split": self.combo_split.currentData()  # Pega a sigla silenciosa (ex: "4G")
+            "split": self.combo_split.currentData(),  # Pega a sigla silenciosa (ex: "4G")
+            "fazer_validacao": self.chk_validacao.isChecked()
         }
 
 
