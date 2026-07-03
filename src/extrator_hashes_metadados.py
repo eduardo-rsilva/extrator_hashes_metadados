@@ -3092,6 +3092,19 @@ class JanelaHashes(QWidget):
         return out_json, progress_json, cancel_flag
 
     def _listar_unidades_windows(self):
+        import shutil  # Certifique-se de que o import shutil está no topo do seu script
+
+        def formatar_bytes(tamanho_em_bytes):
+            try:
+                tamanho = float(tamanho_em_bytes)
+                for unidade in ['B', 'KB', 'MB', 'GB', 'TB']:
+                    if tamanho < 1024.0:
+                        return f"{tamanho:.1f} {unidade}"
+                    tamanho /= 1024.0
+                return f"{tamanho:.1f} PB"
+            except (ValueError, TypeError):
+                return "Tamanho Desconhecido"
+
         # 1. Lista A:\ a Z:\ presentes (Volumes Lógicos Montados)
         drives_mask = kernel32.GetLogicalDrives()
         out = []
@@ -3100,24 +3113,40 @@ class JanelaHashes(QWidget):
                 letter = chr(ord("A") + i)
                 root = f"{letter}:\\"
                 dtype = get_drive_type(root)
-                out.append((letter, root, dtype, "LOGICO", ""))
+
+                # Tenta obter a capacidade, falha silenciosamente se for formato RAW/Inacessível
+                capacidade_str = "Tamanho Desconhecido"
+                try:
+                    uso = shutil.disk_usage(root)
+                    capacidade_str = formatar_bytes(uso.total)
+                except Exception:
+                    pass
+
+                out.append((letter, root, dtype, "LOGICO", "", capacidade_str))
 
         # 2. Lista os Discos Físicos (PhysicalDrives) via WMIC
         try:
+            # Usamos o formato de tabela padrão pois é mais fácil isolar a última coluna (Size)
             resultado = subprocess.run(
-                ["wmic", "diskdrive", "get", "deviceid,model", "/format:csv"],
+                ["wmic", "diskdrive", "get", "deviceid,model,size"],
                 capture_output=True, text=True, creationflags=0x08000000
             )
             linhas = resultado.stdout.strip().splitlines()
-            for linha in linhas[1:]:  # Pula o cabeçalho gerado pelo wmic
-                partes = linha.split(',')
+
+            for linha in linhas[1:]:  # Pula o cabeçalho (DeviceID, Model, Size)
+                linha = linha.strip()
+                if not linha: continue
+
+                partes = linha.split()
                 if len(partes) >= 3:
-                    device_id = partes[1].strip()  # Ex: \\.\PHYSICALDRIVE0
-                    model = partes[2].strip()
+                    device_id = partes[0].strip()  # Primeiro elemento é o DeviceID
+                    size_bytes = partes[-1].strip()  # Último elemento é o Size
+                    model = " ".join(partes[1:-1]).strip()  # Tudo no meio é o Modelo
+
                     if device_id.upper().startswith("\\\\.\\PHYSICALDRIVE"):
                         num = device_id.upper().replace("\\\\.\\PHYSICALDRIVE", "")
-                        # Tratamos como FIXED para passar no filtro da interface, mas marcamos como FISICO
-                        out.append((f"Disco {num}", device_id, DRIVE_FIXED, "FISICO", model))
+                        capacidade_str = formatar_bytes(size_bytes)
+                        out.append((f"Disco {num}", device_id, DRIVE_FIXED, "FISICO", model, capacidade_str))
         except Exception:
             pass
 
@@ -3150,45 +3179,85 @@ class JanelaHashes(QWidget):
         # Dialog simples com combo configurado com o novo padrão visual
         dialog = QDialog(self)
         dialog.setWindowTitle("Selecionar unidade para HASH RAW")
-        dialog.setMinimumWidth(550)  # Janela mais larga para melhor leitura das mídias
+        dialog.setMinimumWidth(800)  # Janela mais larga para melhor leitura das mídias
 
         layout = QVBoxLayout()
-        layout.setSpacing(15)  # Espaçamento equilibrado entre os elementos
-        layout.setContentsMargins(20, 20, 20, 20)  # Margens internas da janela
-
-        combo = QComboBox()
-        combo.setStyleSheet("font-size: 11pt; padding: 6px;")  # Elemento de seleção maior
-
-        for indice, (nome_curto, root, dtype, nivel, modelo) in enumerate(unidades):
-            if nivel == "FISICO":
-                texto_exibicao = f"HARDWARE DIRETO: {root}  -  {modelo}"
-            else:
-                texto_exibicao = f"VOLUME LÓGICO: {root}  -  {self._tipo_unidade_texto(dtype)}"
-
-            combo.addItem(texto_exibicao, (nome_curto, root, dtype, nivel))
-
-            # Se a unidade pre-selecionada via Drag & Drop bater com a unidade atual do loop, foca nela
-            if unidade_pre_selecionada and root.upper() == unidade_pre_selecionada.upper():
-                combo.setCurrentIndex(indice)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
 
         lbl_unidade = QLabel("Escolha a unidade para análise:")
-        lbl_unidade.setStyleSheet("font-size: 12pt; font-weight: bold;")  # Título em destaque
-
+        lbl_unidade.setStyleSheet("font-size: 12pt; font-weight: bold;")
         layout.addWidget(lbl_unidade)
-        layout.addWidget(combo)
 
-        layout.addSpacing(5)  # Pequeno respiro antes da linha de comando
+        # Importações injetadas localmente para evitar erros
+        from PySide6.QtWidgets import QListWidget, QListWidgetItem
+        from PySide6.QtCore import Qt
+
+        lista_unidades = QListWidget()
+
+        # O QListWidget respeita perfeitamente o CSS e adiciona a barra de rolagem sozinho
+        lista_unidades.setStyleSheet("""
+                    QListWidget {
+                        font-size: 11pt; 
+                        padding: 5px; 
+                        border: 1px solid #cccccc; 
+                        border-radius: 4px;
+                        outline: none; /* Remove a linha pontilhada nativa de foco */
+                    }
+                    QListWidget::item {
+                        padding: 10px; /* Itens bem espaçados para clique fácil */
+                        border-bottom: 1px solid #eeeeee;
+                    }
+                    QListWidget::item:selected {
+                        background-color: #0078d7; /* Azul do Windows */
+                        color: white;
+                        font-weight: bold;
+                    }
+                """)
+
+        # Trava a altura visual para acomodar cerca de 6 a 7 itens.
+        # A partir do 8º (até o infinito), a barra de rolagem resolve!
+        lista_unidades.setFixedHeight(260)
+
+        # Preenche a lista com as unidades
+        for indice, (nome_curto, root, dtype, nivel, modelo, capacidade) in enumerate(unidades):
+            if nivel == "FISICO":
+                texto_exibicao = f"HARDWARE DIRETO: {root} [{capacidade}]  -  {modelo}"
+            else:
+                texto_exibicao = f"VOLUME LÓGICO: {root} [{capacidade}]  -  {self._tipo_unidade_texto(dtype)}"
+
+            # Cria o item visual
+            item = QListWidgetItem(texto_exibicao)
+
+            # Esconde os dados em background na variável "UserRole" do item
+            item.setData(Qt.UserRole, (nome_curto, root, dtype, nivel))
+            lista_unidades.addItem(item)
+
+            # Lógica para Drag & Drop (Pré-seleção)
+            if unidade_pre_selecionada and root.upper() == unidade_pre_selecionada.upper():
+                item.setSelected(True)
+                lista_unidades.setCurrentItem(item)
+
+        # Se nada foi pré-selecionado, força a seleção no primeiro item por padrão
+        if not lista_unidades.currentItem() and lista_unidades.count() > 0:
+            lista_unidades.setCurrentRow(0)
+
+        layout.addWidget(lista_unidades)
+
+        layout.addSpacing(5)
 
         btns = QHBoxLayout()
         btn_ok = QPushButton("OK")
         btn_cancel = QPushButton("Cancelar")
 
-        # --- AUMENTANDO OS CARACTERES E O PREENCHIMENTO DOS BOTÕES ---
         estilo_botoes_unidade = "font-size: 11pt; font-weight: bold; padding: 6px;"
         btn_ok.setStyleSheet(estilo_botoes_unidade)
         btn_cancel.setStyleSheet(estilo_botoes_unidade)
         btn_ok.setMinimumWidth(110)
         btn_cancel.setMinimumWidth(110)
+
+        # Permite dar duplo clique direto na lista para prosseguir rapidamente
+        lista_unidades.itemDoubleClicked.connect(dialog.accept)
 
         btn_ok.clicked.connect(dialog.accept)
         btn_cancel.clicked.connect(dialog.reject)
@@ -3202,7 +3271,13 @@ class JanelaHashes(QWidget):
         if dialog.exec() != QDialog.Accepted:
             return
 
-        nome_curto, root, dtype, nivel = combo.currentData()
+        # Captura o item selecionado no QListWidget
+        item_selecionado = lista_unidades.currentItem()
+        if not item_selecionado:
+            return
+
+        # Recupera os dados que guardamos no Qt.UserRole
+        nome_curto, root, dtype, nivel = item_selecionado.data(Qt.UserRole)
 
         # obter_info_volume só funciona em volumes lógicos (Ex: "E:\")
         info = obter_info_volume(root) if nivel == "LOGICO" else {}
@@ -3284,7 +3359,13 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"Caminho Físico: {root}")
             self.texto_saida.append("Tipo: Hardware Direto (Sem Sistema de Arquivos Montado)")
             self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
-            self.texto_saida.append(f"Dispositivo (ID/Modelo): {combo.currentText().replace('HARDWARE DIRETO: ', '')}")
+
+            # Correção: Agora lê do item_selecionado da lista em vez do combo extinto
+            texto_lista = item_selecionado.text()
+            # Limpa o texto da interface ("HARDWARE DIRETO: \\.\PhysicalDrive0 [X GB]  -  ") para sobrar só o modelo
+            modelo_limpo = texto_lista.split("  -  ")[-1] if "  -  " in texto_lista else texto_lista
+
+            self.texto_saida.append(f"Dispositivo (ID/Modelo): {modelo_limpo}")
             self.texto_saida.append(f"Serial de Fábrica (Hardware): {info.get('serial_hardware', 'Não detectado')}")
 
         self.texto_saida.append("")
@@ -3649,7 +3730,7 @@ class JanelaHashes(QWidget):
             # --- 1. JANELA DE SELEÇÃO: DD vs E01 ---
             dialog_formato = QDialog(self)
             dialog_formato.setWindowTitle("Selecionar Formato da Imagem")
-            dialog_formato.setMinimumWidth(480)  # Aumentada um pouco para acomodar os novos textos
+            dialog_formato.setMinimumWidth(550)  # Aumentada um pouco para acomodar os novos textos
             layout_formato = QVBoxLayout(dialog_formato)
 
             lbl_f = QLabel("Escolha o formato de saída para a cópia bit-a-bit:")
