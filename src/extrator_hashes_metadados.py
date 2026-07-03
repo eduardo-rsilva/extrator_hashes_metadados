@@ -3555,9 +3555,23 @@ class JanelaHashes(QWidget):
                                 }}
                             """
 
+            # --- DEFINIÇÃO DINÂMICA DO TEXTO DA OPÇÃO 1 ---
+            texto_opcao1 = "OPÇÃO 1: Disco Físico Inteiro"
+            if dtype != DRIVE_CDROM:
+                if nivel == "FISICO":
+                    texto_opcao1 += f" ({root})"
+                else:
+                    try:
+                        # Identifica o PhysicalDrive real por trás da letra lógica
+                        disks = volume_to_physical_drives(volume_dev)
+                        if disks:
+                            drives_str = ", ".join([f"\\\\.\\PhysicalDrive{d}" for d in disks])
+                            texto_opcao1 += f" ({drives_str})"
+                    except Exception:
+                        pass  # Falha silenciosa, mantém apenas o texto padrão
+
             # TEXTO OPÇÃO 1
-            lbl_titulo_disco = QLabel(
-                "<b><span style='font-size: 12pt;'>OPÇÃO 1: Disco Físico Inteiro (\\\\.\\PhysicalDriveN)</span></b>")
+            lbl_titulo_disco = QLabel(f"<b><span style='font-size: 12pt;'>{texto_opcao1}</span></b>")
             lbl_desc_disco = QLabel(
                 "<b>O que faz:</b> Acesso irrestrito em nível de hardware. Lê a mídia de ponta a ponta, do primeiro ao último setor físico disponível.<br>"
                 "<b>O que captura:</b> Tabelas de inicialização (MBR/GPT), todas as partições (visíveis, ocultas ou com sistemas desconhecidos), espaço não alocado e resíduos entre partições.<br>"
@@ -3572,18 +3586,32 @@ class JanelaHashes(QWidget):
             if dtype == DRIVE_CDROM:
                 btn_disco.setEnabled(False)
                 btn_disco.setToolTip(
-                    "Indisponível: A extração física de hardware (ponta a ponta)\nnão é suportada nativamente para mídias ópticas (CD/DVD).\n"
-                    "A operação deverá ser realizada obrigatoriamente\natravés da opção de Volume Lógico."
+                    "Indisponível: A extração física de hardware (ponta a ponta) não é suportada nativamente para mídias ópticas (CD/DVD).\n"
+                    "A operação deverá ser realizada obrigatoriamente através da opção de Volume Lógico."
                 )
 
+            # --- DEFINIÇÃO DINÂMICA DO TEXTO DA OPÇÃO 2 ---
+            texto_opcao2 = "OPÇÃO 2: Apenas o Volume Lógico"
+            if nivel != "FISICO":
+                texto_opcao2 += f" ({volume_dev})"
+
             # TEXTO OPÇÃO 2
-            lbl_titulo_volume = QLabel(
-                f"<br><b><span style='font-size: 12pt;'>OPÇÃO 2: Apenas o Volume Lógico ({volume_dev})</span></b>")
-            lbl_desc_volume = QLabel(
-                "<b>O que faz:</b> Acesso lógico delimitado. Lê bit a bit exclusivamente dentro dos limites da partição selecionada pelo Windows.<br>"
-                "<b>O que captura:</b> O sistema de arquivos (MFT/FAT), arquivos ativos, deletados recuperáveis, <i>File Slack</i> e espaço livre. <b>Ignora</b> o resto do disco.<br>"
-                "<b>Uso Forense:</b> Ideal para triagem rápida. Metodologia recomendada para extrair o conteúdo 'em claro' de partições BitLocker após desbloqueio."
-            )
+            lbl_titulo_volume = QLabel(f"<br><b><span style='font-size: 12pt;'>{texto_opcao2}</span></b>")
+
+            if dtype == DRIVE_CDROM:
+                texto_desc_volume = (
+                    "<b>O que faz:</b> Acesso lógico delimitado. Lê bit-a-bit exclusivamente a sessão de dados montada pelo sistema operacional.<br>"
+                    "<b>O que captura:</b> O sistema de arquivos óptico (ISO9660/UDF/CDFS) e todos os dados e artefatos gravados na mídia.<br>"
+                    "<b>Uso Forense:</b> <b>OBRIGATÓRIO PARA MÍDIAS ÓPTICAS (CD/DVD).</b> A arquitetura do Windows exige que o espelhamento forense deste tipo de mídia seja feito através do volume lógico."
+                )
+            else:
+                texto_desc_volume = (
+                    "<b>O que faz:</b> Acesso lógico delimitado. Lê bit a bit exclusivamente dentro dos limites da partição selecionada pelo Windows.<br>"
+                    "<b>O que captura:</b> O sistema de arquivos (MFT/FAT), arquivos ativos, deletados recuperáveis, <i>File Slack</i> e espaço livre. <b>Ignora</b> o resto do disco.<br>"
+                    "<b>Uso Forense:</b> Ideal para triagem rápida. Metodologia recomendada para extrair o conteúdo 'em claro' de partições BitLocker após desbloqueio."
+                )
+
+            lbl_desc_volume = QLabel(texto_desc_volume)
             lbl_desc_volume.setWordWrap(True)
             lbl_desc_volume.setStyleSheet(f"color: {cor_texto}; font-size: 11pt; margin-bottom: 10px;")
 
