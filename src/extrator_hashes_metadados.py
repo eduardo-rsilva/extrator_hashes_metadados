@@ -544,20 +544,56 @@ def volume_to_physical_drives(volume_device: str) -> list[int]:
     finally:
         CloseHandle(h)
 
-def obter_serial_hardware(disk_number: int) -> str:
-    """Busca o serial físico de fábrica do dispositivo usando o WMIC do Windows."""
+
+import re
+import subprocess
+
+
+def obter_serial_hardware(disk_number) -> str:
+    """
+    Busca o serial físico do dispositivo.
+    Se o SerialNumber padrão for vazio (comum em pendrives USB),
+    extrai o serial do PNPDeviceID (Plug and Play).
+    """
+    # 1. Garante que temos apenas o número do disco (trata tanto "9" quanto "\\.\PHYSICALDRIVE9")
+    match = re.search(r'\d+', str(disk_number))
+    if not match:
+        return "Indisponível (Índice não encontrado)"
+
+    disk_index = match.group(0)
+
     try:
-        # Usa o creationflags=subprocess.CREATE_NO_WINDOW para não piscar a tela do CMD
-        resultado = subprocess.run(
-            ["wmic", "diskdrive", "where", f"Index={disk_number}", "get", "SerialNumber"],
-            capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
+        creationflags = 0x08000000 if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+
+        # 2. Script PowerShell que busca o Serial.
+        # Se for vazio, pega o PNPDeviceID, corta a parte final e remove o sufixo "&0" do Windows.
+        ps_script = (
+            f"$d = Get-WmiObject Win32_DiskDrive -Filter 'Index={disk_index}'; "
+            f"if ($d.SerialNumber -and $d.SerialNumber.Trim() -ne '') {{ "
+            f"    Write-Output $d.SerialNumber.Trim() "
+            f"}} elseif ($d.PNPDeviceID) {{ "
+            f"    $parts = $d.PNPDeviceID -split '\\\\'; "
+            f"    $id = $parts[-1]; "
+            f"    if ($id -match '&') {{ $id = ($id -split '&')[0] }}; "
+            f"    Write-Output $id "
+            f"}}"
         )
-        linhas = resultado.stdout.strip().split('\n')
-        if len(linhas) > 1:
-            return linhas[1].strip() # Retorna o serial na segunda linha
-    except Exception as e:
+
+        resultado = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            capture_output=True, text=True, creationflags=creationflags
+        )
+
+        serial = resultado.stdout.strip()
+
+        # 3. Retorna o serial, ou um aviso claro se tudo falhar (não retorna vazio)
+        if serial:
+            return serial
+
+    except Exception:
         pass
-    return "Não detectado"
+
+    return "Não detectado / Indisponível"
 
 def normalize_drive_root(drive_letter: str) -> str:
     d = drive_letter.strip().replace("/", "\\")
@@ -3297,15 +3333,9 @@ class JanelaHashes(QWidget):
                 if saida:
                     serial_hardware = saida
             elif nivel == "FISICO":
-                # Se for físico, o nome_curto é "Disco 0". Vamos pegar o serial pelo WMIC direto
+                # Se for físico, extrai o índice numérico e usa a função robusta
                 num_disco = nome_curto.replace("Disco ", "").strip()
-                resultado = subprocess.run(
-                    ["wmic", "diskdrive", "where", f"Index={num_disco}", "get", "SerialNumber", "/format:csv"],
-                    capture_output=True, text=True, creationflags=0x08000000
-                )
-                linhas = resultado.stdout.strip().splitlines()
-                if len(linhas) > 1:
-                    serial_hardware = linhas[1].split(',')[-1].strip()
+                serial_hardware = obter_serial_hardware(num_disco)
         except Exception:
             pass
 
