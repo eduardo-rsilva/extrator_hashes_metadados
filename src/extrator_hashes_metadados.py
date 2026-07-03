@@ -3092,7 +3092,7 @@ class JanelaHashes(QWidget):
         return out_json, progress_json, cancel_flag
 
     def _listar_unidades_windows(self):
-        # Lista A:\ a Z:\ presentes (GetLogicalDrives)
+        # 1. Lista A:\ a Z:\ presentes (Volumes Lógicos Montados)
         drives_mask = kernel32.GetLogicalDrives()
         out = []
         for i in range(26):
@@ -3100,7 +3100,27 @@ class JanelaHashes(QWidget):
                 letter = chr(ord("A") + i)
                 root = f"{letter}:\\"
                 dtype = get_drive_type(root)
-                out.append((letter, root, dtype))
+                out.append((letter, root, dtype, "LOGICO", ""))
+
+        # 2. Lista os Discos Físicos (PhysicalDrives) via WMIC
+        try:
+            resultado = subprocess.run(
+                ["wmic", "diskdrive", "get", "deviceid,model", "/format:csv"],
+                capture_output=True, text=True, creationflags=0x08000000
+            )
+            linhas = resultado.stdout.strip().splitlines()
+            for linha in linhas[1:]:  # Pula o cabeçalho gerado pelo wmic
+                partes = linha.split(',')
+                if len(partes) >= 3:
+                    device_id = partes[1].strip()  # Ex: \\.\PHYSICALDRIVE0
+                    model = partes[2].strip()
+                    if device_id.upper().startswith("\\\\.\\PHYSICALDRIVE"):
+                        num = device_id.upper().replace("\\\\.\\PHYSICALDRIVE", "")
+                        # Tratamos como FIXED para passar no filtro da interface, mas marcamos como FISICO
+                        out.append((f"Disco {num}", device_id, DRIVE_FIXED, "FISICO", model))
+        except Exception:
+            pass
+
         return out
 
     def _tipo_unidade_texto(self, dtype: int) -> str:
@@ -3139,8 +3159,13 @@ class JanelaHashes(QWidget):
         combo = QComboBox()
         combo.setStyleSheet("font-size: 11pt; padding: 6px;")  # Elemento de seleção maior
 
-        for indice, (letter, root, dtype) in enumerate(unidades):
-            combo.addItem(f"{root}  -  {self._tipo_unidade_texto(dtype)}", (letter, root, dtype))
+        for indice, (nome_curto, root, dtype, nivel, modelo) in enumerate(unidades):
+            if nivel == "FISICO":
+                texto_exibicao = f"HARDWARE DIRETO: {root}  -  {modelo}"
+            else:
+                texto_exibicao = f"VOLUME LÓGICO: {root}  -  {self._tipo_unidade_texto(dtype)}"
+
+            combo.addItem(texto_exibicao, (nome_curto, root, dtype, nivel))
 
             # Se a unidade pre-selecionada via Drag & Drop bater com a unidade atual do loop, foca nela
             if unidade_pre_selecionada and root.upper() == unidade_pre_selecionada.upper():
@@ -3177,29 +3202,36 @@ class JanelaHashes(QWidget):
         if dialog.exec() != QDialog.Accepted:
             return
 
-        letter, root, dtype = combo.currentData()
-        info = obter_info_volume(root)
+        nome_curto, root, dtype, nivel = combo.currentData()
 
-        info = obter_info_volume(root)
+        # obter_info_volume só funciona em volumes lógicos (Ex: "E:\")
+        info = obter_info_volume(root) if nivel == "LOGICO" else {}
+        if info is None:
+            info = {}
 
-        # Tenta buscar o serial físico contornando a falta de UAC via PowerShell
         serial_hardware = "Não detectado"
         try:
-            if info.get('unidade'):  # Vai vir como 'I:\'
-                letra = info['unidade'].replace(":\\", "").strip()  # Limpa para ficar só 'I'
-
+            if nivel == "LOGICO" and info.get('unidade'):
+                letra = info['unidade'].replace(":\\", "").strip()
                 ps_script = f"Get-Partition -DriveLetter {letra} | Get-Disk | Select-Object -ExpandProperty SerialNumber"
-
-                # 0x08000000 é o valor de subprocess.CREATE_NO_WINDOW
                 resultado = subprocess.run(
                     ["powershell", "-NoProfile", "-Command", ps_script],
                     capture_output=True, text=True, creationflags=0x08000000
                 )
-
                 saida = resultado.stdout.strip()
                 if saida:
                     serial_hardware = saida
-        except Exception as e:
+            elif nivel == "FISICO":
+                # Se for físico, o nome_curto é "Disco 0". Vamos pegar o serial pelo WMIC direto
+                num_disco = nome_curto.replace("Disco ", "").strip()
+                resultado = subprocess.run(
+                    ["wmic", "diskdrive", "where", f"Index={num_disco}", "get", "SerialNumber", "/format:csv"],
+                    capture_output=True, text=True, creationflags=0x08000000
+                )
+                linhas = resultado.stdout.strip().splitlines()
+                if len(linhas) > 1:
+                    serial_hardware = linhas[1].split(',')[-1].strip()
+        except Exception:
             pass
 
         info['serial_hardware'] = serial_hardware
@@ -3228,21 +3260,17 @@ class JanelaHashes(QWidget):
             self.texto_saida.clear()
         # --------------------------------------------------
 
-        if info:
-            self.texto_saida.append("=== UNIDADE SELECIONADA (RAW) ===")
+        self.texto_saida.append("=== UNIDADE SELECIONADA (RAW) ===")
+
+        if nivel == "LOGICO":
             self.texto_saida.append(f"Letra: {info.get('unidade', 'Desconhecida')}")
             self.texto_saida.append(f"Rótulo: {info.get('rotulo', 'Sem Rótulo')}")
             self.texto_saida.append(f"Serial do Volume (Lógico): {info.get('serial', 'Não detectado')}")
             self.texto_saida.append(f"FS: {info.get('sistema_arquivos', 'RAW')}")
-
             if 'capacidade' in info:
                 self.texto_saida.append(f"Capacidade do Volume Lógico (Partição): {info['capacidade']}")
 
-            # --- SEÇÃO DE HARDWARE FÍSICO (Via PowerShell s/ UAC) ---
-            self.texto_saida.append("")
-            self.texto_saida.append("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
-
-            # Pega a letra da unidade selecionada no combo box (ex: 'I:\')
+            self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
             letra_limpa = info.get('unidade', '')
             if letra_limpa:
                 hw_info = obter_info_hardware_por_letra(letra_limpa)
@@ -3251,8 +3279,15 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append(f"Serial de Fábrica (Hardware): {hw_info['serial']}")
             else:
                 self.texto_saida.append("Hardware físico: Não foi possível mapear a letra da unidade.")
+        else:
+            # Exibição limpa para Discos Físicos puros
+            self.texto_saida.append(f"Caminho Físico: {root}")
+            self.texto_saida.append("Tipo: Hardware Direto (Sem Sistema de Arquivos Montado)")
+            self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+            self.texto_saida.append(f"Dispositivo (ID/Modelo): {combo.currentText().replace('HARDWARE DIRETO: ', '')}")
+            self.texto_saida.append(f"Serial de Fábrica (Hardware): {info.get('serial_hardware', 'Não detectado')}")
 
-            self.texto_saida.append("")  # Linha em branco para separar do restante do log
+        self.texto_saida.append("")
 
         # --- Diálogo customizado de UAC (Botões Centralizados) ---
         dialog_uac = QDialog(self)
@@ -3328,10 +3363,14 @@ class JanelaHashes(QWidget):
         # ---------------------------------------------------------
 
         # Decide alvo (volume vs physical drive)
-        volume_dev = drive_root_to_volume_device(root)  # Ex: \\.\I:
-        device_path = volume_dev
+        if nivel == "FISICO":
+            volume_dev = root  # Já é o PhysicalDrive bruto
+            device_path = root
+        else:
+            volume_dev = drive_root_to_volume_device(root)  # Ex: \\.\I:
+            device_path = volume_dev
 
-        if dtype in (DRIVE_REMOVABLE, DRIVE_FIXED):
+        if dtype in (DRIVE_REMOVABLE, DRIVE_FIXED) or nivel == "FISICO":
             # Cria um diálogo customizado para escolha clara do escopo
             dialog_escopo = QDialog(self)
             dialog_escopo.setWindowTitle("Escopo do Hash RAW (Perícia Forense)")
@@ -3353,19 +3392,30 @@ class JanelaHashes(QWidget):
             borda = "1px solid #555555" if is_dark else "1px solid #bfbfbf"
             cor_txt = "#f0f0f0" if is_dark else "#000000"
 
+            # Cores para o estado desativado (disabled) da Abordagem Didática
+            bg_dis = "#2b2b2b" if is_dark else "#f0f0f0"
+            fg_dis = "#666666" if is_dark else "#a0a0a0"
+            bd_dis = "#444444" if is_dark else "#cccccc"
+
             estilo_botoes_escopo = f"""
-                            QPushButton {{
-                                padding: 8px;
-                                font-weight: bold;
-                                font-size: 11pt;
-                                background-color: {bg_normal};
-                                color: {cor_txt};
-                                border: {borda};
-                                border-radius: 4px;
-                            }}
-                            QPushButton:hover {{ background-color: {bg_hover}; }}
-                            QPushButton:pressed {{ background-color: {bg_pressed}; }}
-                        """
+                                QPushButton {{
+                                    padding: 8px;
+                                    font-weight: bold;
+                                    font-size: 11pt;
+                                    background-color: {bg_normal};
+                                    color: {cor_txt};
+                                    border: {borda};
+                                    border-radius: 4px;
+                                }}
+                                QPushButton:hover {{ background-color: {bg_hover}; }}
+                                QPushButton:pressed {{ background-color: {bg_pressed}; }}
+                                QPushButton:disabled {{
+                                    background-color: {bg_dis}; 
+                                    color: {fg_dis}; 
+                                    border: 1px solid {bd_dis}; 
+                                    font-weight: normal;
+                                }}
+                            """
 
             # TEXTO OPÇÃO 1
             lbl_titulo_disco = QLabel(
@@ -3394,6 +3444,11 @@ class JanelaHashes(QWidget):
 
             btn_volume = QPushButton("Selecionar Opção 2 (Apenas Partição)")
             btn_volume.setStyleSheet(estilo_botoes_escopo)
+
+            if nivel == "FISICO":
+                btn_volume.setEnabled(False)
+                btn_volume.setToolTip(
+                    "Indisponível: O hardware selecionado é o disco físico bruto.\nNão há partição lógica isolada mapeada nesta seleção.")
 
             # Lógica de seleção
             escolha = {"tipo": "volume"}
@@ -3430,23 +3485,28 @@ class JanelaHashes(QWidget):
                 return
 
             if escolha["tipo"] == "disco":
-                try:
-                    disks = volume_to_physical_drives(volume_dev)
-                    if not disks:
-                        raise RuntimeError("Não foi possível mapear volume -> PhysicalDrive")
-                    if len(disks) > 1:
-                        QMessageBox.warning(self, "Aviso",
-                                            f"Volume mapeado para múltiplos discos físicos: {disks}. Usando o primeiro.")
-                    # noinspection PyUnusedLocal
-                    device_path = r"\\.\PhysicalDrive{}".format(disks[0])
+                if nivel == "FISICO":
+                    # Evita o erro de tentar converter o que já é PhysicalDrive em PhysicalDrive
+                    device_path = root
                     self._raw_metodo_escolhido = "Disco Físico Inteiro (Acesso direto ao Hardware)"
+                else:
+                    try:
+                        disks = volume_to_physical_drives(volume_dev)
+                        if not disks:
+                            raise RuntimeError("Não foi possível mapear volume -> PhysicalDrive")
+                        if len(disks) > 1:
+                            QMessageBox.warning(self, "Aviso",
+                                                f"Volume mapeado para múltiplos discos físicos: {disks}. Usando o primeiro.")
+                        # noinspection PyUnusedLocal
+                        device_path = r"\\.\PhysicalDrive{}".format(disks[0])
+                        self._raw_metodo_escolhido = "Disco Físico Inteiro (Acesso direto ao Hardware)"
 
-                except Exception as e:
-                    QMessageBox.critical(self, "Erro Mapeamento",
-                                         f"Falha ao obter PhysicalDrive (Erro: {e}).\n\nUsando o volume ({volume_dev}) como alternativa.")
-                    device_path = volume_dev
-                    # SALVA A ESCOLHA (FALLBACK)
-                    self._raw_metodo_escolhido = "Volume Lógico (Fallback por falha no mapeamento físico)"
+                    except Exception as e:
+                        QMessageBox.critical(self, "Erro Mapeamento",
+                                             f"Falha ao obter PhysicalDrive (Erro: {e}).\n\nUsando o volume ({volume_dev}) como alternativa.")
+                        device_path = volume_dev
+                        # SALVA A ESCOLHA (FALLBACK)
+                        self._raw_metodo_escolhido = "Volume Lógico (Fallback por falha no mapeamento físico)"
             else:
                 device_path = volume_dev
                 # SALVA A ESCOLHA (OPÇÃO 2)
