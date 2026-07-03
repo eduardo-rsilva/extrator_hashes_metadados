@@ -608,6 +608,19 @@ def drive_root_to_volume_device(drive_root: str) -> str:
 def get_drive_type(drive_root: str) -> int:
     return int(GetDriveTypeW(wintypes.LPCWSTR(drive_root)))
 
+def is_device_cdrom(device_path: str) -> bool:
+    """Detecta de forma robusta se a unidade/caminho selecionado pertence a um CD/DVD (Mídia Óptica)."""
+    s = device_path.strip().upper()
+    # 1. Checa se o caminho contém uma letra de volume (Ex: \\.\E: ou E:\) e valida com a API
+    match = re.search(r'([A-Z]):', s)
+    if match:
+        letra = match.group(1)
+        return get_drive_type(f"{letra}:\\") == DRIVE_CDROM
+    # 2. Fallback para nomes de dispositivos físicos ópticos nativos do Windows
+    if s.startswith("\\\\.\\CDROM"):
+        return True
+    return False
+
 def parse_algos_csv(csv_text: str) -> list[str]:
     items = []
     for part in (csv_text or "").split(","):
@@ -945,6 +958,16 @@ def cli_raw_mode_main(argv=None) -> int:
         raise SystemExit("Parâmetro --out-json é obrigatório")
 
     img_out = args.image_out.strip() or None
+
+    # VALIDAÇÃO DE SEGURANÇA: Aborta a operação se o escopo exigido for hardware (PhysicalDrive) em mídia óptica
+    is_hardware_scope = args.device.upper().startswith("\\\\.\\PHYSICALDRIVE")
+    if is_hardware_scope and is_device_cdrom(args.device):
+        payload = {"ok": False,
+                   "error": "OPERAÇÃO ABORTADA: A extração física de hardware não é suportada nativamente em mídias ópticas (CD/DVD). O acesso deve ser feito pelo volume lógico."}
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        return 0
 
     try:
         lock_f, lock_path = try_acquire_raw_device_lock(args.device)
@@ -2199,11 +2222,13 @@ class WorkerExtracao(QThread):
                 f" ↳ Capacidade Total: {self.info_drive.get('capacidade', 'Não identificada')}\n")
 
             letra_limpa = self.info_drive['unidade']
-            hw_info = obter_info_hardware_por_letra(letra_limpa)
-            self.sig_texto_append.emit("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
-            self.sig_texto_append.emit(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
-            self.sig_texto_append.emit(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
-            self.sig_texto_append.emit(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}\n")
+            # Supre o bloco de hardware se a unidade for uma mídia óptica (CD/DVD)
+            if get_drive_type(letra_limpa) != DRIVE_CDROM:
+                hw_info = obter_info_hardware_por_letra(letra_limpa)
+                self.sig_texto_append.emit("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+                self.sig_texto_append.emit(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
+                self.sig_texto_append.emit(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
+                self.sig_texto_append.emit(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}\n")
 
         self.sig_texto_append.emit("-" * 60 + "\n")
 
@@ -3375,15 +3400,17 @@ class JanelaHashes(QWidget):
             if 'capacidade' in info:
                 self.texto_saida.append(f"Capacidade do Volume Lógico (Partição): {info['capacidade']}")
 
-            self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
-            letra_limpa = info.get('unidade', '')
-            if letra_limpa:
-                hw_info = obter_info_hardware_por_letra(letra_limpa)
-                self.texto_saida.append(f"Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
-                self.texto_saida.append(f"Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
-                self.texto_saida.append(f"Serial de Fábrica (Hardware): {hw_info['serial']}")
-            else:
-                self.texto_saida.append("Hardware físico: Não foi possível mapear a letra da unidade.")
+            # Só exibe o bloco de hardware se NÃO for uma mídia óptica (CD/DVD)
+            if get_drive_type(root) != DRIVE_CDROM:
+                self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
+                letra_limpa = info.get('unidade', '')
+                if letra_limpa:
+                    hw_info = obter_info_hardware_por_letra(letra_limpa)
+                    self.texto_saida.append(f"Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
+                    self.texto_saida.append(f"Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
+                    self.texto_saida.append(f"Serial de Fábrica (Hardware): {hw_info['serial']}")
+                else:
+                    self.texto_saida.append("Hardware físico: Não foi possível mapear a letra da unidade.")
         else:
             # Exibição limpa para Discos Físicos puros
             self.texto_saida.append(f"Caminho Físico: {root}")
@@ -3481,7 +3508,7 @@ class JanelaHashes(QWidget):
             volume_dev = drive_root_to_volume_device(root)  # Ex: \\.\I:
             device_path = volume_dev
 
-        if dtype in (DRIVE_REMOVABLE, DRIVE_FIXED) or nivel == "FISICO":
+        if dtype in (DRIVE_REMOVABLE, DRIVE_FIXED, DRIVE_CDROM) or nivel == "FISICO":
             # Cria um diálogo customizado para escolha clara do escopo
             dialog_escopo = QDialog(self)
             dialog_escopo.setWindowTitle("Escopo do Hash RAW (Perícia Forense)")
@@ -3541,6 +3568,13 @@ class JanelaHashes(QWidget):
 
             btn_disco = QPushButton("Selecionar Opção 1 (Hardware Completo)")
             btn_disco.setStyleSheet(estilo_botoes_escopo)
+
+            if dtype == DRIVE_CDROM:
+                btn_disco.setEnabled(False)
+                btn_disco.setToolTip(
+                    "Indisponível: A extração física de hardware (ponta a ponta)\nnão é suportada nativamente para mídias ópticas (CD/DVD).\n"
+                    "A operação deverá ser realizada obrigatoriamente\natravés da opção de Volume Lógico."
+                )
 
             # TEXTO OPÇÃO 2
             lbl_titulo_volume = QLabel(
@@ -3622,10 +3656,6 @@ class JanelaHashes(QWidget):
                 device_path = volume_dev
                 # SALVA A ESCOLHA (OPÇÃO 2)
                 self._raw_metodo_escolhido = "Apenas Volume Lógico (Delimitado pelo S.O.)"
-
-        else:
-            # Se for CD-ROM, só tem uma opção
-            self._raw_metodo_escolhido = "Leitura Direta da Mídia (CD/DVD)"
 
         # --- DIÁLOGO CUSTOMIZADO: AQUISIÇÃO DE IMAGEM FORENSE ---
         caminho_imagem = ""
