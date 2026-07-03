@@ -73,6 +73,15 @@ if os.path.exists(destino_exiftool):
     shutil.rmtree(destino_exiftool)
 shutil.copytree(origem_exiftool, destino_exiftool)
 
+# ===== CÓPIA DA PASTA DO EWF =====
+origem_ewf = "src/ewf"
+destino_ewf = os.path.join("src", "extrator_hashes_metadados.dist", "ewf")
+
+print(f"Copiando {origem_ewf} para {destino_ewf}...")
+if os.path.exists(destino_ewf):
+    shutil.rmtree(destino_ewf)
+shutil.copytree(origem_ewf, destino_ewf)
+
 print("Build finalizado com sucesso! A pasta 'extrator_hashes_metadados.dist' está pronta.")
 
 print("Gerando registro de integridade da pasta .dist (Hashes)...")
