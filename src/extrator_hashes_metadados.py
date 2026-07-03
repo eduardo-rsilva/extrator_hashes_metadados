@@ -309,7 +309,7 @@ FORMATOS_COMPACTADOS = ['zip', 'rar', '7z', 'tar', 'gz']
 FORMATOS_TORRENT = ['torrent']
 FORMATOS_RTF = ['rtf']
 
-FORMATOS_KML = ['kml', 'xml', 'gpx', 'kmz']
+FORMATOS_KML = ['kml', 'kmz', 'xml', 'gpx']
 
 # Soma de todas as subcategorias para exibir na Interface do Usuário
 FORMATOS_GERAIS = (FORMATOS_PDF + FORMATOS_OFFICE_XML + FORMATOS_OFFICE_LEGADO +

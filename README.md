@@ -52,7 +52,7 @@ A ativação da opção **"Incluir Metadados Básicos"** permite a extração de
 * **Validação de Duração:** Calcula o *FPS Matemático/Real* dividindo a quantidade exata de quadros contabilizados fisicamente no arquivo pela duração estrutural extraída em milissegundos, revelando a verdadeira fluidez do vídeo independentemente de cabeçalhos genéricos.
 * **Análise de Redes Sociais:** Detecta padrões de nomes (WhatsApp, Telegram, Facebook) e emite um alerta pericial sobre o **metadata stripping** (lavagem de metadados).
 * **Áudio:** Utiliza uma extração primária hiper-rápida (**TinyTag**) com fallback via ExifTool, obtendo duração exata, bitrate e artista.
-* **Arquivos Geográficos / Mapas (KML, GPX, XML):** Extração de coordenadas, pontos e vértices (com supressão inteligente de duplicatas no fecho de polígonos). Inclui interface com botões para a exportação minificada de novos mapas periciais (Pontos e Polígonos demarcados) com interface para identificação de autoria forense (Operação, Laudo e Usuário).
+* **Arquivos Geográficos / Mapas (KML, KMZ, GPX, XML):** Extração de coordenadas, pontos e vértices (com supressão inteligente de duplicatas no fecho de polígonos). Inclui interface com botões para a exportação minificada de novos mapas periciais (Pontos e Polígonos demarcados) com interface para identificação de autoria forense (Operação, Laudo e Usuário).
 
 ### 🔬 Dump Estrutural de Metadados (Raw Dump)
 
@@ -69,7 +69,7 @@ Abaixo estão as rotinas exatas executadas pela ferramenta para a extração est
 * **🔗 Atalhos do Windows (.lnk):** O módulo `LnkParse3` decodifica a estrutura binária do atalho, e a ferramenta anexa o *dump* integral via método `get_json()`.
 * **⚙️ Binários PE (.exe, .dll, .sys):** O módulo `pefile` processa a estrutura executável e a ferramenta incorpora a saída integral e bruta da função `pe.dump_info()`, contemplando mapeamento de seções e cabeçalhos de compilação.
 * **📧 Contêineres de E-mail:** Para arquivos `.eml`, a biblioteca nativa itera sobre o retorno `msg.items()`. Para contêineres `.msg`, o módulo `extract_msg` realiza o *dump* integral varrendo `msg.header.items()`.
-* **🌍 Arquivos Geográficos (KML, GPX, XML):** A biblioteca nativa `xml.etree.ElementTree` processa a árvore XML do mapa iterando sobre os nós, extraindo o total exato de `<coordinates>` e a totalização bruta de vértices originais mapeados no arquivo.
+* **🌍 Arquivos Geográficos (KML, KMZ, GPX, XML):** A biblioteca nativa `xml.etree.ElementTree` processa a árvore XML do mapa iterando sobre os nós, extraindo o total exato de `<coordinates>` e a totalização bruta de vértices originais mapeados no arquivo.
 * **📦 Outros Formatos (Archives, Torrents, RTF):** A ferramenta delega o *dump* integral para as funções de extração JSON do `ExifTool`.
 
 > **🛡️ Rede de Captura Universal (Fallback):** Caso a extensão do arquivo permita extração, mas o ExifTool não tenha sido acionado nas rotinas principais, o script possui uma rede de segurança no final do bloco. Ele invoca o **ExifTool** de forma complementar com parametrização estrita (`-j -G -a -ee -api largefilesupport=1`) para garantir o *dump* forçado de quaisquer propriedades identificáveis, independentemente do suporte nativo.
