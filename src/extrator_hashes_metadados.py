@@ -3854,6 +3854,7 @@ class JanelaHashes(QWidget):
             nome_da_imagem = f"imagem_forense_{info['serial'] if info else 'raw'}"
 
             while True:
+                # noinspection PyTypeChecker
                 opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
                 diretorio_escolhido = QFileDialog.getExistingDirectory(self, "Selecione o local para salvar",
                                                                        options=opcoes_dir)
@@ -4011,8 +4012,8 @@ class JanelaHashes(QWidget):
 
                             # Apaga o "Aguarde..." da tela
                             cursor = self.texto_saida.textCursor()
-                            cursor.movePosition(QTextCursor.End)
-                            cursor.select(QTextCursor.BlockUnderCursor)
+                            cursor.movePosition(QTextCursor.MoveOperation.End)
+                            cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
                             cursor.removeSelectedText()
 
                             self.texto_saida.append(msg_verificacao)
@@ -7176,8 +7177,8 @@ class JanelaHashes(QWidget):
         """Apaga visualmente a linha de renderização pesada para não poluir a tela."""
         if not self._limite_tela_atingido:
             cursor = self.texto_saida.textCursor()
-            cursor.movePosition(QTextCursor.End)
-            cursor.select(QTextCursor.BlockUnderCursor)
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
             cursor.removeSelectedText()
             cursor.deletePreviousChar()
             self.texto_saida.setTextCursor(cursor)
