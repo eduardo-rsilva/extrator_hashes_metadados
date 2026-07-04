@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "7.0.0"
+VERSAO_APP = "5.0.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -1559,7 +1559,7 @@ class TextEditCustodia(QTextEdit):
         # Mensagem visual em HTML adaptada para dimensões menores
         self._texto_fundo = """
         <div style="text-align: center; color: #888888; font-family: sans-serif;">
-            <span style="font-size: 12pt; font-weight: bold; color: #0078D7;">CADEIA DE CUSTÓDIA</span><br><br>
+            <span style="font-size: 12pt; font-weight: bold; color: #0078D7;">VALIDAR CADEIA DE CUSTÓDIA (opcional)</span><br><br>
             <span style="font-size: 9.5pt; line-height: 140%;">
                 <b>Arraste e solte</b> o relatório de hashes da encaminhados pela origem (ex. delegacia) aqui <i>(PDF, DOCX, XLSX, TXT)</i><br>
                 ou <b>cole o texto</b> livremente neste mesmo espaço para realizar a validação automática da cadeia de custódia.<br>
@@ -2413,7 +2413,7 @@ class JanelaHashes(QWidget):
             layout_hashes.addWidget(chk)
             self.chk_hashes[algo] = chk
 
-        layout_hashes.addStretch()
+        layout_hashes.addSpacing(30)
         layout_hashes.addWidget(QLabel("Análise:"))
 
         layout_opcoes_metadados = QVBoxLayout()
@@ -2455,6 +2455,7 @@ class JanelaHashes(QWidget):
         self.chk_metadados_raw.clicked.connect(self._garantir_exclusividade_raw)
 
         layout_hashes.addLayout(layout_opcoes_metadados)
+        layout_hashes.addStretch()
 
         # Adiciona a segunda linha dentro da caixa
         layout_grupo_controles.addLayout(layout_hashes)
