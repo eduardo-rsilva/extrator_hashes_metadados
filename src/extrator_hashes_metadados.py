@@ -6437,6 +6437,7 @@ class JanelaHashes(QWidget):
 
         self.texto_saida.clear() # Limpa a tela e a memória
         self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
+        # noinspection PyUnresolvedReferences
         self.texto_saida._original_append(MENSAGEM_VISUAL)
         self._chars_na_tela += len(MENSAGEM_VISUAL)
         # Re-bloqueia a seleção ao limpar a tela
