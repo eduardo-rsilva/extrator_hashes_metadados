@@ -5522,9 +5522,9 @@ class JanelaHashes(QWidget):
                                     return valor.decode('utf-8', errors='ignore')
                                 return str(valor) if valor else None
 
-                            autor = decodificar(meta.author)
-                            modificador = decodificar(meta.last_saved_by)
-                            titulo = decodificar(meta.title)
+                            autor = decodificar(getattr(meta, 'author', None))
+                            modificador = decodificar(getattr(meta, 'last_saved_by', None))
+                            titulo = decodificar(getattr(meta, 'title', None))
 
                             if autor and autor != "None":
                                 metadados_extras.append(f"Autor (Legacy): {autor}")
