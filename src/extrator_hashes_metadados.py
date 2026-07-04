@@ -529,6 +529,7 @@ def device_get_length_bytes(handle: int) -> int:
         raise RuntimeError(msg)
     return int(out.Length)
 
+# noinspection PyTypeChecker
 def volume_to_physical_drives(volume_device: str) -> list[int]:
     h = open_device_readonly(volume_device)
     try:
@@ -777,7 +778,7 @@ def raw_hash_device(
         if f_img:
             f_img.close()  # Garante que o arquivo da imagem seja fechado.
 
-def _raw_lock_key_from_device(device_path: str) -> str:
+def _raw_lock_key_from_device(device_path: str) -> list[str]:
     """Descobre os discos físicos reais associados ao caminho selecionado."""
     s = (device_path or "").upper().strip()
 
@@ -902,7 +903,7 @@ def run_raw_helper_elevated(
         progress_json_path: str,
         cancel_flag_path: str,
         image_out_path: str = ""
-) -> bool:
+) -> int:
     params = [
         "--raw-hash",
         "--device", device_path,
@@ -973,6 +974,7 @@ def cli_raw_mode_main(argv=None) -> int:
             json.dump(payload, f, ensure_ascii=False, indent=2)
         return 0
 
+    lock_f = None
     try:
         lock_f, lock_path = try_acquire_raw_device_lock(args.device)
         if lock_f is None:
@@ -1592,7 +1594,7 @@ class TextEditCustodia(QTextEdit):
             # Cálculos para centralizar o bloco HTML verticalmente com segurança
             altura_texto = doc.size().height()
             altura_campo = self.viewport().height()
-            y_offset = max(10, (altura_campo - altura_texto) / 2)
+            y_offset = max(10, int((altura_campo - altura_texto) / 2))
 
             painter.save()
             painter.translate(10, y_offset)
@@ -1945,7 +1947,7 @@ class WorkerExtracao(QThread):
         self.coordenadas_gps_encontradas = []
         self._hashes_com_gps = set()
 
-    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False):
+    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False) -> dict:
         """Versão Thread-Safe da sua função original."""
         try:
             stat_info = os.lstat(caminho_arquivo)
@@ -2207,7 +2209,7 @@ class WorkerExtracao(QThread):
                                         self._hashes_com_gps.add(chave_coordenada)
 
                 if validador:
-                    status, msg_custodia = validador.validar(arquivo, resultado['hashes'])
+                    status, msg_custodia = validador.validar(arquivo, hashes_calculados)
                     self.sig_texto_append.emit("")
                     self.sig_texto_append.emit(msg_custodia)
 
