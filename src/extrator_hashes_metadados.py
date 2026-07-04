@@ -2497,11 +2497,22 @@ class JanelaHashes(QWidget):
 
         splitter.addWidget(self.grupo_validacao)
 
-        # --- Área de Texto Principal ---
+        # --- Área de Texto Principal (Envelopada com Título Padronizado) ---
+        self.grupo_saida = QGroupBox("Área de Extração Forense (Resultados)")
+        self.grupo_saida.setStyleSheet("""
+                            QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                        """)
+        layout_interno_saida = QVBoxLayout()
+        layout_interno_saida.setContentsMargins(6, 12, 6, 6)  # Pequeno espaçamento interno para a caixa respirar
+
         self.texto_saida = QTextEdit()
         self.texto_saida.setReadOnly(True)
         self.texto_saida.setStyleSheet(
             "background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
+
+        layout_interno_saida.addWidget(self.texto_saida)
+        self.grupo_saida.setLayout(layout_interno_saida)
 
         # ==========================================================
         # INTERCEPTAÇÃO DE TEXTO PARA PROTEÇÃO DE MEMÓRIA (UI FREEZE)
@@ -2563,7 +2574,7 @@ class JanelaHashes(QWidget):
         self.texto_saida.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
 
         # Adiciona a saída também no splitter, para ficar embaixo da validação
-        splitter.addWidget(self.texto_saida)
+        splitter.addWidget(self.grupo_saida)
 
         # =====================================================================
         # AJUSTE DE COMPORTAMENTO DO SPLITTER
@@ -2744,6 +2755,9 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'grupo_validacao'):
                 self.grupo_validacao.setStyleSheet(estilo_caixas_escuro)
 
+            if hasattr(self, 'grupo_saida'):
+                self.grupo_saida.setStyleSheet(estilo_caixas_escuro)
+
             # Altera a folha de estilos das Tooltips globais para o modo escuro
             if app:
                 app.setStyleSheet("""
@@ -2787,6 +2801,9 @@ class JanelaHashes(QWidget):
             self.grupo_controles.setStyleSheet(estilo_caixas_claro)
             if hasattr(self, 'grupo_validacao'):
                 self.grupo_validacao.setStyleSheet(estilo_caixas_claro)
+
+            if hasattr(self, 'grupo_saida'):
+                self.grupo_saida.setStyleSheet(estilo_caixas_claro)
 
             # Restaura a folha de estilos das Tooltips globais para o modo claro
             if app:
