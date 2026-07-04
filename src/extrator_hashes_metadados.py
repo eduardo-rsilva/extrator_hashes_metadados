@@ -6646,6 +6646,30 @@ class JanelaHashes(QWidget):
 
         layout = QVBoxLayout(dialog)
 
+        # =====================================================================
+        from PySide6.QtCore import QObject, QEvent
+        from PySide6.QtWidgets import QToolTip
+
+        class FiltroTooltipCentro(QObject):
+            def eventFilter(self, obj, event):
+                # Quando o mouse entra no botão
+                if event.type() == QEvent.Type.Enter:
+                    centro = obj.rect().center()
+                    # Desloca levemente para baixo para não tampar o texto do botão
+                    centro.setY(centro.y() + 20)
+                    pos_global = obj.mapToGlobal(centro)
+                    # Força a exibição da tooltip nessa coordenada exata
+                    QToolTip.showText(pos_global, obj.toolTip(), obj)
+                    return True
+                # Bloqueia o delay padrão e a posição da tooltip do sistema operacional
+                elif event.type() == QEvent.Type.ToolTip:
+                    return True
+                    # Apaga a tooltip quando o mouse sai
+                elif event.type() == QEvent.Type.Leave:
+                    QToolTip.hideText()
+                return False
+        # =====================================================================
+
         # Verifica se há algum algoritmo de hash superior ao CRC32 selecionado
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         tem_hash_forte = any(algo != "CRC32" for algo in algos_selecionados)
@@ -6762,31 +6786,6 @@ class JanelaHashes(QWidget):
                 "</td></tr></table>"
             )
             btn_mostrar_10_pontos.setToolTip(tooltip_texto)
-
-            from PySide6.QtCore import QObject, QEvent
-            from PySide6.QtWidgets import QToolTip
-
-            class FiltroTooltipCentro(QObject):
-                def eventFilter(self, obj, event):
-                    # Quando o mouse entra no botão
-                    if event.type() == QEvent.Type.Enter:
-                        centro = obj.rect().center()
-                        # Desloca levemente para baixo para não tampar o texto do botão
-                        centro.setY(centro.y() + 20)
-                        pos_global = obj.mapToGlobal(centro)
-                        # Força a exibição da tooltip nessa coordenada exata
-                        QToolTip.showText(pos_global, obj.toolTip(), obj)
-                        return True
-
-                    # Bloqueia o delay padrão e a posição da tooltip do sistema operacional
-                    elif event.type() == QEvent.Type.ToolTip:
-                        return True
-
-                        # Apaga a tooltip quando o mouse sai
-                    elif event.type() == QEvent.Type.Leave:
-                        QToolTip.hideText()
-
-                    return False
 
             # Instancia o filtro e atrela ao botão
             btn_mostrar_10_pontos._filtro_centro = FiltroTooltipCentro(btn_mostrar_10_pontos)
