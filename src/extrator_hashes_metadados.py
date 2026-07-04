@@ -6308,6 +6308,21 @@ class JanelaHashes(QWidget):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def perguntar_incluir_subdiretorios(self):
+        """Exibe uma caixa de diálogo perguntando se o usuário deseja varrer subdiretórios."""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Escopo da Extração")
+        msg_box.setText("Você adicionou um diretório ou unidade na área de extração.")
+        msg_box.setInformativeText(
+            "Deseja varrer recursivamente todas as pastas internas (subdiretórios) em busca de arquivos?")
+        msg_box.setIcon(QMessageBox.Icon.Question)
+
+        btn_sim = msg_box.addButton("Sim, incluir subdiretórios", QMessageBox.ButtonRole.AcceptRole)
+        btn_nao = msg_box.addButton("Não, apenas o diretório raiz", QMessageBox.ButtonRole.RejectRole)
+
+        msg_box.exec()
+        return msg_box.clickedButton() == btn_sim
+
     def dropEvent(self, event):
         if self.processando:
             return
@@ -6370,17 +6385,26 @@ class JanelaHashes(QWidget):
                     msg_box.exec()
 
                     if msg_box.clickedButton() == btn_arquivos:
-                        QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos))
+                        # Pergunta sobre os subdiretórios logo após escolher extrair arquivos
+                        incluir_sub = self.perguntar_incluir_subdiretorios()
+                        QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
                     elif msg_box.clickedButton() == btn_raw:
                         # Redireciona para a janela RAW, passando a raiz para pré-seleção
                         QTimer.singleShot(100,
                                           lambda: self.selecionar_unidade_raw(unidade_pre_selecionada=caminho_raiz))
 
                     return  # Encerra o dropEvent, pois o usuário já tomou a decisão
-            # ----------------------------------------------------
+                    # ----------------------------------------------------
 
-            # Comportamento padrão: Se for arquivo, pasta comum ou múltiplos itens
-            QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos))
+                # Comportamento padrão: Se for arquivo, pasta comum ou múltiplos itens
+                # Verifica se pelo menos um dos itens arrastados é um diretório
+                tem_diretorio = any(os.path.isdir(c) for c in caminhos)
+
+                if tem_diretorio:
+                    incluir_sub = self.perguntar_incluir_subdiretorios()
+                    QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
+                else:
+                    QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=None))
 
     def copiar_para_area_transferencia(self):
         # Em vez de ler da interface (toPlainText), puxamos do array em memória
@@ -6484,11 +6508,17 @@ class JanelaHashes(QWidget):
         if diretorio:
             self.coletar_e_processar([diretorio])
 
-    def coletar_e_processar(self, caminhos_iniciais):
+    def coletar_e_processar(self, caminhos_iniciais, override_subdirs=None):
         import stat  # Importado aqui para garantir o uso seguro dos atributos
 
         arquivos_encontrados = []
-        incluir_sub = self.chk_subdiretorios.isChecked()
+
+        # Se override_subdirs for fornecido (via Drag & Drop), ele sobrepõe a interface.
+        # Senão, respeita o comportamento padrão da checkbox "Incluir Subdiretórios".
+        if override_subdirs is not None:
+            incluir_sub = override_subdirs
+        else:
+            incluir_sub = self.chk_subdiretorios.isChecked()
 
         # --- VERIFICAÇÃO: É a raiz de um Pendrive/HD? ---
         info_drive = None
