@@ -2430,7 +2430,7 @@ class JanelaHashes(QWidget):
             "<li><b>Áudio (MP3, WAV, FLAC...):</b> Duração Exata, Taxa de Bits (Bitrate), Artista/Software e Comentários Ocultos.</li>"
             "<li><b>Executáveis (EXE, DLL, SYS):</b> Data de Compilação Exata (UTC), Verificação de Assinatura Digital (Authenticode), Nome Original do Arquivo e Empresa.</li>"
             "<li><b>E-mails (EML, MSG):</b> Remetente Real, Destinatário, Assunto, Data de Envio e 1º Servidor de Trânsito (rastreio de IP).</li>"
-            "<li><b>Arquivos Geográficos (KML, GPX, XML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
+            "<li><b>Arquivos Geográficos (KML, KMZ, GPX, XML):</b> Extração de pontos e vértices (com supressão inteligente de coordenadas duplicadas) e leitura do total geográfico exato.</li>"
             "<li><b>Atalhos do Windows (LNK):</b> Caminho Alvo (Local e Relativo), Argumentos de Execução (Payloads), Diretório de Trabalho, Rótulo/Serial do Pendrive/HD (em Hex) e MAC Address de origem.</li>"
             "</ul>"
             "<p><b>Análises Forenses Integradas e Proteções:</b></p>"
