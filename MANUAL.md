@@ -114,12 +114,25 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 O extrator permite auditar listagens de hashes recebidas em laudos de terceiros ou documentos de custódia.
 
 * **Como operar:** Arraste o arquivo de referência (PDF, DOCX, XLSX ou TXT) para a caixa superior "Validar Cadeia de Custódia". Você também pode copiar e colar o contéudo nesse mesmo campo.
-* **Análise Reversa:** O software buscará automaticamente no texto o hash do arquivo que está sendo processado, ignorando artefatos de formatação e espaços invisíveis.
-* **Resultado:** O log indicará **✅ CONFERE** ou emitirá alertas se o hash bater mas o nome do arquivo for divergente.
 
     <figure>
-      <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Neste exemplo hipotético, o requisitante do exame enviou o arquivo 'hash_delegacia.txt' que foi arrastado e soltado na região 'Validação Cadeia de Custódia'. A extração do hash do arquivo teste.pdf foi comparada automaticamente com a referência recebida.</i></figcaption>
+      <img src="imgs/validacao_cadeia_custodia_drag_drop.PNG" alt="Área para drag-and-drop de arquivos com hashes calculados pelo requisitante do exame para validação de cadeia de custódia." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Área para drag-and-drop de arquivos com hashes calculados pelo requisitante do exame para validação de cadeia de custódia.</i></figcaption>
+    </figure>
+
+<br>
+
+* **Análise Reversa:** O software buscará automaticamente no texto o hash do arquivo que está sendo processado, ignorando artefatos de formatação e espaços invisíveis.
+* **Resultado:** O log indicará, em cada arquivo analisado, um dos seguintes status:
+  * **✅ CONFERE:** se todos os hashes forem encontrados na listagem informada pelo requisitante do exame.
+  * **⚠️ ALERTA PARCIAL:** se apenas alguns dos hashes daquele arquivo forem encontrados.
+  * **❌ DIVERGÊNCIA:** se nenhum hash calculado constar na listagem informada pelo requisitante do exame.
+* Ao final, é gerado um **RESUMO DA VALIDAÇÃO DE CUSTÓDIA** que sintetiza os resultados acima:
+  * 
+
+    <figure>
+      <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou uma listagem de hashes que foi copiada na região 'Validação Cadeia de Custódia'. A extração dos hashs dos arquivos analisados foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Neste exemplo hipotético, o requisitante do exame enviou uma listagem de hashes que foi copiada na região 'Validação Cadeia de Custódia'. A extração dos hashs dos arquivos analisados foi comparada automaticamente com a referência recebida.</i></figcaption>
     </figure>
 
 <br>
