@@ -1516,24 +1516,35 @@ def obter_info_volume(caminho):
 
 def _reunir_hashes_quebrados_pdf(texto: str) -> str:
     import re
-    # 1. Limpa caracteres invisíveis que o pypdf injeta secretamente
+    # 1. Limpa caracteres invisíveis que o extrator de PDF injeta secretamente
     texto = re.sub(r'[\u200b\u200e\u200f\x00]', '', texto)
 
-    # 2. Padrão: Busca blocos de hexadecimais que tenham sido partidos por
-    # espaços ou quebras de linha (\s, \n, \r).
-    # Exige mínimo de 10 caracteres por pedaço para não grudar lixo aleatório.
-    padrao = r'(?:[a-fA-F0-9]{10,}(?:[\s\n\r]+[a-fA-F0-9]{10,})+)'
+    pos = 0
+    while True:
+        # Varre o documento procurando estritamente por PARES de hexadecimais contíguos
+        # a partir do ponteiro de posição atual 'pos'
+        match = re.search(r'([a-fA-F0-9]{10,})[\s\n\r]+([a-fA-F0-9]{10,})', texto[pos:])
+        if not match:
+            break
 
-    def substituir(match):
-        trecho = match.group(0)
-        # Arranca qualquer quebra de linha ou espaço entre os pedaços
-        limpo = re.sub(r'\s+', '', trecho)
-        # Só efetiva a união se a soma resultar exatamente no tamanho de um hash
-        if len(limpo) in {32, 40, 64, 96, 128}:
-            return limpo
-        return trecho  # Se não for um tamanho válido, devolve intacto
+        p1 = match.group(1)
+        p2 = match.group(2)
+        combinado = p1 + p2
 
-    return re.sub(padrao, substituir, texto)
+        # Se a soma dos dois pedaços resultar em um tamanho criptográfico padrão válido
+        if len(combinado) in {32, 40, 64, 96, 128}:
+            start_idx = pos + match.start()
+            end_idx = pos + match.end()
+            # Funde o hash quebrado eliminando a quebra de linha interna
+            texto = texto[:start_idx] + combinado + texto[end_idx:]
+            # Reseta o ponteiro para o início para garantir que quebras múltiplas encadeadas se resolvam
+            pos = 0
+        else:
+            # Caso o par encontrado não seja um hash partido (ex: um SHA-1 legítimo seguido de um SHA-256),
+            # movemos o ponteiro para frente ignorando o primeiro elemento para evitar loops infinitos.
+            pos += match.start() + len(p1)
+
+    return texto
 
 
 class TextEditCustodia(QTextEdit):
@@ -1711,14 +1722,19 @@ class TextEditCustodia(QTextEdit):
         self.hash_arquivo_origem = None
         super().clear()
 
+
 class ValidadorCustodia:
-    """Implementa a busca reversa com barreira de algoritmo para Cadeia de Custódia."""
+    """Implementa a validação por agrupamento de blocos de hashes sequenciais (Apartamentos Criptográficos)."""
 
     def __init__(self, texto_referencia: str, is_pdf: bool = False):
-        self.linhas = [linha.strip() for linha in texto_referencia.splitlines()]
+        # 🔥 PROTEÇÃO TOTAL: Executa a cura de hashes partidos diretamente na entrada do texto.
+        # Isto garante que mesmo um Ctrl+V de um PDF limpe os caracteres invisíveis e junte o SHA-512.
+        texto_curado = _reunir_hashes_quebrados_pdf(texto_referencia)
+
+        self.linhas = [linha.strip() for linha in texto_curado.splitlines()]
         self.is_pdf = is_pdf
 
-        # Padrões com 'word boundaries' para identificar tamanhos exatos
+        # Padrões com 'word boundaries' para identificar tamanhos exatos de hashes hexadecimais
         self.padroes = {
             "MD5": r'\b[a-fA-F0-9]{32}\b',
             "SHA-1": r'\b[a-fA-F0-9]{40}\b',
@@ -1727,312 +1743,150 @@ class ValidadorCustodia:
             "SHA-512": r'\b[a-fA-F0-9]{128}\b'
         }
 
-        self.mapa_hashes = {}
-        self.barreiras_algo = {algo: set() for algo in self.padroes}
-
-        self.arquivos_validados = []
-
+        self.blocos = []
         self._mapear_texto()
 
     def _mapear_texto(self):
-        """Varre o texto uma única vez mapeando a posição de cada hash."""
-        for idx, linha in enumerate(self.linhas):
-            if not linha: continue
+        """Varre o texto linearmente e fecha o bloco atual sempre que qualquer algoritmo se repetir."""
+        bloco_atual = {}
 
+        for linha in self.linhas:
+            if not linha:
+                continue
+
+            # Localiza os hashes mantendo a ordem de leitura horizontal (esquerda para a direita)
+            hashes_linha = []
             for algo, padrao in self.padroes.items():
                 for match in re.finditer(padrao, linha):
-                    val_hash = match.group().upper()
+                    hashes_linha.append({
+                        'algo': algo,
+                        'valor': match.group().upper(),
+                        'pos': match.start()
+                    })
 
-                    if val_hash not in self.mapa_hashes:
-                        self.mapa_hashes[val_hash] = []
+            # Ordena os tokens encontrados na mesma linha
+            hashes_linha.sort(key=lambda x: x['pos'])
 
-                    self.mapa_hashes[val_hash].append({'algo': algo, 'linha_idx': idx})
-                    self.barreiras_algo[algo].add(idx)
+            for item in hashes_linha:
+                algo = item['algo']
+                valor = item['valor']
 
-    def _linha_contem_nome(self, linha: str, nome_arquivo_atual: str) -> bool:
-        """Checa se o nome base do arquivo está na linha, blindado contra espaços injetados por PDFs."""
-        linha_lower = linha.lower()
+                # INTELEGÊNCIA CÍCLICA: se o algoritmo já existe no bloco, o ciclo mudou de arquivo.
+                if algo in bloco_atual:
+                    self.blocos.append(bloco_atual)
+                    bloco_atual = {}
 
-        # 1. Limpeza pesada de caracteres invisíveis
-        linha_lower = linha_lower.replace('\xad', '').replace('\u200b', '').replace('\u200e', '').replace('\u200f', '')
+                bloco_atual[algo] = valor
 
-        # 2. Corrige a falha clássica do pypdf: injetar espaços ao redor do ponto (ex: "RawTAP .pm" ou "RawTAP. pm")
-        linha_lower = linha_lower.replace(' .', '.').replace('. ', '.')
-
-        # --- TENTATIVA A: Busca Padronizada ---
-        idx = linha_lower.find(nome_arquivo_atual)
-        while idx != -1:
-            valido_antes = True
-            if idx > 0:
-                char_anterior = linha_lower[idx - 1]
-                if char_anterior.isalnum() or char_anterior == '_':
-                    valido_antes = False
-
-            valido_depois = True
-            fim_idx = idx + len(nome_arquivo_atual)
-            if fim_idx < len(linha_lower):
-                char_posterior = linha_lower[fim_idx]
-                if char_posterior.isalnum() or char_posterior == '_':
-                    valido_depois = False
-
-            if valido_antes and valido_depois:
-                return True
-
-            idx = linha_lower.find(nome_arquivo_atual, idx + 1)
-
-        # --- TENTATIVA B: Fallback Agressivo (Para PDF "esmigalhado" tipo P S P . p m) ---
-        # Removemos TODOS os espaços da linha e do nome do arquivo
-        linha_sem_espaco = linha_lower.replace(' ', '')
-        nome_sem_espaco = nome_arquivo_atual.replace(' ', '')
-
-        # Só ativamos esse modo se o arquivo tiver um nome razoável para evitar falsos positivos
-        if len(nome_sem_espaco) >= 4 and nome_sem_espaco in linha_sem_espaco:
-            idx_fuzzy = linha_sem_espaco.find(nome_sem_espaco)
-
-            # Como arrancamos os espaços, precisamos garantir que é o arquivo mesmo.
-            # Verifica se há uma barra (\ ou /) logo antes do nome, o que confirma ser o final de um caminho.
-            if idx_fuzzy > 0:
-                char_anterior = linha_sem_espaco[idx_fuzzy - 1]
-                if char_anterior in '\\/':
-                    return True
-            else:
-                return True
-
-        return False
+        # Registra o último apartamento gerado caso não esteja vazio
+        if bloco_atual:
+            self.blocos.append(bloco_atual)
 
     def validar(self, caminho_arquivo: str, hashes_calculados: dict) -> tuple[int, str]:
-        """Executa a busca reversa, testando múltiplos hashes, e retorna (status, mensagem_formatada)."""
-        nome_arquivo_atual = os.path.basename(caminho_arquivo).lower()
+        """Valida se TODOS os hashes calculados coexistem harmoniosamente dentro de um mesmo bloco."""
+        nome_arquivo_atual = os.path.basename(caminho_arquivo)
 
+        # Filtra o CRC32 do escopo da custódia para mitigar falsos positivos estruturais
+        algos_para_validar = {algo: val for algo, val in hashes_calculados.items() if algo != "CRC32"}
+        if not algos_para_validar:
+            return 3, "❌ DIVERGÊNCIA - Nenhum algoritmo criptográfico forte disponível para validação de custódia."
+
+        bloco_candidato = None
         algos_conferem = []
-        algos_alerta = []
+        algos_falharam = []
 
-        for algo_calc, val_calc in hashes_calculados.items():
-            if val_calc in self.mapa_hashes:
-                ocorrencias = self.mapa_hashes[val_calc]
-                nome_encontrado_para_este_hash = False
+        # Localiza qual bloco "reivindica" a autoria deste arquivo (possui pelo menos um hash idêntico)
+        for bloco in self.blocos:
+            reivindicado = False
+            for algo, val_calc in algos_para_validar.items():
+                if algo in bloco and bloco[algo] == val_calc:
+                    reivindicado = True
+                    break
 
-                for ocorrencia in ocorrencias:
-                    algo_ref = ocorrencia['algo']
-                    idx_ref = ocorrencia['linha_idx']
+            if reivindicado:
+                bloco_candidato = bloco
+                # Uma vez achado o bloco correspondente, auditamos a integridade de TODOS os outros hashes nele
+                for algo, val_calc in algos_para_validar.items():
+                    if algo in bloco:
+                        if bloco[algo] == val_calc:
+                            algos_conferem.append(algo)
+                        else:
+                            algos_falharam.append(algo)
+                break
 
-                    # 1. Verifica na mesma linha
-                    if self._linha_contem_nome(self.linhas[idx_ref], nome_arquivo_atual):
-                        algos_conferem.append(algo_calc)
-                        nome_encontrado_para_este_hash = True
-                        break  # Achou o nome para este hash, vai pro próximo hash calculado
+        if bloco_candidato:
+            # Sincroniza dados com o dicionário de resumo exigido pela GUI principal do programa
+            if not hasattr(self, 'arquivos_validados_dict'):
+                self.arquivos_validados_dict = {}
+            if nome_arquivo_atual not in self.arquivos_validados_dict:
+                self.arquivos_validados_dict[nome_arquivo_atual] = {}
 
-                    # 2. Busca Reversa: Sobe as linhas do texto acumulando o contexto
-                    idx_busca = idx_ref - 1
-                    achou_na_reversa = False
-                    bloco_acumulado = self.linhas[idx_ref]
+            for a in algos_conferem:
+                self.arquivos_validados_dict[nome_arquivo_atual][a] = algos_para_validar[a]
 
-                    while idx_busca >= 0:
-                        linha_atual = self.linhas[idx_busca]
+            # Se achou o bloco mas houve divergência interna entre os tipos de hashes (Vulnerabilidade Inversão)
+            if algos_falharam:
+                texto_conferem = ' e '.join(algos_conferem) if len(algos_conferem) < 3 else ', '.join(
+                    algos_conferem[:-1]) + ' e ' + algos_conferem[-1]
+                texto_falhos = ' e '.join(algos_falharam) if len(algos_falharam) < 3 else ', '.join(
+                    algos_falharam[:-1]) + ' e ' + algos_falharam[-1]
+                sufixo = 's' if len(algos_conferem) > 1 else ''
+                return 4, f"⚠️ ALERTA PARCIAL - {texto_conferem} validado{sufixo}, mas houve DIVERGÊNCIA no {texto_falhos} dentro do mesmo bloco de custódia."
 
-                        # Barreira de Algoritmo
-                        if idx_busca in self.barreiras_algo[algo_ref]:
-                            break
-
-                        # Acumula a linha de cima com o bloco atual
-                        bloco_acumulado = linha_atual + " " + bloco_acumulado
-
-                        if self._linha_contem_nome(bloco_acumulado, nome_arquivo_atual):
-                            algos_conferem.append(algo_calc)
-                            nome_encontrado_para_este_hash = True
-                            achou_na_reversa = True
-                            break
-
-                        idx_busca -= 1
-
-                    if achou_na_reversa:
-                        break  # Se achou na reversa, sai do loop
-
-                    # 3. Busca Progressiva Condicional (SÓ RODA SE FOR PDF)
-                    if self.is_pdf and not nome_encontrado_para_este_hash:
-                        idx_busca = idx_ref + 1
-                        achou_na_progressiva = False
-                        bloco_acumulado_descendo = self.linhas[idx_ref]
-
-                        while idx_busca < len(self.linhas):
-                            linha_atual = self.linhas[idx_busca]
-
-                            # Barreira de Algoritmo
-                            if idx_busca in self.barreiras_algo[algo_ref]:
-                                break
-
-                            # Acumula a linha de baixo com o bloco atual
-                            bloco_acumulado_descendo = bloco_acumulado_descendo + " " + linha_atual
-
-                            if self._linha_contem_nome(bloco_acumulado_descendo, nome_arquivo_atual):
-                                algos_conferem.append(algo_calc)
-                                nome_encontrado_para_este_hash = True
-                                achou_na_progressiva = True
-                                break
-
-                            idx_busca += 1
-
-                        if achou_na_progressiva:
-                            break  # Se achou descendo, sai do loop
-
-                # Se passou por todas as ocorrências desse hash no texto e não achou o nome perto de nenhuma
-                if not nome_encontrado_para_este_hash:
-                    algos_alerta.append(algo_calc)
-
-        # Montagem da mensagem final
-        if algos_conferem:
             texto_algos = ' e '.join(algos_conferem) if len(algos_conferem) < 3 else ', '.join(
                 algos_conferem[:-1]) + ' e ' + algos_conferem[-1]
             sufixo = 's' if len(algos_conferem) > 1 else ''
-
-            for a in algos_conferem:
-                if not hasattr(self, 'arquivos_validados_dict'): self.arquivos_validados_dict = {}
-                if nome_arquivo_atual not in self.arquivos_validados_dict:
-                    self.arquivos_validados_dict[nome_arquivo_atual] = {}
-                self.arquivos_validados_dict[nome_arquivo_atual][a] = hashes_calculados[a]
-
-            # --- VERIFICAÇÃO DE DIVERGÊNCIA PARCIAL ---
-            algos_calculados_lista = list(hashes_calculados.keys())
-            if "CRC32" in algos_calculados_lista:
-                algos_calculados_lista.remove("CRC32")
-
-            algos_falharam = [a for a in algos_calculados_lista if a not in algos_conferem]
-
-            if algos_falharam:
-                texto_falhos = ' e '.join(algos_falharam) if len(algos_falharam) < 3 else ', '.join(
-                    algos_falharam[:-1]) + ' e ' + algos_falharam[-1]
-                return 4, f"⚠️ ALERTA PARCIAL - {texto_algos} validado{sufixo}, mas houve DIVERGÊNCIA no {texto_falhos}."
-            # -------------------------------------------
-
-            return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
-
-        elif algos_alerta:
-            texto_algos = ' e '.join(algos_alerta) if len(algos_alerta) < 3 else ', '.join(algos_alerta[:-1]) + ' e ' + \
-                                                                                 algos_alerta[-1]
-
-            sufixo = 's' if len(algos_alerta) > 1 else ''
-
-            hash_principal = hashes_calculados.get(algos_alerta[0], "N/A")
-            nome_limpo = os.path.basename(caminho_arquivo)
-
-            if not hasattr(self, 'arquivos_validados_dict'): self.arquivos_validados_dict = {}
-            if nome_limpo not in self.arquivos_validados_dict:
-                self.arquivos_validados_dict[nome_limpo] = {}
-
-            # Salva estritamente o hash, sem notas adicionais
-            self.arquivos_validados_dict[nome_limpo][algos_alerta[0]] = hash_principal
-
-            # Retorna a mensagem de sucesso absoluto, idêntica ao fluxo padrão
             return 1, f"✅ CONFERE - {texto_algos} validado{sufixo}."
 
         return 3, "❌ DIVERGÊNCIA - Nenhum hash calculado para este arquivo consta na relação original da Cadeia de Custódia."
 
     def validar_hash_simples(self, hashes_calculados: dict) -> tuple[int, str]:
-        """Valida apenas a existência do hash no texto, ideal para aquisições RAW onde o nome da mídia varia no laudo."""
+        """Aplica a mesma regra de integridade de blocos para mídias em processamento RAW."""
+        algos_para_validar = {algo: val for algo, val in hashes_calculados.items() if algo != "CRC32"}
+        if not algos_para_validar:
+            return 3, "❌ NÃO CONFERE - Nenhum algoritmo criptográfico forte disponível para validação da unidade."
+
+        bloco_candidato = None
         algos_conferem = []
+        algos_falharam = []
 
-        for algo_calc, val_calc in hashes_calculados.items():
-            if val_calc in self.mapa_hashes:
-                algos_conferem.append(algo_calc)
+        for bloco in self.blocos:
+            reivindicado = False
+            for algo, val_calc in algos_para_validar.items():
+                if algo in bloco and bloco[algo] == val_calc:
+                    reivindicado = True
+                    break
 
-        if algos_conferem:
+            if reivindicado:
+                bloco_candidato = bloco
+                for algo, val_calc in algos_para_validar.items():
+                    if algo in bloco:
+                        if bloco[algo] == val_calc:
+                            algos_conferem.append(algo)
+                        else:
+                            algos_falharam.append(algo)
+                break
+
+        if bloco_candidato:
             texto_algos = " e ".join(algos_conferem) if len(algos_conferem) < 3 else ", ".join(
                 algos_conferem[:-1]) + " e " + algos_conferem[-1]
             sufixo = "s" if len(algos_conferem) > 1 else ""
 
-            # --- VERIFICAÇÃO DE DIVERGÊNCIA PARCIAL ---
-            algos_calculados_lista = list(hashes_calculados.keys())
-            if "CRC32" in algos_calculados_lista:
-                algos_calculados_lista.remove("CRC32")  # CRC32 não entra em custódia
-
-            algos_falharam = [a for a in algos_calculados_lista if a not in algos_conferem]
-
             if algos_falharam:
                 texto_falhos = " e ".join(algos_falharam) if len(algos_falharam) < 3 else ", ".join(
                     algos_falharam[:-1]) + " e " + algos_falharam[-1]
-                return 2, f"⚠️ ALERTA PARCIAL - Hash{sufixo} confere ({texto_algos}), mas houve DIVERGÊNCIA no {texto_falhos}."
-            # -------------------------------------------
+                return 2, f"⚠️ ALERTA PARCIAL - Hash{sufixo} confere ({texto_algos}), mas houve DIVERGÊNCIA no {texto_falhos} dentro do mesmo bloco de custódia."
 
             return 1, f"✅ CONFERE - Hash{sufixo} ({texto_algos}) localizado{sufixo} no documento de custódia."
 
         return 3, "❌ NÃO CONFERE / NENHUM HASH DA UNIDADE LOCALIZADO NO TEXTO"
 
     def obter_lista_limpa(self) -> list:
-        """Tenta extrair os pares (Nome do Arquivo, Hash) do texto de referência usando heurística forense."""
+        """Estrutura os apartamentos criptográficos detectados de forma clara no log final da tela."""
         lista_limpa = []
-        arquivos_encontrados = {}  # Para agrupar hashes do mesmo arquivo
-
-        for idx_linha, linha in enumerate(self.linhas):
-            for algo, padrao in self.padroes.items():
-                for match in re.finditer(padrao, linha):
-                    hash_val = match.group().upper()
-                    nome_encontrado = "[Nome não identificado]"
-
-                    # Busca reversa DIRETA (Sobe as linhas acumulando o texto do nome)
-                    idx_busca = idx_linha - 1
-                    bloco_nome = ""
-
-                    while idx_busca >= 0:
-                        if idx_busca in self.barreiras_algo[algo]:
-                            break
-
-                        linha_original = self.linhas[idx_busca]
-                        linha_cima = linha_original.strip()
-                        linha_cima_lower = linha_cima.lower()
-
-                        if not linha_cima:
-                            idx_busca -= 1
-                            continue
-
-                        # Pula linhas de metadados comuns ou prefixos de outros hashes
-                        prefixos_pular = ('tamanho', 'size', 'modificado', 'criado', 'data', 'entropia', 'crc32',
-                                          'md5', 'sha-1', 'sha-256', 'sha-384', 'sha-512')
-                        if linha_cima_lower.startswith(prefixos_pular):
-                            idx_busca -= 1
-                            continue
-
-                        # Pula se a linha for apenas um hash puro solto (sem prefixo)
-                        if re.match(r'^[a-fA-F0-9]{32,128}\s*$', linha_cima):
-                            idx_busca -= 1
-                            continue
-
-                        # Limpa prefixos como "Arquivo:"
-                        linha_cima = re.sub(r'^(Arquivo|Nome|File|Target)\s*:\s*', '', linha_cima,
-                                            flags=re.IGNORECASE)
-
-                        # Acumula na frente (já que estamos subindo)
-                        if bloco_nome:
-                            bloco_nome = linha_cima + " " + bloco_nome
-                        else:
-                            bloco_nome = linha_cima
-
-                        # Condição de parada de sucesso: Achou o prefixo "Arquivo:" ou letra de Drive C:/
-                        if re.match(r'^(Arquivo|Nome|File|Target)\s*:', linha_original, flags=re.IGNORECASE) or \
-                                re.match(r'^([A-Za-z]:[\\/]|\\\\|/)', linha_cima):
-                            break
-
-                        # Se não for PDF, a quebra de linha em laudos txt não deveria existir no meio do nome.
-                        if not getattr(self, 'is_pdf', False):
-                            break
-
-                        idx_busca -= 1
-
-                    if bloco_nome:
-                        # Pega sempre a ponta final (o nome do arquivo em si) do bloco acumulado
-                        nome_encontrado = bloco_nome.replace('\\', '/').split('/')[-1].strip()
-
-                    # Agrupa os hashes completos pelo nome do arquivo encontrado
-                    if nome_encontrado not in arquivos_encontrados:
-                        arquivos_encontrados[nome_encontrado] = []
-
-                    # Salva o hash original em seu tamanho completo
-                    arquivos_encontrados[nome_encontrado].append(f"{algo}: {hash_val}")
-
-        # Formata de um jeito profissional para o relatório final
-        for nome, hashes in arquivos_encontrados.items():
-            hashes_str = " | ".join(hashes)
-            lista_limpa.append(f"📄 {nome}   |   {hashes_str}")
-
+        for idx, bloco in enumerate(self.blocos):
+            hashes_str = " | ".join([f"{algo}: {val}" for algo, val in bloco.items()])
+            lista_limpa.append(f"📦 Bloco #{idx + 1}   |   {hashes_str}")
         return lista_limpa
 
 
