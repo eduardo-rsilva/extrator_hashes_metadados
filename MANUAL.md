@@ -2,7 +2,6 @@
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
-🚀 ****
 ---
 
 ## 0. Primeiros Passos: Download, Extração e Execução
