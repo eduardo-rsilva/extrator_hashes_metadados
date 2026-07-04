@@ -11,22 +11,21 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 
 ### Como Baixar o Arquivo e Descompactá-lo 
 1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.4.6.1)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.4.6.1/Extrator_ERS-IC-SP-NIC_v4.6.1.zip) 
-> **Observação:** na página de [RELEASES DO PROJETO](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases) é possível consultar versões anteriores.
->
-> **Importante:** não baixe os arquivos `Source code` se seu interesse for apenas em usar o programa.
->
-> **Importante:** o programa requer um sistema operacional **Windows de 64 bits**.
-
 2. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
 2. Clique com o botão direito do mouse sobre o arquivo e selecione **"Extrair Tudo..."**.
 3. Escolha uma pasta de destino e conclua a extração.
-> **Importante:** descompacte o arquivo antes de executar o programa. Ele não funciona diretamente a partir do arquivo compactado.
+> **IMPORTANTE:** descompacte o arquivo antes de executar o programa. Ele não funciona diretamente a partir do arquivo compactado.
+> 
+
+> **OBSERVAÇÃO:** na página de [RELEASES DO PROJETO](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases) é possível consultar versões anteriores do programa.
 
 ### Como Rodar o Programa
 1. Abra a pasta onde os arquivos foram extraídos.
 2. Localize o arquivo executável principal: `extrator_hashes_metadados.exe`.
 3. Dê um clique duplo sobre ele para abrir a interface gráfica.
 > **AVISO:** não mova o executável para fora da pasta extraída, pois ele depende dos demais arquivos que o acompanham no mesmo diretório. Se desejar facilitar o acesso, crie um atalho (botão direito sobre o arquivo e "Criar atalho") e copie-o para a Área de Trabalho em vez de mover o arquivo.
+
+> **IMPORTANTE:** o programa requer um sistema operacional **Windows de 64 bits**.
 
 ---
 
