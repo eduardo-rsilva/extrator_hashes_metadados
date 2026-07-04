@@ -2768,7 +2768,7 @@ class JanelaHashes(QWidget):
                 self.grupo_saida.setStyleSheet(estilo_caixas_escuro)
 
             # Altera a folha de estilos das Tooltips globais para o modo escuro
-            if app:
+            if isinstance(app, QApplication):
                 app.setStyleSheet("""
                     QToolTip {
                         background-color: #3c3f41;
@@ -2815,7 +2815,7 @@ class JanelaHashes(QWidget):
                 self.grupo_saida.setStyleSheet(estilo_caixas_claro)
 
             # Restaura a folha de estilos das Tooltips globais para o modo claro
-            if app:
+            if isinstance(app, QApplication):
                 app.setStyleSheet("""
                     QToolTip {
                         background-color: #ffffff;
@@ -3218,7 +3218,7 @@ class JanelaHashes(QWidget):
             item = QListWidgetItem(texto_exibicao)
 
             # Esconde os dados em background na variável "UserRole" do item
-            item.setData(Qt.UserRole, (nome_curto, root, dtype, nivel))
+            item.setData(Qt.ItemDataRole.UserRole, (nome_curto, root, dtype, nivel))
             lista_unidades.addItem(item)
 
             # Lógica para Drag & Drop (Pré-seleção)
@@ -3265,7 +3265,7 @@ class JanelaHashes(QWidget):
             return
 
         # Recupera os dados que guardamos no Qt.UserRole
-        nome_curto, root, dtype, nivel = item_selecionado.data(Qt.UserRole)
+        nome_curto, root, dtype, nivel = item_selecionado.data(Qt.ItemDataRole.UserRole)
 
         # obter_info_volume só funciona em volumes lógicos (Ex: "E:\")
         info = obter_info_volume(root) if nivel == "LOGICO" else {}
