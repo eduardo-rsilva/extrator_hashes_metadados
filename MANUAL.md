@@ -2,6 +2,7 @@
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
+🚀 ****
 ---
 
 ## 0. Primeiros Passos: Download, Extração e Execução
@@ -9,16 +10,15 @@ Este manual orienta o usuário sobre como utilizar as funcionalidades da ferrame
 O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil. Isso significa que não é necessário instalá-lo no sistema: basta baixar o arquivo, descompactá-lo e executar o programa.
 > **DICA:** Este programa pode ser executado a partir de unidades móveis, como _pendrives_..
 
-### Como Baixar
-1. Acesse diretamente a página de downloads do projeto: [Releases no GitHub](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases).
-2. Encontre a versão mais recente (marcada com a etiqueta verde **Latest**).
-3. Na seção **Assets**, clique para baixar o arquivo `.zip` do programa (ex: `Extrator_ERS-IC-SP-NIC_v1.0.zip`).
+### Como Baixar o Arquivo e Descompactá-lo 
+1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.4.6.1)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.4.6.1/Extrator_ERS-IC-SP-NIC_v4.6.1.zip) 
+> **Observação:** na página de [RELEASES DO PROJETO](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases) é possível consultar versões anteriores.
+>
 > **Importante:** não baixe os arquivos `Source code` se seu interesse for apenas em usar o programa.
 >
-> **Importante:** o programa requer um sistema operacional Windows de **64 bits**.
+> **Importante:** o programa requer um sistema operacional **Windows de 64 bits**.
 
-### Como Descompactar
-1. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
+2. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
 2. Clique com o botão direito do mouse sobre o arquivo e selecione **"Extrair Tudo..."**.
 3. Escolha uma pasta de destino e conclua a extração.
 > **Importante:** descompacte o arquivo antes de executar o programa. Ele não funciona diretamente a partir do arquivo compactado.
@@ -90,11 +90,18 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 
 <br>
 
-4.  **Imagem Forense:** Você pode optar por gerar o hash da unidade enquanto simultaneamente gera uma imagem (cópia bit-a-bit) no formato **.dd** .
+4.  **Imagem Forense:** Você pode optar por gerar apenas o hash da unidade ou por simultaneamente gerar uma imagem (cópia bit-a-bit) nos formatos **RAW (.dd)** ou **Expert Witness (.E01)**.
 
     <figure>
       <img src="imgs/hash_com_imagem.PNG" alt="Seletor para aquisição simultânea de cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Seletor para aquisição simultânea de cópia bit-bit-bit.</i></figcaption>
+    </figure>
+
+    <br>
+
+    <figure>
+      <img src="imgs/hash_com_imagem_seletor_formato.PNG" alt="Seletor do formato para aquisição da cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor do formato para aquisição da cópia bit-bit-bit.</i></figcaption>
     </figure>
 
     <br>
