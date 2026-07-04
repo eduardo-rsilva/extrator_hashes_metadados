@@ -100,6 +100,7 @@ import msvcrt
 from ctypes import wintypes
 import os
 import re
+from typing import Any
 import subprocess
 import traceback
 import threading
@@ -1947,8 +1948,8 @@ class WorkerExtracao(QThread):
         self.coordenadas_gps_encontradas = []
         self._hashes_com_gps = set()
 
-    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False) -> dict:
-        """Versão Thread-Safe da sua função original."""
+    # noinspection PyTypeChecker
+    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False) -> dict[str, Any]:
         try:
             stat_info = os.lstat(caminho_arquivo)
             if os.name == 'nt':
@@ -2572,7 +2573,10 @@ class JanelaHashes(QWidget):
 
         # Insere o texto plano na memória (para o TXT) e o HTML na tela
         self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
+
+        # noinspection PyArgumentList
         self.texto_saida._original_append(MENSAGEM_VISUAL)
+
         self._chars_na_tela += len(MENSAGEM_VISUAL)
 
         # Bloqueia a seleção da MENSAGEM_VISUAL inicial
@@ -3998,6 +4002,7 @@ class JanelaHashes(QWidget):
                             self.texto_saida.append(msg_hash_logico)
                             linhas_log_auditoria.append(msg_hash_logico.strip())
 
+                            # noinspection PyUnresolvedReferences
                             self.texto_saida._original_append(
                                 "   🔄 Terminal de verificação aberto. Acompanhe o progresso na nova janela...")
                             QApplication.processEvents()
