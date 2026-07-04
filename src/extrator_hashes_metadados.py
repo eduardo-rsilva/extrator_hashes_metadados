@@ -3256,7 +3256,7 @@ class JanelaHashes(QWidget):
         layout.addLayout(btns)
 
         dialog.setLayout(layout)
-        if dialog.exec() != QDialog.Accepted:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
         # Captura o item selecionado no QListWidget
@@ -3423,7 +3423,7 @@ class JanelaHashes(QWidget):
         dialog_uac.setLayout(layout_uac)
 
         # Se o usuário clicar em "Não Autorizar" ou fechar no "X" da janela
-        if dialog_uac.exec() != QDialog.Accepted:
+        if dialog_uac.exec() != QDialog.DialogCode.Accepted:
             return
         # ---------------------------------------------------------
 
@@ -3581,7 +3581,7 @@ class JanelaHashes(QWidget):
 
             dialog_escopo.setLayout(layout_escopo)
 
-            if dialog_escopo.exec() != QDialog.Accepted:
+            if dialog_escopo.exec() != QDialog.DialogCode.Accepted:
                 return
 
             if escolha["tipo"] == "disco":
@@ -3844,7 +3844,7 @@ class JanelaHashes(QWidget):
                 # --- 3. COLETAR METADADOS (Pode vir vazio, o Passo 1 já lida com isso) ---
                 dialogo_meta = DialogoMetadadosKML(self, texto_botao="Continuar e Gerar Imagem .E01", modo_e01=True)
                 dialogo_meta.setWindowTitle("Cabeçalho Forense do Arquivo E01")
-                if dialogo_meta.exec() != QDialog.Accepted:
+                if dialogo_meta.exec() != QDialog.DialogCode.Accepted:
                     self.texto_saida.append("\n[!] Operação cancelada pelo usuário na tela de metadados.")
                     return
                 formato_escolhido["ext"] = ".e01"
@@ -7030,7 +7030,7 @@ class JanelaHashes(QWidget):
 
         # 1. CHAMA A NOVA JANELA DE METADADOS
         dialogo = DialogoMetadadosKML(self)
-        if dialogo.exec() != QDialog.Accepted:
+        if dialogo.exec() != QDialog.DialogCode.Accepted:
             return  # Usuário fechou ou clicou em Cancelar
 
         dados_kml = dialogo.obter_dados()
@@ -7093,7 +7093,7 @@ class JanelaHashes(QWidget):
 
         # 1. CHAMA A NOVA JANELA DE METADADOS
         dialogo = DialogoMetadadosKML(self)
-        if dialogo.exec() != QDialog.Accepted:
+        if dialogo.exec() != QDialog.DialogCode.Accepted:
             return
 
         dados_kml = dialogo.obter_dados()
