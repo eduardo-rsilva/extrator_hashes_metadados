@@ -6155,8 +6155,8 @@ class JanelaHashes(QWidget):
             if "SHA-384" in algos_selecionados: objetos_hash["SHA-384"] = hashlib.sha384()
             if "SHA-512" in algos_selecionados: objetos_hash["SHA-512"] = hashlib.sha512()
 
-            if extrair_metadados:
-                contagem_bytes = Counter()  # Inicializa o contador para entropia de Shannon apenas se solicitado
+            # Inicializa o contador para entropia de Shannon apenas se solicitado
+            contagem_bytes = Counter() if extrair_metadados else None
 
             self.barra_arquivo.setMaximum(100)
             self.barra_arquivo.setValue(0)
@@ -6191,7 +6191,7 @@ class JanelaHashes(QWidget):
                                     objetos_hash[algo].update(chunk)
 
                             # Conta a frequência dos bytes para entropia de Shannon apenas se os metadados foram solicitados
-                            if extrair_metadados:
+                            if contagem_bytes is not None:
                                 contagem_bytes.update(chunk)
 
                             bytes_processados += len(chunk)
