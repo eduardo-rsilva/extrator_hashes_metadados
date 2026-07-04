@@ -268,7 +268,7 @@ MENSAGEM_VISUAL = f"""
     <span style="font-size: 16pt; font-weight: bold; color: #0078D7;">ÁREA DE EXTRAÇÃO FORENSE</span><br><br>
     <span style="font-size: 11pt;">
         <b>Arraste e solte</b> arquivo(s), diretório(s) ou ícones de unidades<br>
-        em qualquer lugar desta janela para extração de <b>HASHES</b> e/ou <b>METADADOS</b>.
+        em qualquer lugar desta área para extração de <b>HASHES</b> e/ou <b>METADADOS</b>.
     </span>
 </div>
 """
@@ -1567,8 +1567,8 @@ class TextEditCustodia(QTextEdit):
         <div style="text-align: center; color: #888888; font-family: sans-serif;">
             <span style="font-size: 12pt; font-weight: bold; color: #0078D7;">VALIDAR CADEIA DE CUSTÓDIA (opcional)</span><br><br>
             <span style="font-size: 9.5pt; line-height: 140%;">
-                <b>Arraste e solte</b> o relatório de hashes da encaminhados pela origem (ex. delegacia) aqui <i>(PDF, DOCX, XLSX, TXT)</i><br>
-                ou <b>cole o texto</b> livremente neste mesmo espaço para realizar a validação automática da cadeia de custódia.<br>
+                <b>Arraste e solte AQUI</b> o relatório de hashes encaminhados pela origem (ex. delegacia) em formato <i>PDF, DOCX, XLSX ou TXT</i><br>
+                ou <b>copie e cole o texto</b> ou <b>digite</b> livremente neste mesmo espaço para realizar a validação automática da cadeia de custódia.<br>
                 <span style="font-size: 8.5pt; color: #a0a0a0;">(Nota: Hashes CRC32 são desconsiderados nesta verificação)</span>
             </span>
         </div>
