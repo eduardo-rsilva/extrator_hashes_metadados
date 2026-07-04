@@ -4499,8 +4499,8 @@ class JanelaHashes(QWidget):
 
         # Linha Divisória
         linha = QFrame()
-        linha.setFrameShape(QFrame.HLine)
-        linha.setFrameShadow(QFrame.Sunken)
+        linha.setFrameShape(QFrame.Shape.HLine)
+        linha.setFrameShadow(QFrame.Shadow.Sunken)
         layout_principal.addWidget(linha)
 
         # --- SISTEMA DE ABAS ---
@@ -7474,7 +7474,7 @@ if __name__ == "__main__":
         app_instancia = QApplication.instance()
         if app_instancia:
             msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
             msg_box.setWindowTitle("Erro Crítico Inesperado")
             msg_box.setText("Ocorreu um erro fatal e o extrator precisará ser encerrado.")
             msg_box.setInformativeText(
