@@ -161,6 +161,7 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
+    Image = GPSTAGS = TAGS = None
 
 try:
     import cv2
@@ -168,6 +169,7 @@ try:
     HAS_CV2 = True
 except ImportError:
     HAS_CV2 = False
+    cv2 = None
 
 try:
     from pypdf import PdfReader
@@ -175,42 +177,49 @@ try:
     HAS_PYPDF = True
 except ImportError:
     HAS_PYPDF = False
+    PdfReader = None
 
 try:
     import olefile
     HAS_OLEFILE = True
 except ImportError:
     HAS_OLEFILE = False
+    olefile = None
 
 try:
     import LnkParse3
     HAS_LNKPARSE = True
 except ImportError:
     HAS_LNKPARSE = False
+    LnkParse3 = None
 
 try:
     import pefile
     HAS_PEFILE = True
 except ImportError:
     HAS_PEFILE = False
+    pefile = None
 
 try:
     import extract_msg
     HAS_EXTRACT_MSG = True
 except ImportError:
     HAS_EXTRACT_MSG = False
+    extract_msg = None
 
 try:
     from tinytag import TinyTag
     HAS_TINYTAG = True
 except ImportError:
     HAS_TINYTAG = False
+    TinyTag = None
 
 try:
     from pymediainfo import MediaInfo
     HAS_PYMEDIAINFO = True
 except ImportError:
     HAS_PYMEDIAINFO = False
+    MediaInfo = None
 
 # ------------------------------------------------------
 
@@ -542,10 +551,6 @@ def volume_to_physical_drives(volume_device: str) -> list[int]:
         return sorted(set(drives))
     finally:
         CloseHandle(h)
-
-
-import re
-import subprocess
 
 
 def obter_serial_hardware(disk_number) -> str:
@@ -1098,7 +1103,6 @@ def verificar_integridade_automatica(caminho_imagem_e01, hash_sha256_log):
             except Exception:
                 pass
 
-        import re
         match = re.search(r"SHA256 hash calculated over data:\s+([a-fA-F0-9]{64})", saida_terminal, re.IGNORECASE)
         match_md5 = re.search(r"MD5 hash calculated over data:\s+([a-fA-F0-9]{32})", saida_terminal, re.IGNORECASE)
 
@@ -1514,7 +1518,6 @@ def obter_info_volume(caminho):
 
 
 def _reunir_hashes_quebrados_pdf(texto: str) -> str:
-    import re
     # 1. Limpa caracteres invisíveis que o extrator de PDF injeta secretamente
     texto = re.sub(r'[\u200b\u200e\u200f\x00]', '', texto)
 
@@ -2190,7 +2193,6 @@ class WorkerExtracao(QThread):
                     if metadados_midia:
                         self.sig_texto_append.emit("\n".join(metadados_midia))
 
-                        import re
                         for linha in metadados_midia:
                             match = re.search(r"📍 GPS \(Latitude, Longitude\):\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)", linha)
                             if match:
@@ -2856,7 +2858,6 @@ class JanelaHashes(QWidget):
             try:
                 import urllib.request
                 import json
-                import re
 
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
                 with urllib.request.urlopen(req, timeout=5) as response:
@@ -2887,8 +2888,6 @@ class JanelaHashes(QWidget):
         t.start()
 
     def _exibir_alerta_atualizacao(self, nova_versao, link, notas_lancamento):
-        import re
-
         alerta_html = (
             f"<div style='background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 5px; margin-bottom: 5px;'>"
             f"<span style='color: #856404; font-size: 11pt;'>"
@@ -3926,7 +3925,6 @@ class JanelaHashes(QWidget):
                     sha256_coleta = None
 
                     try:
-                        import re
                         with open(caminho_log_ewf, "r", encoding="utf-8", errors="ignore") as f_log_ewf:
                             conteudo_ewf = f_log_ewf.read()
 
@@ -4415,7 +4413,6 @@ class JanelaHashes(QWidget):
             # 2. Quando o mouse ENTRA (Ação imediata)
             if event.type() == QEvent.Type.Enter:
                 from PySide6.QtGui import QCursor
-                from PySide6.QtWidgets import QToolTip
 
                 pos_mouse = QCursor.pos()
 
@@ -4444,7 +4441,6 @@ class JanelaHashes(QWidget):
 
             # 3. Quando o mouse SAI
             elif event.type() == QEvent.Type.Leave:
-                from PySide6.QtWidgets import QToolTip
                 QToolTip.hideText()
                 return True
 
@@ -6648,7 +6644,6 @@ class JanelaHashes(QWidget):
 
         # =====================================================================
         from PySide6.QtCore import QObject, QEvent
-        from PySide6.QtWidgets import QToolTip
 
         class FiltroTooltipCentro(QObject):
             def eventFilter(self, obj, event):
