@@ -255,7 +255,6 @@ MENSAGEM_INICIAL = "Arraste e solte arquivo(s), diretório(s) ou ícones de unid
 # Mensagem em HTML para embelezar a caixa de texto (aceita Modo Escuro automaticamente)
 MENSAGEM_VISUAL = f"""
 <div style="text-align: center;">
-    <span style="font-size: 32pt;">📥</span><br><br>
     <span style="font-size: 16pt; font-weight: bold; color: #0078D7;">ÁREA DE EXTRAÇÃO FORENSE</span><br><br>
     <span style="font-size: 11pt;">
         <b>Arraste e solte</b> arquivo(s), diretório(s) ou ícones de unidades<br>
@@ -1557,28 +1556,45 @@ class TextEditCustodia(QTextEdit):
         self.nome_arquivo_origem = None
         self.hash_arquivo_origem = None
 
-        self._texto_fundo = (
-            "Arraste e solte o relatório de hashes gerados pela delegacia aqui (PDF, DOCX, XLSX, TXT)\n"
-            "ou cole o texto livremente para validar a Cadeia de Custódia... (Nota: Hashes CRC32 não são conferidos)"
-        )
+        # Mensagem visual em HTML adaptada para dimensões menores
+        self._texto_fundo = """
+        <div style="text-align: center; color: #888888; font-family: sans-serif;">
+            <span style="font-size: 12pt; font-weight: bold; color: #0078D7;">CADEIA DE CUSTÓDIA</span><br><br>
+            <span style="font-size: 9.5pt; line-height: 140%;">
+                <b>Arraste e solte</b> o relatório de hashes da encaminhados pela origem (ex. delegacia) aqui <i>(PDF, DOCX, XLSX, TXT)</i><br>
+                ou <b>cole o texto</b> livremente neste mesmo espaço para realizar a validação automática da cadeia de custódia.<br>
+                <span style="font-size: 8.5pt; color: #a0a0a0;">(Nota: Hashes CRC32 são desconsiderados nesta verificação)</span>
+            </span>
+        </div>
+        """
 
     def paintEvent(self, event):
-        """Sobrescreve a pintura para forçar o texto de fundo a aceitar quebra de linha (\n)"""
+        """Sobrescreve a pintura para renderizar o HTML de fundo quando o campo estiver vazio."""
         super().paintEvent(event)
 
-        # 2. Se a caixa estiver vazia, nós mesmos "pintamos" o texto no fundo
         if not self.toPlainText():
-            from PySide6.QtGui import QPainter, QColor
+            from PySide6.QtGui import QPainter, QTextDocument
             from PySide6.QtCore import Qt
 
             painter = QPainter(self.viewport())
-            painter.setPen(QColor("#888888"))  # Cor cinza padrão de placeholder
 
-            # Cria uma margem de 5 pixels para o texto não ficar grudado na borda
-            rect = self.viewport().rect().adjusted(5, 5, -5, -5)
+            # Utiliza o QTextDocument para interpretar e renderizar as tags HTML
+            doc = QTextDocument()
+            doc.setHtml(self._texto_fundo)
 
-            # Desenha o texto respeitando o \n e alinhando no topo
-            painter.drawText(rect, Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, self._texto_fundo)
+            # Ajusta a largura do documento para que a quebra de linha respeite as bordas do campo
+            largura_util = self.viewport().width() - 20
+            doc.setTextWidth(largura_util)
+
+            # Cálculos para centralizar o bloco HTML verticalmente com segurança
+            altura_texto = doc.size().height()
+            altura_campo = self.viewport().height()
+            y_offset = max(10, (altura_campo - altura_texto) / 2)
+
+            painter.save()
+            painter.translate(10, y_offset)
+            doc.drawContents(painter)
+            painter.restore()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -1615,7 +1631,6 @@ class TextEditCustodia(QTextEdit):
             self.hash_arquivo_origem = sha256_ref.hexdigest().upper()
         except Exception:
             self.hash_arquivo_origem = "[Erro ao calcular hash]"
-        # ----------------------------------------------------------
 
         extensao = caminho.lower().split('.')[-1]
         texto_extraido = ""
@@ -2467,7 +2482,7 @@ class JanelaHashes(QWidget):
         layout_validacao = QHBoxLayout()
 
         self.texto_referencia = TextEditCustodia(self)
-        self.texto_referencia.setMinimumHeight(65)
+        self.texto_referencia.setMinimumHeight(100)
 
         self.btn_limpar_custodia = QPushButton("Limpar\nConteúdo")
         self.btn_limpar_custodia.setFixedWidth(80)
@@ -2502,6 +2517,10 @@ class JanelaHashes(QWidget):
         def append_seguro(texto):
             # 1. Salva sempre o dado real na lista invisível (super rápido)
             self._relatorio_memoria.append(texto)
+
+            # Se a tela estava bloqueada para seleção, libera para o log real
+            if self.texto_saida.textInteractionFlags() == Qt.TextInteractionFlag.NoTextInteraction:
+                self.texto_saida.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
 
             # 2. Joga para a interface gráfica só se não tiver estourado o limite (500.000 chars)
             if not self._limite_tela_atingido:
@@ -2539,6 +2558,9 @@ class JanelaHashes(QWidget):
         self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
         self.texto_saida._original_append(MENSAGEM_VISUAL)
         self._chars_na_tela += len(MENSAGEM_VISUAL)
+
+        # Bloqueia a seleção da MENSAGEM_VISUAL inicial
+        self.texto_saida.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
 
         # Adiciona a saída também no splitter, para ficar embaixo da validação
         splitter.addWidget(self.texto_saida)
@@ -6395,6 +6417,8 @@ class JanelaHashes(QWidget):
         self._relatorio_memoria.append(MENSAGEM_INICIAL + "\n")
         self.texto_saida._original_append(MENSAGEM_VISUAL)
         self._chars_na_tela += len(MENSAGEM_VISUAL)
+        # Re-bloqueia a seleção ao limpar a tela
+        self.texto_saida.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.barra_arquivo.setValue(0)
         self.barra_total.setValue(0)
         self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual:")
