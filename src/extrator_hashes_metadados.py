@@ -1602,26 +1602,54 @@ class TextEditCustodia(QTextEdit):
             doc.drawContents(painter)
             painter.restore()
 
-    def dragEnterEvent(self, event):
+    def validar_arrasto(self, event):
+        """função auxiliar para checar se o item arrastado é válido."""
         if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+
+            # Regra 1: Deve ser estritamente UM único item
+            if len(urls) == 1:
+                caminho = urls[0].toLocalFile()
+
+                # Regra 2: Deve ser um arquivo (bloqueia diretórios e unidades lógicas)
+                if os.path.isfile(caminho):
+                    return True
+        return False
+
+    def dragEnterEvent(self, event):
+        if self.validar_arrasto(event):
             event.acceptProposedAction()
         else:
-            super().dragEnterEvent(event)
+            # Muda a ação para ignorar (🚫) e aceita o evento para não repassar ao pai
+            event.setDropAction(Qt.DropAction.IgnoreAction)
+            event.accept()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasUrls():
+        if self.validar_arrasto(event):
             event.acceptProposedAction()
         else:
-            super().dragMoveEvent(event)
+            # Mantém o cursor de proibido (🚫) enquanto o mouse se move por cima
+            event.setDropAction(Qt.DropAction.IgnoreAction)
+            event.accept()
 
     def dropEvent(self, event):
-        if event.mimeData().hasUrls():
+        if self.validar_arrasto(event):
             urls = event.mimeData().urls()
             caminho_arquivo = urls[0].toLocalFile()
             event.acceptProposedAction()
             self.carregar_arquivo(caminho_arquivo)
         else:
-            super().dropEvent(event)
+            event.setDropAction(Qt.DropAction.IgnoreAction)
+            event.accept()
+
+            # Fallback amigável caso o sistema operacional force a soltura
+            if event.mimeData().hasUrls():
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    "Aviso Forense",
+                    "A área de Cadeia de Custódia aceita apenas UM arquivo por vez.\n\nMúltiplos arquivos, diretórios ou unidades não são suportados neste campo. Por favor, arraste o arquivo do laudo isoladamente."
+                )
 
     def carregar_arquivo(self, caminho):
         """Lê o arquivo arrastado e extrai o texto de forma nativa e segura."""
