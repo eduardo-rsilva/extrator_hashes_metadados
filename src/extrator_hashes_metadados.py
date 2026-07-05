@@ -6346,10 +6346,19 @@ class JanelaHashes(QWidget):
         msg_box.setIcon(QMessageBox.Icon.Question)
 
         btn_sim = msg_box.addButton("Sim, incluir subdiretórios", QMessageBox.ButtonRole.AcceptRole)
-        btn_nao = msg_box.addButton("Não, apenas o diretório raiz", QMessageBox.ButtonRole.RejectRole)
+        btn_nao = msg_box.addButton("Não, apenas o diretório raiz", QMessageBox.ButtonRole.ActionRole)
+        btn_cancelar = msg_box.addButton("Cancelar Extração", QMessageBox.ButtonRole.RejectRole)
 
         msg_box.exec()
-        return msg_box.clickedButton() == btn_sim
+
+        # Avalia a resposta do usuário
+        if msg_box.clickedButton() == btn_sim:
+            return True
+        elif msg_box.clickedButton() == btn_nao:
+            return False
+        else:
+            # Se clicou em 'Cancelar' ou fechou a janela no 'X'
+            return None
 
     def dropEvent(self, event):
         if self.processando:
@@ -6415,6 +6424,11 @@ class JanelaHashes(QWidget):
                     if msg_box.clickedButton() == btn_arquivos:
                         # Pergunta sobre os subdiretórios logo após escolher extrair arquivos
                         incluir_sub = self.perguntar_incluir_subdiretorios()
+
+                        # --- TRAVA DE CANCELAMENTO ---
+                        if incluir_sub is None:
+                            return
+
                         QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
                     elif msg_box.clickedButton() == btn_raw:
                         # Redireciona para a janela RAW, passando a raiz para pré-seleção
@@ -6430,6 +6444,11 @@ class JanelaHashes(QWidget):
 
             if tem_diretorio:
                 incluir_sub = self.perguntar_incluir_subdiretorios()
+
+                # --- TRAVA DE CANCELAMENTO ---
+                if incluir_sub is None:
+                    return
+
                 QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
             else:
                 QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=None))
