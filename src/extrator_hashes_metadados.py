@@ -6396,15 +6396,15 @@ class JanelaHashes(QWidget):
                     return  # Encerra o dropEvent, pois o usuário já tomou a decisão
                     # ----------------------------------------------------
 
-                # Comportamento padrão: Se for arquivo, pasta comum ou múltiplos itens
-                # Verifica se pelo menos um dos itens arrastados é um diretório
-                tem_diretorio = any(os.path.isdir(c) for c in caminhos)
+            # Comportamento padrão: Se for arquivo, pasta comum ou múltiplos itens
+            # Verifica se pelo menos um dos itens arrastados é um diretório
+            tem_diretorio = any(os.path.isdir(c) for c in caminhos)
 
-                if tem_diretorio:
-                    incluir_sub = self.perguntar_incluir_subdiretorios()
-                    QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
-                else:
-                    QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=None))
+            if tem_diretorio:
+                incluir_sub = self.perguntar_incluir_subdiretorios()
+                QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=incluir_sub))
+            else:
+                QTimer.singleShot(100, lambda: self.coletar_e_processar(caminhos, override_subdirs=None))
 
     def copiar_para_area_transferencia(self):
         # Em vez de ler da interface (toPlainText), puxamos do array em memória
