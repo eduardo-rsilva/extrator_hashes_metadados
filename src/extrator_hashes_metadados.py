@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 4.6.1
+Versão: 5.0.0
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
