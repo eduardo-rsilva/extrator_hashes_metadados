@@ -176,7 +176,7 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
 
     <figure>
       <img src="imgs/janela_GPS_KML.PNG" alt="É possível selecionar o formato de Pontos ou de Polígono (disponível a partir de 3 pontos encontrados)." style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>É possível selecionar o formato de Pontos e ou de Polígono (disponível a partir de 3 pontos encontrados). </i></figcaption>
+      <figcaption align="center"><i>É possível selecionar o formato de Pontos ou de Polígono (disponível a partir de 3 pontos encontrados). </i></figcaption>
     </figure>
     <br>
 
