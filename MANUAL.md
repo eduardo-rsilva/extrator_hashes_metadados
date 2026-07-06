@@ -65,7 +65,7 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
 
     <figure>
       <img src="imgs/seletor_unidade.PNG" alt="Seletor de Unidade para HASH RAW." style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>Seletor de Unidade para HASH RAW.</i></figcaption>
+      <figcaption align="center"><i>Seletor de Unidade para HASH RAW: CDs, DVDs, Volumes Lógicos e Hardwares (mesmo com tamanhos desconhecidos) são listados.</i></figcaption>
     </figure>
 
 <br>
@@ -98,10 +98,9 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
     <br>
 
     <figure>
-      <img src="imgs/hash_com_imagem_seletor_formato.PNG" alt="Seletor do formato para aquisição da cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
+      <img src="imgs/hash_com_imagem_seletor_formato.PNG" alt="Seletor do formato para aquisição da cópia bit-bit-bit." style="border: 1px solid black; max-width: 500px; width: 100%; display: block; margin: 0 auto;">
       <figcaption align="center"><i>Seletor do formato para aquisição da cópia bit-bit-bit.</i></figcaption>
     </figure>
-
     <br>
     
     <br>
@@ -133,7 +132,6 @@ O extrator permite auditar listagens de hashes recebidas em laudos de terceiros 
   * **⚠️ ALERTA PARCIAL:** se apenas alguns dos hashes daquele arquivo forem encontrados.
   * **❌ DIVERGÊNCIA:** se nenhum hash calculado constar na listagem informada pelo requisitante do exame.
 * Ao final, é gerado um **RESUMO DA VALIDAÇÃO DE CUSTÓDIA** que sintetiza os resultados acima:
-  * 
 
     <figure>
       <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou uma listagem de hashes que foi copiada na região 'Validação Cadeia de Custódia'. A extração dos hashs dos arquivos analisados foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
@@ -180,11 +178,15 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
       <figcaption align="center"><i>É possível selecionar os formatos Pontos e Polígono. </i></figcaption>
     </figure>
 
+    <br>
+  
     <figure>
-      <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração." style="border: 1px solid black;" width="100%">
+      <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração." style="border: 1px solid black; max-width: 500px; width: 100%; display: block; margin: 0 auto;" width="100%">
       <figcaption align="center"><i>É possível registrar no arquivo KML informações que identificam a extração. </i></figcaption>
     </figure>
 
+    <br>
+    
     <figure>
       <img src="imgs/janela_GPS_KML_instruções.PNG" alt="Instruções para visualização de arquivos KML." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Instruções para visualização de arquivos KML. </i></figcaption>
