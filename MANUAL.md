@@ -94,6 +94,7 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
       <img src="imgs/hash_com_imagem.PNG" alt="Seletor para aquisição simultânea de cópia bit-bit-bit." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Seletor para aquisição simultânea de cópia bit-bit-bit.</i></figcaption>
     </figure>
+    <br>
 
     <br>
 
@@ -177,6 +178,7 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
       <img src="imgs/janela_GPS_KML.PNG" alt="É possível selecionar o formato de Pontos ou de Polígono (disponível a partir de 3 pontos encontrados)." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>É possível selecionar o formato de Pontos e ou de Polígono (disponível a partir de 3 pontos encontrados). </i></figcaption>
     </figure>
+    <br>
 
     <br>
   
@@ -184,7 +186,8 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
       <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração. Essas informações ficarão visíveis na interface do Google Earth ou do Google My Maps." style="border: 1px solid black; max-width: 500px; width: 100%; display: block; margin: 0 auto;" width="100%">
       <figcaption align="center"><i>É possível registrar no arquivo KML informações que identificam a extração. Essas informações ficarão visíveis na interface do Google Earth ou do Google My Maps. </i></figcaption>
     </figure>
-
+    <br>
+  
     <br>
     
     <figure>
