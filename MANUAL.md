@@ -174,15 +174,15 @@ Ao término do processamento, revise o resumo final para consolidar a perícia:
 * É possível exportar as coordenadas GPS encontradas para um arquivo no formato '.kml', padrão do Google Earth e do Google MyMaps (modo de acesso detalhado no botão "Instruções para visualizar arquivos KML").
 
     <figure>
-      <img src="imgs/janela_GPS_KML.PNG" alt="É possível selecionar os formatos Pontos e Polígono" style="border: 1px solid black;" width="100%">
-      <figcaption align="center"><i>É possível selecionar os formatos Pontos e Polígono. </i></figcaption>
+      <img src="imgs/janela_GPS_KML.PNG" alt="É possível selecionar o formato de Pontos ou de Polígono (disponível a partir de 3 pontos encontrados)." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>É possível selecionar o formato de Pontos e ou de Polígono (disponível a partir de 3 pontos encontrados). </i></figcaption>
     </figure>
 
     <br>
   
     <figure>
-      <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração." style="border: 1px solid black; max-width: 500px; width: 100%; display: block; margin: 0 auto;" width="100%">
-      <figcaption align="center"><i>É possível registrar no arquivo KML informações que identificam a extração. </i></figcaption>
+      <img src="imgs/janela_GPS_KML_informacoes.PNG" alt="É possível registrar no arquivo KML informações que identificam a extração. Essas informações ficarão visíveis na interface do Google Earth ou do Google My Maps." style="border: 1px solid black; max-width: 500px; width: 100%; display: block; margin: 0 auto;" width="100%">
+      <figcaption align="center"><i>É possível registrar no arquivo KML informações que identificam a extração. Essas informações ficarão visíveis na interface do Google Earth ou do Google My Maps. </i></figcaption>
     </figure>
 
     <br>
