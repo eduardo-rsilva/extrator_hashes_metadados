@@ -6805,13 +6805,10 @@ class JanelaHashes(QWidget):
             texto_custodia = self.texto_referencia.toPlainText().strip()
         # ----------------------------------------------------------------------
 
-        # Passa a informação do drive (se existir) para o processamento final
-        self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia)
+            # Passa a informação do drive (se existir) para o processamento final
+            self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia, caminhos_iniciais)
 
-    def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
-        if not lista_arquivos:
-            return
-
+    def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia="", caminhos_iniciais=None):
         # ---> CHECAGEM DE ALGORITMOS PRESENTES NA LISTA DE VALIDAÇÃO DE CADEIA DE CUSTÓDIA <---
         texto_custodia = self._verificar_pre_extracao_custodia(texto_custodia)
         if texto_custodia is None:
@@ -6822,14 +6819,13 @@ class JanelaHashes(QWidget):
         extrair_meta = self.chk_metadados.isChecked()
         extrair_raw = getattr(self, 'chk_metadados_raw', None) and self.chk_metadados_raw.isChecked()
 
-        if total_arquivos == 0:
-            self.texto_saida.append("Nenhum arquivo encontrado para processamento.\n")
-            return
-
         # Reseta as flags para o novo relatório (são populadas na obtenção de metadados)
         self.video_teve_fps_geral = False
         self.video_teve_fps_min_max = False
 
+        # =========================================================================
+        # PROMPT DE RESULTADOS ANTERIORES (Movido para antes da checagem de zero)
+        # =========================================================================
         if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
@@ -6853,6 +6849,23 @@ class JanelaHashes(QWidget):
                 self.texto_saida.clear()
         else:
             self.texto_saida.clear()
+
+        # =========================================================================
+        # CHECAGEM DE ARQUIVOS ZERO (E CAMINHO DA PASTA)
+        # =========================================================================
+        if total_arquivos == 0:
+            self.texto_saida.append(
+                "⚠️ NENHUM ARQUIVO ENCONTRADO: O diretório (ou seleção) está vazio ou não possui arquivos válidos.")
+
+            if caminhos_iniciais:
+                for caminho in caminhos_iniciais:
+                    self.texto_saida.append(f"   ↳ {caminho}")
+
+            self.texto_saida.append("")
+
+            scrollbar = self.texto_saida.verticalScrollBar()
+            scrollbar.setValue(scrollbar.maximum())
+            return
 
         self.travar_interface()
 
