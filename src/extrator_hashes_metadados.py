@@ -2413,12 +2413,13 @@ class JanelaHashes(QWidget):
                                 font-weight: bold; 
                                 color: #800000; 
                                 background-color: #e6e6e6;
-                            }
-                            QPushButton:disabled {
-                                color: #999999; 
-                                background-color: #f0f0f0;
                                 border: 1px solid #cccccc;
+                                border-radius: 4px;
+                                padding: 4px;
                             }
+                            QPushButton:hover { background-color: #d4d4d4; border: 1px solid #b3b3b3; }
+                            QPushButton:pressed { background-color: #c5c5c5; border: 1px solid #999999; }
+                            QPushButton:disabled { color: #999999; background-color: #f0f0f0; border: 1px solid #cccccc; }
                         """)
         layout_botoes_origem.addWidget(self.btn_unidade_raw)
 
@@ -2847,19 +2848,23 @@ class JanelaHashes(QWidget):
                 btn_prosseguir.setStyleSheet("""
                     QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
                     QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                    QPushButton:pressed { background-color: #2b2d2e; border: 1px solid #999999; }
                 """)
                 btn_cancelar.setStyleSheet("""
                     QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
                     QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                    QPushButton:pressed { background-color: #1a1a1a; border: 1px solid #888888; }
                 """)
             else:
                 btn_prosseguir.setStyleSheet("""
                     QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
                     QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                    QPushButton:pressed { background-color: #c0c0c0; border: 1px solid #888888; }
                 """)
                 btn_cancelar.setStyleSheet("""
                     QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
                     QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                    QPushButton:pressed { background-color: #dddddd; border: 1px solid #999999; }
                 """)
 
             msg_box.exec()
@@ -2903,19 +2908,23 @@ class JanelaHashes(QWidget):
                     btn_auto.setStyleSheet("""
                         QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
                         QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                        QPushButton:pressed { background-color: #2b2d2e; border: 1px solid #999999; }
                     """)
                     btn_cancelar.setStyleSheet("""
                         QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
                         QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                        QPushButton:pressed { background-color: #1a1a1a; border: 1px solid #888888; }
                     """)
                 else:
                     btn_auto.setStyleSheet("""
                         QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
                         QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                        QPushButton:pressed { background-color: #c0c0c0; border: 1px solid #888888; }
                     """)
                     btn_cancelar.setStyleSheet("""
                         QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
                         QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                        QPushButton:pressed { background-color: #dddddd; border: 1px solid #999999; }
                     """)
 
                 msg_box.exec()
@@ -3026,7 +3035,9 @@ class JanelaHashes(QWidget):
             self.texto_saida.setStyleSheet(
                 "background-color: #f4f4f4; color: #111111; font-family: Consolas; font-size: 10pt;")
             self.btn_unidade_raw.setStyleSheet("""
-                QPushButton { font-weight: bold; color: #800000; background-color: #e6e6e6; }
+                QPushButton { font-weight: bold; color: #800000; background-color: #e6e6e6; border: 1px solid #cccccc; border-radius: 4px; padding: 4px; }
+                QPushButton:hover { background-color: #d4d4d4; border: 1px solid #b3b3b3; }
+                QPushButton:pressed { background-color: #c5c5c5; border: 1px solid #999999; }
                 QPushButton:disabled { color: #999999; background-color: #f0f0f0; border: 1px solid #cccccc; }
             """)
             self.texto_referencia.setStyleSheet("")
@@ -3222,6 +3233,7 @@ class JanelaHashes(QWidget):
                                 border-radius: 4px;
                             }
                             #MainWindow QPushButton:hover { background-color: #990000; }
+                            #MainWindow QPushButton:pressed { background-color: #5a0000; border: 1px solid #800000; } /* <-- ADICIONADO AQUI */
                             #MainWindow QPushButton:disabled { 
                                 background-color: #330000; 
                                 color: #888888; 
