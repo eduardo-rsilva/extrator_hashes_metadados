@@ -2797,9 +2797,13 @@ class JanelaHashes(QWidget):
             chk.toggled.connect(self.salvar_estado_atual)
 
     def _verificar_pre_extracao_custodia(self, texto_custodia):
-        """Checagem de segurança antes da extração. Retorna False se o usuário cancelar."""
+        """
+        Checagem de segurança antes da extração.
+        Retorna o 'texto_custodia' se puder prosseguir (ou "" para desativar a validação),
+        e retorna None se o usuário abortar a operação.
+        """
         if not texto_custodia:
-            return True  # Continua normalmente se a caixa estiver vazia
+            return texto_custodia
 
         padroes = {
             "MD5": r'\b[a-fA-F0-9]{32}\b',
@@ -2815,6 +2819,60 @@ class JanelaHashes(QWidget):
             if re.search(padrao, texto_limpo):
                 algos_detectados.append(algo)
 
+        # =========================================================================
+        # CAIXA PREENCHIDA, MAS NENHUM HASH DETECTADO
+        # =========================================================================
+        if not algos_detectados:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Aviso Forense - Validação de Custódia")
+
+            fonte = msg_box.font()
+            fonte.setPointSize(11)
+            msg_box.setFont(fonte)
+
+            msg_box.setText("<b>Nenhum hash criptográfico foi encontrado no texto inserido.</b>")
+            msg_box.setInformativeText(
+                "O campo de validação da cadeia de custódia não está vazio, mas o sistema não conseguiu "
+                "localizar nenhum formato de hash válido (MD5, SHA-1, SHA-256, etc.) no seu conteúdo.\n\n"
+                "Sendo assim, a validação automática não poderá ser realizada.\n\n"
+                "Deseja prosseguir com a extração de hashes e/ou metadados sem validação de cadeia de custódia mesmo assim ou cancelar a operação?"
+            )
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+
+            btn_prosseguir = msg_box.addButton("Prosseguir com a extração", QMessageBox.ButtonRole.AcceptRole)
+            btn_cancelar = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            if is_dark:
+                btn_prosseguir.setStyleSheet("""
+                    QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
+                    QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                """)
+                btn_cancelar.setStyleSheet("""
+                    QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
+                    QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                """)
+            else:
+                btn_prosseguir.setStyleSheet("""
+                    QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                    QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                """)
+                btn_cancelar.setStyleSheet("""
+                    QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                    QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                """)
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == btn_prosseguir:
+                self.texto_referencia.clear()  # Limpa a caixa visualmente para não confundir o usuário
+                return ""  # Retorna vazio para que o processo ignore a custódia
+            else:
+                return None # Cancela a operação
+
+        # =========================================================================
+        # FALTA SELECIONAR ALGUM HASH NA INTERFACE
+        # =========================================================================
         if algos_detectados:
             marcados_atualmente = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked() and algo != "CRC32"]
             faltando = set(algos_detectados) - set(marcados_atualmente)
@@ -2835,7 +2893,7 @@ class JanelaHashes(QWidget):
                     "Esse ajuste é IMPRESCINDÍVEL para evitar inconsistências na validação.\n"
                     "Deseja ajustar automaticamente antes de iniciar a extração?"
                 )
-                msg_box.setIcon(QMessageBox.Icon.Warning)  # Mudei para Warning (Amarelo) para dar mais ênfase
+                msg_box.setIcon(QMessageBox.Icon.Warning)
 
                 btn_auto = msg_box.addButton("Ajustar automaticamente", QMessageBox.ButtonRole.AcceptRole)
                 btn_cancelar = msg_box.addButton("Cancelar extração", QMessageBox.ButtonRole.RejectRole)
@@ -2869,11 +2927,11 @@ class JanelaHashes(QWidget):
                         else:
                             chk.setChecked(algo in algos_detectados)
                     self.salvar_estado_atual()
-                    return True  # Ajustado com sucesso, pode prosseguir
+                    return texto_custodia
                 else:
-                    return False  # Usuário se recusou a corrigir, ABORTAR extração!
+                    return None
 
-        return True  # Nenhuma inconsistência, pode prosseguir
+        return texto_custodia
 
     def alternar_modo_escuro(self, ativado):
         app = QApplication.instance()  # Captura a instância global do aplicativo
@@ -4035,7 +4093,8 @@ class JanelaHashes(QWidget):
         # ---> REDE DE SEGURANÇA PARA VALIDAR CADEIA DE CUSTÓDIA DE UNIDADES RAW <---
         # Lê o texto que estiver na caixa de custódia e faz a verificação
         texto_custodia = self.texto_referencia.toPlainText().strip()
-        if not self._verificar_pre_extracao_custodia(texto_custodia):
+        texto_custodia = self._verificar_pre_extracao_custodia(texto_custodia)
+        if texto_custodia is None:
             return
         # ---------------------------------------------------------------------------
 
@@ -6754,7 +6813,8 @@ class JanelaHashes(QWidget):
             return
 
         # ---> CHECAGEM DE ALGORITMOS PRESENTES NA LISTA DE VALIDAÇÃO DE CADEIA DE CUSTÓDIA <---
-        if not self._verificar_pre_extracao_custodia(texto_custodia):
+        texto_custodia = self._verificar_pre_extracao_custodia(texto_custodia)
+        if texto_custodia is None:
             return
 
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
