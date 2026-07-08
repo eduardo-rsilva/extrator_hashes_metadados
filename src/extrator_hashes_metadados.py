@@ -4119,6 +4119,63 @@ class JanelaHashes(QWidget):
         # DESVIO: SE FOR E01, PASSA O COMANDO PARA O EWFACQUIRE
         # =========================================================
         if caminho_imagem.lower().endswith('.e01'):
+
+            # --- AVISO SOBRE VALIDAÇÃO DE CADEIA DE CUSTÓDIA NO E01 ---
+            if texto_custodia:
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Aviso Forense - E01 e Cadeia de Custódia")
+
+                fonte = msg_box.font()
+                fonte.setPointSize(11)
+                msg_box.setFont(fonte)
+
+                msg_box.setText(
+                    "<b>A extração no formato .E01 não permite validação de cadeia de custódia simultânea.</b>")
+                msg_box.setInformativeText(
+                    "O formato E01 possui uma validação automática pós-extração, mas ela serve exclusivamente "
+                    "para validar o próprio processo de aquisição (garantindo que o espelhamento ocorreu sem corromper os dados).\n\n"
+                    "Essa validação não cruzará dados com os hashes da cadeia de custódia que você inseriu na tela principal.\n\n"
+                    "Deseja prosseguir com a geração da imagem .E01 assim mesmo?"
+                )
+                msg_box.setIcon(QMessageBox.Icon.Information)
+
+                btn_prosseguir = msg_box.addButton("Prosseguir", QMessageBox.ButtonRole.AcceptRole)
+                btn_cancelar = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+
+                is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                if is_dark:
+                    btn_prosseguir.setStyleSheet("""
+                            QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
+                            QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                            QPushButton:pressed { background-color: #2b2d2e; border: 1px solid #999999; }
+                        """)
+                    btn_cancelar.setStyleSheet("""
+                            QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
+                            QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                            QPushButton:pressed { background-color: #1a1a1a; border: 1px solid #888888; }
+                        """)
+                else:
+                    btn_prosseguir.setStyleSheet("""
+                            QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                            QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                            QPushButton:pressed { background-color: #c0c0c0; border: 1px solid #888888; }
+                        """)
+                    btn_cancelar.setStyleSheet("""
+                            QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                            QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                            QPushButton:pressed { background-color: #dddddd; border: 1px solid #999999; }
+                        """)
+
+                msg_box.exec()
+
+                if msg_box.clickedButton() == btn_cancelar:
+                    return
+
+                # Registra o aviso rapidamente no painel traseiro
+                self.texto_saida.append(
+                    "⚠️ AVISO: Validação de Custódia ignorada (Formato E01 não suporta validação simultânea).")
+            # -----------------------------------------------
+
             self.travar_interface()
 
             # --- ATIVA A ANIMAÇÃO DE "VAI E VEM" (MODO INDETERMINADO) ---
