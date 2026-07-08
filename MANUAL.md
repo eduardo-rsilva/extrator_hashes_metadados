@@ -1,4 +1,4 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.5.0.1
+# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.5.1.0
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
@@ -10,7 +10,7 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > **DICA:** Este programa pode ser executado a partir de unidades móveis, como _pendrives_..
 
 ### Como Baixar o Arquivo e Descompactá-lo 
-1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.5.0.1)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.5.0.1/Extrator_ERS-IC-SP-NIC_v5.0.1.zip) 
+1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.5.1.0)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.5.1.0/Extrator_ERS-IC-SP-NIC_v5.1.0.zip) 
 2. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
 2. Clique com o botão direito do mouse sobre o arquivo e selecione **"Extrair Tudo..."**.
 3. Escolha uma pasta de destino e conclua a extração.
