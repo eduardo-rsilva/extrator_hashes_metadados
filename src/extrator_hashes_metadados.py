@@ -4000,6 +4000,12 @@ class JanelaHashes(QWidget):
             return
         release_raw_device_lock(lf)
 
+        # ---> REDE DE SEGURANÇA PARA VALIDAR CADEIA DE CUSTÓDIA DE UNIDADES RAW <---
+        # Lê o texto que estiver na caixa de custódia e faz a verificação
+        texto_custodia = self.texto_referencia.toPlainText().strip()
+        self._verificar_pre_extracao_custodia(texto_custodia)
+        # ---------------------------------------------------------------------------
+
         algos = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         if not algos:
             QMessageBox.warning(self, "Algoritmos", "Selecione ao menos um algoritmo de hash.")
