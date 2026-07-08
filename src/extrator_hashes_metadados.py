@@ -2327,13 +2327,35 @@ class JanelaHashes(QWidget):
         self.btn_manual_online = QPushButton("Manual Online")
         self.btn_manual_online.setMinimumWidth(120)
         self.btn_manual_online.setMinimumHeight(28)
+        self.btn_manual_online.setToolTip(
+            "<p><b>Guia de Operação com instruções sobre:</b></p>"
+            "<ul>"
+            "<li><b>0.</b> Primeiros Passos: Download, Extração e Execução</li>"
+            "<li><b>1.</b> Processamento de Arquivos e Pastas</li>"
+            "<li><b>2.</b> Aquisição Forense e Hash RAW (Bit-a-Bit)</li>"
+            "<li><b>3.</b> Validação da Cadeia de Custódia</li>"
+            "<li><b>4.</b> Analisando Metadados e Alertas Periciais</li>"
+            "<li><b>5.</b> Finalização e Relatórios</li>"
+            "</ul>"
+        )
         self.btn_manual_online.clicked.connect(self.abrir_manual_online)
+        self.btn_manual_online.installEventFilter(self)
         layout_opcoes_topo.addWidget(self.btn_manual_online)
 
         self.btn_sobre = QPushButton("Sobre")
         self.btn_sobre.setMinimumWidth(90)
         self.btn_sobre.setMinimumHeight(28)
+        self.btn_sobre.setToolTip(
+            "<p><b>Informações detalhadas sobre:</b></p>"
+            "<ul>"
+            "<li>Funcionalidades Forenses</li>"
+            "<li>Licença e Termos de Uso</li>"
+            "<li>Como Citar este programa</li>"
+            "<li>Agradecimentos</li>"
+            "</ul>"
+        )
         self.btn_sobre.clicked.connect(self.mostrar_sobre)
+        self.btn_sobre.installEventFilter(self)
         layout_opcoes_topo.addWidget(self.btn_sobre)
 
         layout_opcoes_topo.addStretch()
@@ -2376,7 +2398,16 @@ class JanelaHashes(QWidget):
         layout_botoes_origem.addSpacing(25)
 
         self.btn_unidade_raw = QPushButton("Selecionar Unidade (RAW)")
+        self.btn_unidade_raw.setToolTip(
+            "<p><b>Aquisição Forense e Hash RAW (Bit-a-Bit)</b></p>"
+            "<p>Realiza a extração de baixo nível (setor por setor) de mídias físicas ou lógicas (HDs, SSDs, Pendrives, CDs e DVDs).</p>"
+            "<ul>"
+            "<li>Gera um <b>HASH único</b> que atesta matematicamente o estado integral da evidência.</li>"
+            "<li>Permite salvar uma cópia idêntica através de <b>Imagem Forense (.E01 ou .dd)</b>.</li>"
+            "</ul>"
+        )
         self.btn_unidade_raw.clicked.connect(self.selecionar_unidade_raw)
+        self.btn_unidade_raw.installEventFilter(self)
         self.btn_unidade_raw.setStyleSheet("""
                             QPushButton {
                                 font-weight: bold; 
@@ -4532,6 +4563,12 @@ class JanelaHashes(QWidget):
         elif hasattr(self, 'chk_metadados_raw') and obj == self.chk_metadados_raw:
             eh_alvo = True
         elif hasattr(self, 'chk_hashes') and obj in self.chk_hashes.values():
+            eh_alvo = True
+        elif hasattr(self, 'btn_manual_online') and obj == self.btn_manual_online:
+            eh_alvo = True
+        elif hasattr(self, 'btn_sobre') and obj == self.btn_sobre:
+            eh_alvo = True
+        elif hasattr(self, 'btn_unidade_raw') and obj == self.btn_unidade_raw:
             eh_alvo = True
 
         if eh_alvo:
