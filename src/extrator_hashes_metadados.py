@@ -2270,7 +2270,7 @@ class WorkerExtracao(QThread):
 
 
 class JanelaHashes(QWidget):
-    sinal_atualizacao = Signal(str, str, str)
+    sinal_atualizacao = Signal(str, str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -2531,8 +2531,11 @@ class JanelaHashes(QWidget):
 
         # --- ALERTA DE ATUALIZAÇÃO (Invisível por padrão) ---
         self.lbl_alerta_versao = QLabel()
-        self.lbl_alerta_versao.setOpenExternalLinks(True)  # Para o link funcionar
+        self.lbl_alerta_versao.setOpenExternalLinks(False)  # Para o link funcionar
         self.lbl_alerta_versao.hide()  # Esconde ao iniciar
+
+        self.lbl_alerta_versao.linkActivated.connect(self._tratar_clique_atualizacao)
+
         layout_principal.addWidget(self.lbl_alerta_versao)
 
         # --- DIVISOR AJUSTÁVEL (QSplitter) ---
@@ -3064,7 +3067,7 @@ class JanelaHashes(QWidget):
             self.chk_metadados.setChecked(False)
 
     def checar_atualizacoes(self):
-        """Checa na API do GitHub se há uma nova Release publicada"""
+        """Checa na API do GitHub se há uma nova Release publicada e obtém o link do ZIP."""
         url = f"https://api.github.com/repos/{USUARIO}/{REPOSITORIO}/releases/latest"
 
         def _worker():
@@ -3077,8 +3080,15 @@ class JanelaHashes(QWidget):
                     dados = json.loads(response.read().decode('utf-8'))
 
                 versao_github_bruta = dados.get('tag_name', '')
-                url_download = dados.get('html_url', LINK_GITHUB)
+                url_download_pagina = dados.get('html_url', LINK_GITHUB)
                 notas_lancamento = dados.get('body', 'Sem notas de lançamento disponíveis.')
+
+                # Busca o link direto do arquivo ZIP nos anexos da release
+                url_download_zip = ""
+                for asset in dados.get('assets', []):
+                    if asset.get('name', '').endswith('.zip'):
+                        url_download_zip = asset.get('browser_download_url', '')
+                        break
 
                 match_gh = re.search(r'(\d+\.\d+\.\d+)', versao_github_bruta)
                 match_local = re.search(r'(\d+\.\d+\.\d+)', VERSAO_APP)
@@ -3090,23 +3100,42 @@ class JanelaHashes(QWidget):
                     tup_local = tuple(map(int, str_local.split('.')))
 
                     if tup_gh > tup_local:
-                        # Emite as três informações para a interface
-                        self.sinal_atualizacao.emit(versao_github_bruta, url_download, notas_lancamento)
+                        # Emite as informações. Passamos o link do ZIP, e o link da página como fallback
+                        self.sinal_atualizacao.emit(versao_github_bruta, url_download_pagina, notas_lancamento, url_download_zip)
 
-            except Exception as e:
-                pass  # Erros de rede são ignorados silenciosamente para não travar o app
+            except Exception:
+                pass
 
         import threading
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
 
-    def _exibir_alerta_atualizacao(self, nova_versao, link, notas_lancamento):
+    def _exibir_alerta_atualizacao(self, nova_versao, link_pagina, notas_lancamento, url_zip):
+        # Salva o link do zip para uso posterior
+        self.url_atualizacao_pendente = url_zip if url_zip else link_pagina
+        self.versao_atualizacao_pendente = nova_versao
+        self.tem_atualizacao_zip = bool(url_zip)
+
+        # TEXTOS MAIS CLAROS E CONVIDATIVOS:
+        if self.tem_atualizacao_zip:
+            botao_acao = (
+                f"<a href='atualizar_agora' style='color: #0056b3; text-decoration: none; font-weight: bold;'>"
+                f"✨ CLIQUE AQUI PARA ATUALIZAR AUTOMATICAMENTE"
+                f"</a>"
+            )
+        else:
+            botao_acao = (
+                f"<a href='{link_pagina}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>"
+                f"📥 BAIXAR ATUALIZAÇÃO MANUALMENTE"
+                f"</a>"
+            )
+
         alerta_html = (
             f"<div style='background-color: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 5px; margin-bottom: 5px;'>"
             f"<span style='color: #856404; font-size: 11pt;'>"
             f"<b>⚠️ Nova atualização disponível!</b> A versão <b>{nova_versao}</b> foi lançada! "
-            f"(Você está usando a v.{VERSAO_APP}). "
-            f"<a href='{link}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>BAIXAR NOVA VERSÃO</a>"
+            f"(Você está usando a v.{VERSAO_APP}).<br><br>"
+            f"{botao_acao}"
             f"</span>"
             f"</div>"
         )
@@ -3176,6 +3205,161 @@ class JanelaHashes(QWidget):
         self.lbl_progresso_total.setText(
             f"Progresso Total ({fmt_processados} / {fmt_total}) - Decorrido: {str_decorrido} | Restante: {str_restante}"
         )
+
+    def _tratar_clique_atualizacao(self, link):
+        """Intercepta o clique na barra amarela. Se for o comando de atualizar, roda a rotina."""
+        if link == "atualizar_agora" and hasattr(self, 'url_atualizacao_pendente'):
+
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Confirmar Atualização")
+
+            fonte = msg_box.font()
+            fonte.setPointSize(11)
+            msg_box.setFont(fonte)
+
+            msg_box.setText("<b>Deseja preparar a atualização automática agora?</b>")
+            msg_box.setInformativeText(
+                "O programa baixará a nova versão e criará uma nova pasta ao lado da atual, "
+                "para evitar bloqueios de antivírus.\n\n"
+                "⚠️ ATENÇÃO: Quaisquer resultados de extração que estiverem na tela serão apagados. "
+                "Certifique-se de ter salvo seu relatório antes de prosseguir.\n\n"
+                "Deseja continuar?"
+            )
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+
+            btn_sim = msg_box.addButton("Sim, atualizar", QMessageBox.ButtonRole.AcceptRole)
+            btn_nao = msg_box.addButton("Não, cancelar", QMessageBox.ButtonRole.RejectRole)
+
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            if is_dark:
+                btn_sim.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #505355; border: 1px solid #777777; }")
+                btn_nao.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }")
+            else:
+                btn_sim.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }")
+                btn_nao.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }")
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == btn_sim:
+                # Aqui está a mágica: usamos a variável que salvamos no Passo 1
+                self.atualizar_programa_automaticamente(
+                    self.url_atualizacao_pendente,
+                    self.versao_atualizacao_pendente
+                )
+
+        else:
+            import webbrowser
+            webbrowser.open(link)
+
+    def atualizar_programa_automaticamente(self, url_download_zip, nova_versao):
+        """Baixa o ZIP da release e extrai em uma nova pasta ao lado da atual (Side-by-Side)."""
+
+        # Inicializa as variáveis para o bloco de limpeza (evita alertas da IDE)
+        caminho_zip = None
+        pasta_extracao = None
+
+        self.texto_saida.clear()
+        self.travar_interface()
+
+        self.texto_saida.append("=======================================================")
+        self.texto_saida.append("⏳ PREPARANDO NOVA VERSÃO... POR FAVOR, AGUARDE.")
+        self.texto_saida.append("=======================================================\n")
+
+        try:
+            # Descobre a pasta onde a versão atual está guardada
+            if is_running_compiled():
+                pasta_atual_programa = os.path.dirname(obter_caminho_exe())
+            else:
+                pasta_atual_programa = os.path.dirname(os.path.abspath(__file__))
+
+            diretorio_pai = os.path.dirname(pasta_atual_programa)
+
+            # Formata o nome da nova pasta baseada na versão do GitHub
+            # 1. Limpa a versão que vem do GitHub para garantir que teremos só os números (ex: "5.0.1")
+            nova_versao_numeros = nova_versao.lower().replace('v', '').strip()
+            if nova_versao_numeros.startswith('.'):  # Remove ponto extra se vier "v.5.0.1"
+                nova_versao_numeros = nova_versao_numeros[1:]
+
+            # 2. Monta o nome exato no seu padrão
+            nome_nova_pasta = f"Extrator_ERS-IC-SP-NIC_v{nova_versao_numeros}"
+
+            pasta_extracao = os.path.join(diretorio_pai, nome_nova_pasta)
+
+            pasta_temp = tempfile.gettempdir()
+            caminho_zip = os.path.join(pasta_temp, f"extrator_update_{nova_versao_numeros}.zip")
+
+            # 1. Baixar
+            self.texto_saida.append("📥 1/3 - Baixando a nova versão do GitHub...")
+            QApplication.processEvents()
+
+            import urllib.request
+            import ssl
+            contexto_ssl = ssl._create_unverified_context()  # Evita erros de proxy em redes policiais
+
+            req = urllib.request.Request(url_download_zip, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, context=contexto_ssl) as response, open(caminho_zip, 'wb') as out_file:
+                out_file.write(response.read())
+
+            # 2. Descompactar
+            self.texto_saida.append(f"📦 2/3 - Extraindo arquivos para a nova pasta:\n   ↳ {pasta_extracao}")
+            QApplication.processEvents()
+
+            if os.path.exists(pasta_extracao):
+                import shutil
+                shutil.rmtree(pasta_extracao, ignore_errors=True)
+
+            import zipfile
+            with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
+                zip_ref.extractall(pasta_extracao)
+
+            os.remove(caminho_zip)
+
+            # 3. Conclusão
+            self.texto_saida.append("\n✅ 3/3 - ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!")
+            self.texto_saida.append("\n⚠️ O Windows Explorer será aberto na nova pasta.")
+            self.texto_saida.append("Feche este programa e passe a utilizar o arquivo .exe da pasta nova.")
+            QApplication.processEvents()
+
+            import time
+            time.sleep(3)
+
+            # Abre a pasta nova na cara do usuário para ele ver o arquivo
+            if os.name == 'nt':
+                os.startfile(pasta_extracao)
+
+            # Fecha a versão velha
+            QApplication.quit()
+
+        except Exception as e:
+            self.texto_saida.append(f"\n❌ ERRO DURANTE A ATUALIZAÇÃO: {e}")
+            self.texto_saida.append("   ↳ A operação foi cancelada. O programa atual não foi afetado.")
+            self.texto_saida.append("   ↳ Tente usar o botão de [BAIXAR ATUALIZAÇÃO MANUALMENTE].")
+
+            # ==========================================
+            # TRATAMENTO DE FALHAS (FAZENDO A LIMPEZA)
+            # ==========================================
+
+            # 1. Se o ZIP corrompido ficou no Temp (download pela metade), apaga ele:
+            if caminho_zip and os.path.exists(caminho_zip):
+                try:
+                    os.remove(caminho_zip)
+                except:
+                    pass
+
+            # 2. Se a pasta nova ficou pela metade (falha na extração), apaga ela:
+            if pasta_extracao and os.path.exists(pasta_extracao):
+                try:
+                    import shutil
+                    shutil.rmtree(pasta_extracao, ignore_errors=True)
+                except:
+                    pass
+
+            # Devolve o controle para o perito
+            self.destravar_interface()
 
     def exportar_codigo_fonte(self):
         """Permite que o usuário salve uma cópia do script para auditoria forense"""
