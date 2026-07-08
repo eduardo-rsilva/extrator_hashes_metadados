@@ -2765,6 +2765,87 @@ class JanelaHashes(QWidget):
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
 
+    def _verificar_pre_extracao_custodia(self, texto_custodia):
+        """Checagem de segurança antes de iniciar a extração para evitar divergências."""
+        if not texto_custodia:
+            return
+
+        padroes = {
+            "MD5": r'\b[a-fA-F0-9]{32}\b',
+            "SHA-1": r'\b[a-fA-F0-9]{40}\b',
+            "SHA-256": r'\b[a-fA-F0-9]{64}\b',
+            "SHA-384": r'\b[a-fA-F0-9]{96}\b',
+            "SHA-512": r'\b[a-fA-F0-9]{128}\b'
+        }
+
+        algos_detectados = []
+        texto_limpo = re.sub(r'[\u200b\u200e\u200f\x00]', '', texto_custodia)
+        for algo, padrao in padroes.items():
+            if re.search(padrao, texto_limpo):
+                algos_detectados.append(algo)
+
+        if algos_detectados:
+            # Pega o que está marcado na tela neste exato momento
+            marcados_atualmente = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked() and algo != "CRC32"]
+
+            # Inteligência: Só avisa se estiver FALTANDO marcar alguma caixa.
+            # (Se o texto tem MD5, e o usuário marcou MD5 e SHA-256, não há problema).
+            faltando = set(algos_detectados) - set(marcados_atualmente)
+
+            if faltando:
+                algos_str = ", ".join(algos_detectados)
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Inteligência Forense - Ajuste Necessário")
+
+                # --- 1. AUMENTAR A FONTE DA JANELA ---
+                fonte = msg_box.font()
+                fonte.setPointSize(11)  # Altere esse número se quiser ainda maior (ex: 12, 13)
+                msg_box.setFont(fonte)
+
+                msg_box.setText(
+                    f"O texto de validação da custódia contém os seguintes hashes:<br><br><b>{algos_str}</b>")
+                msg_box.setInformativeText(
+                    "No momento, as caixas de seleção não estão configuradas para todos eles.\n"
+                    "Esse ajuste é IMPRESCINDÍVEL para evitar inconsistências na validação.\n"
+                    "Deseja ajustar automaticamente antes de iniciar a extração?"
+                )
+                msg_box.setIcon(QMessageBox.Icon.Question)
+
+                btn_auto = msg_box.addButton("Ajustar automaticamente", QMessageBox.ButtonRole.AcceptRole)
+                btn_manual = msg_box.addButton("Ajustar manualmente", QMessageBox.ButtonRole.RejectRole)
+
+                # --- 2. ESTILIZAR OS BOTÕES COM EFEITO HOVER ---
+                is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                if is_dark:
+                    btn_auto.setStyleSheet("""
+                                        QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
+                                        QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                                    """)
+                    btn_manual.setStyleSheet("""
+                                        QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
+                                        QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                                    """)
+                else:
+                    btn_auto.setStyleSheet("""
+                                        QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                                        QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                                    """)
+                    btn_manual.setStyleSheet("""
+                                        QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                                        QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                                    """)
+
+                msg_box.exec()
+
+                if msg_box.clickedButton() == btn_auto:
+                    for algo, chk in self.chk_hashes.items():
+                        if algo == "CRC32":
+                            chk.setChecked(False)  # CRC32 fica de fora da custódia
+                        else:
+                            chk.setChecked(algo in algos_detectados)
+
+                    self.salvar_estado_atual()  # Salva a nova configuração
+
     def alternar_modo_escuro(self, ativado):
         app = QApplication.instance()  # Captura a instância global do aplicativo
 
@@ -6626,6 +6707,10 @@ class JanelaHashes(QWidget):
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia=""):
         if not lista_arquivos:
             return
+
+        # ---> CHECAGEM DE ALGORITMOS PRESENTES NA LISTA DE VALIDAÇÃO DE CADEIA DE CUSTÓDIA <---
+        # Se houver ajuste, esta função vai alterar as caixas de seleção fisicamente antes da próxima linha ler.
+        self._verificar_pre_extracao_custodia(texto_custodia)
 
         algos_selecionados = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked()]
         total_arquivos = len(lista_arquivos)
