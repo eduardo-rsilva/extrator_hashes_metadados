@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "5.1.0"
+VERSAO_APP = "4.1.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -3111,22 +3111,26 @@ class JanelaHashes(QWidget):
         t.start()
 
     def _exibir_alerta_atualizacao(self, nova_versao, link_pagina, notas_lancamento, url_zip):
-        # Salva o link do zip para uso posterior
+        # Salva o link e a versão para usarmos depois que o usuário clicar no botão
         self.url_atualizacao_pendente = url_zip if url_zip else link_pagina
         self.versao_atualizacao_pendente = nova_versao
         self.tem_atualizacao_zip = bool(url_zip)
 
-        # TEXTOS MAIS CLAROS E CONVIDATIVOS:
+        # Adicionado o botão de ler as notas ao lado da atualização
         if self.tem_atualizacao_zip:
             botao_acao = (
-                f"<a href='atualizar_agora' style='color: #0056b3; text-decoration: none; font-weight: bold;'>"
+                f"<a href='atualizar_agora' style='color: #0056b3; text-decoration: none; font-weight: bold; font-size: 11pt;'>"
                 f"✨ CLIQUE AQUI PARA ATUALIZAR AUTOMATICAMENTE"
+                f"</a>"
+                f"&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;"
+                f"<a href='{link_pagina}' style='color: #333333; text-decoration: underline; font-size: 11pt;'>"
+                f"📄 Ler notas de lançamento no GitHub"
                 f"</a>"
             )
         else:
             botao_acao = (
-                f"<a href='{link_pagina}' style='color: #0056b3; text-decoration: none; font-weight: bold;'>"
-                f"📥 BAIXAR ATUALIZAÇÃO MANUALMENTE"
+                f"<a href='{link_pagina}' style='color: #0056b3; text-decoration: none; font-weight: bold; font-size: 11pt;'>"
+                f"📥 BAIXAR ATUALIZAÇÃO MANUALMENTE (e ler notas da versão)"
                 f"</a>"
             )
 
@@ -3148,12 +3152,12 @@ class JanelaHashes(QWidget):
         notas = re.sub(r'^- (.*)', r'• \1', notas, flags=re.MULTILINE)
         notas = re.sub(r'^#+ (.*)', r'<b>\1</b>', notas, flags=re.MULTILINE)
 
+        # NOVIDADE: Ajustamos o texto caso a nota seja muito grande
         if len(notas) > 1200:
-            notas = notas[:1200] + "\n\n... (clique para ver as notas completas)"
+            notas = notas[:1200] + "\n\n... (Texto longo: Clique em 'Ler notas de lançamento' na barra amarela para ver na íntegra no GitHub)."
 
         notas_formatadas = notas.replace('\n', '<br>')
 
-        # Cores dinâmicas para a janela flutuante de notas de lançamento
         is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
         bg_tooltip = "#3c3f41" if is_dark else "#ffffff"
         fg_tooltip = "#f0f0f0" if is_dark else "#000000"
@@ -3168,10 +3172,8 @@ class JanelaHashes(QWidget):
         self.lbl_alerta_versao.setText(alerta_html)
         self.lbl_alerta_versao.show()
 
-        # Guarda o texto da tooltip na própria label para podermos acessar depois
+        # Guarda o texto da tooltip na própria label
         self.lbl_alerta_versao.custom_tooltip_text = tooltip_html
-
-        # Instala um filtro para ouvir quando o mouse entra na label
         self.lbl_alerta_versao.installEventFilter(self)
 
     def atualizar_tempo_total(self):
