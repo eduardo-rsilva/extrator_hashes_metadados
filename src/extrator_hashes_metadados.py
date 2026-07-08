@@ -3405,6 +3405,9 @@ class JanelaHashes(QWidget):
         if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
+            fonte = msg_box.font()
+            fonte.setPointSize(11)
+            msg_box.setFont(fonte)
             msg_box.setText("Já existem resultados de extrações anteriores na tela.")
             msg_box.setInformativeText(
                 "Deseja adicionar os resultados da unidade RAW à lista atual ou limpar a tela antes de começar?")
@@ -6733,6 +6736,9 @@ class JanelaHashes(QWidget):
         if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
+            fonte = msg_box.font()
+            fonte.setPointSize(11)
+            msg_box.setFont(fonte)
             msg_box.setText("Já existem resultados de extrações anteriores na tela.")
             msg_box.setInformativeText(
                 "Deseja adicionar os novos resultados à lista atual ou limpar a tela antes de começar?")
