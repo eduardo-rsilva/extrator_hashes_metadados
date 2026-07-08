@@ -4475,13 +4475,40 @@ class JanelaHashes(QWidget):
                 if texto_custodia:
                     validador_raw = ValidadorCustodia(texto_custodia)
                     status, msg_custodia = validador_raw.validar_hash_simples(hashes)
+
                     self.texto_saida.append("")
-                    self.texto_saida.append("=== VALIDAÇÃO DA CADEIA DE CUSTÓDIA ===")
+                    texto_hashes.append("")
+
+                    # ========================================================
+                    # INSERE A LISTA ORIGINAL (Igual ao fluxo de arquivos)
+                    # ========================================================
+                    nome_ref = getattr(self.texto_referencia, 'nome_arquivo_origem', None)
+                    hash_ref = getattr(self.texto_referencia, 'hash_arquivo_origem', None)
+
+                    if nome_ref and hash_ref:
+                        cabecalho_ref = f"=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref} - SHA-256: {hash_ref}) ==="
+                    elif nome_ref:
+                        cabecalho_ref = f"=== RELAÇÃO ORIGINAL DE HASHES (Extraída de: {nome_ref}) ==="
+                    else:
+                        cabecalho_ref = "=== RELAÇÃO ORIGINAL DE HASHES (CADEIA DE CUSTÓDIA) ==="
+
+                    self.texto_saida.append(cabecalho_ref)
+                    texto_hashes.append(cabecalho_ref)
+
+                    lista_referencia = validador_raw.obter_lista_limpa()
+                    for item in lista_referencia:
+                        self.texto_saida.append(item)
+                        texto_hashes.append(item)
+
+                    self.texto_saida.append("-" * 60)
+                    texto_hashes.append("-" * 60)
+                    # ========================================================
+
+                    self.texto_saida.append("=== RESULTADO DA VALIDAÇÃO ===")
                     self.texto_saida.append(msg_custodia)
                     self.texto_saida.append("")
 
                     # Adiciona a validação à lista de textos que vão para o Log físico (txt)
-                    texto_hashes.append("")
                     texto_hashes.append("=== RESULTADO DA VALIDAÇÃO ===")
                     texto_hashes.append(msg_custodia)
                 # ------------------------------------------------------------
