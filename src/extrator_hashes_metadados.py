@@ -3158,12 +3158,10 @@ class JanelaHashes(QWidget):
 
         notas_formatadas = notas.replace('\n', '<br>')
 
-        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
-        bg_tooltip = "#3c3f41" if is_dark else "#ffffff"
-        fg_tooltip = "#f0f0f0" if is_dark else "#000000"
-
+        # Removidas as variáveis estáticas de cor que causavam quebra de contraste ao alternar o tema.
+        # Sem as cores fixas no estilo inline, o HTML herdará dinamicamente o esquema ativo do QToolTip.
         tooltip_html = (
-            f"<div style='width: 650px; font-size: 10pt; line-height: 1.2; font-family: Consolas, monospace; background-color: {bg_tooltip}; color: {fg_tooltip}; padding: 5px;'>"
+            f"<div style='width: 650px; font-size: 10pt; line-height: 1.2; font-family: Consolas, monospace; padding: 5px;'>"
             f"<span style='font-size: 11pt;'><b>O que há de novo na versão {nova_versao}:</b></span><hr>"
             f"{notas_formatadas}"
             f"</div>"
