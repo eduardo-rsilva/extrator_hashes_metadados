@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "5.2.0"
+VERSAO_APP = "4.2.0"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -3310,15 +3310,73 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(f"📦 2/3 - Extraindo arquivos para a nova pasta:\n   ↳ {pasta_extracao}")
             QApplication.processEvents()
 
+            # --- 1. PREPARAÇÃO DO DIRETÓRIO (DELEÇÃO SE EXISTIR) ---
             if os.path.exists(pasta_extracao):
                 import shutil
-                shutil.rmtree(pasta_extracao, ignore_errors=True)
+                try:
+                    # Tenta excluir a pasta da atualização anterior sem silenciar erros
+                    shutil.rmtree(pasta_extracao)
+                except Exception as e:
+                    # Se falhar (ex: pasta aberta no Explorer, arquivo em uso), alerta e aborta
+                    msg_erro = QMessageBox(self)
+                    msg_erro.setWindowTitle("Erro na Atualização")
+                    msg_erro.setIcon(QMessageBox.Icon.Critical)
+                    msg_erro.setText(
+                        "<span style='font-size: 11pt;'><b>Falha ao preparar o diretório de destino.</b></span>")
+                    msg_erro.setInformativeText(
+                        f"<p style='line-height: 1.4;'>"
+                        f"Não foi possível limpar a pasta de atualização anterior:<br><i>{pasta_extracao}</i><br><br>"
+                        "<b>Motivo Provável:</b> A pasta está aberta no Windows Explorer ou o novo extrator já está em execução em segundo plano.<br><br>"
+                        "<b>Solução:</b> Feche todas as janelas do Windows Explorer, certifique-se de que a nova versão não está rodando e clique em Atualizar novamente.<br><br>"
+                        f"<span style='font-size: 9pt; color: #888888;'>Detalhe Técnico: {str(e)}</span>"
+                        f"</p>"
+                    )
 
-            import zipfile
-            with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
-                zip_ref.extractall(pasta_extracao)
+                    is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                    if is_dark:
+                        msg_erro.setStyleSheet(
+                            "QMessageBox { background-color: #2b2b2b; color: #f0f0f0; } QLabel { color: #f0f0f0; } QPushButton { background-color: #3c3f41; color: #f0f0f0; padding: 6px 15px; }")
 
-            os.remove(caminho_zip)
+                    msg_erro.exec()
+                    self.texto_saida.append(
+                        "\n❌ Atualização abortada: Diretório de destino bloqueado pelo Windows.")
+                    self.destravar_interface()  # Destrava a tela para o usuário
+                    return  # 🛑 ABORTA A FUNÇÃO AQUI
+
+            # --- 2. EXTRAÇÃO DO ARQUIVO ZIP ---
+            try:
+                import zipfile
+                with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
+                    zip_ref.extractall(pasta_extracao)
+
+                # Apaga o zip baixado após extrair com sucesso
+                os.remove(caminho_zip)
+
+            except Exception as e:
+                # Se a extração falhar (ex: falta de permissão, bloqueio de antivírus), alerta e aborta
+                msg_erro = QMessageBox(self)
+                msg_erro.setWindowTitle("Erro na Descompactação")
+                msg_erro.setIcon(QMessageBox.Icon.Critical)
+                msg_erro.setText(
+                    "<span style='font-size: 11pt;'><b>Falha ao descompactar os arquivos da atualização.</b></span>")
+                msg_erro.setInformativeText(
+                    f"<p style='line-height: 1.4;'>"
+                    f"Ocorreu um erro ao tentar salvar a nova versão na pasta:<br><i>{pasta_extracao}</i><br><br>"
+                    "<b>Motivo Provável:</b> Bloqueio de permissão de escrita pelo Windows, falta de espaço em disco ou interferência do Antivírus.<br><br>"
+                    "<b>Solução:</b> Verifique as permissões da pasta onde o extrator está instalado e tente novamente.<br><br>"
+                    f"<span style='font-size: 9pt; color: #888888;'>Detalhe Técnico: {str(e)}</span>"
+                    f"</p>"
+                )
+
+                is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                if is_dark:
+                    msg_erro.setStyleSheet(
+                        "QMessageBox { background-color: #2b2b2b; color: #f0f0f0; } QLabel { color: #f0f0f0; } QPushButton { background-color: #3c3f41; color: #f0f0f0; padding: 6px 15px; }")
+
+                msg_erro.exec()
+                self.texto_saida.append("\n❌ Atualização abortada: Falha na gravação/descompactação dos arquivos.")
+                self.destravar_interface()  # Destrava a tela para o usuário
+                return  # 🛑 ABORTA A FUNÇÃO AQUI
 
             # 3. Conclusão
             self.texto_saida.append("\n✅ 3/3 - ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!")
