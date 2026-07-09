@@ -1941,11 +1941,11 @@ class ValidadorCustodia:
 
 class WorkerExtracao(QThread):
     sig_texto_append = Signal(str)
-    sig_progresso_arquivo = Signal(int)
-    sig_progresso_total = Signal(int)
+    sig_progresso_arquivo = Signal(object)
+    sig_progresso_total = Signal(object)
     sig_lbl_arquivo = Signal(str)
     sig_lbl_total = Signal(str)
-    sig_sync_bytes = Signal(int)
+    sig_sync_bytes = Signal(object)
     sig_apagar_ultima_linha = Signal()
     sig_perguntar_nuvem = Signal(dict)
     sig_conclusao = Signal(dict)
