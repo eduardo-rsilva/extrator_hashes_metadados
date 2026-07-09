@@ -27,6 +27,10 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 
 > **IMPORTANTE:** o programa requer um sistema operacional **Windows de 64 bits**.
 
+> **OBSERVAÇÃO SOBRE ATUALIZAÇÕES:** O programa verifica automaticamente a disponibilidade de novas versões na internet sempre que é iniciado. Se uma atualização for encontrada, uma barra de alerta amarela aparecerá no topo da janela principal.
+> > Ao clicar em **"✨ CLIQUE AQUI PARA ATUALIZAR AUTOMATICAMENTE"** (versão 5.2.0 ou superior), o extrator baixará e preparará a nova versão em uma pasta ao lado da pasta da versão atual.
+> 
+> > Você também pode passar o mouse sobre o alerta para ler um resumo das novidades da versão ou clicar no link secundário para ler as notas completas no GitHub.
 ---
 
 ## 1. Processamento de Arquivos e Pastas
