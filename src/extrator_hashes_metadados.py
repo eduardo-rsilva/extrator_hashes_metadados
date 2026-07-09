@@ -3322,12 +3322,44 @@ class JanelaHashes(QWidget):
 
             # 3. Conclusão
             self.texto_saida.append("\n✅ 3/3 - ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!")
-            self.texto_saida.append("\n⚠️ O Windows Explorer será aberto na nova pasta.")
-            self.texto_saida.append("Feche este programa e passe a utilizar o arquivo .exe da pasta nova.")
             QApplication.processEvents()
 
-            import time
-            time.sleep(3)
+            # --- AVISO BLOQUEANTE ANTES DE FECHAR COM ORIENTAÇÃO DE ATALHOS ---
+            msg_conclusao = QMessageBox(self)
+            msg_conclusao.setWindowTitle("Atualização Concluída")
+
+            # Título levemente maior
+            msg_conclusao.setText("<span style='font-size: 13pt;'><b>O extrator foi atualizado com sucesso!</b></span>")
+
+            msg_conclusao.setInformativeText(
+                "<p style='font-size: 11pt; line-height: 1.4;'>"
+                "A nova versão foi salva em uma pasta separada ao lado da atual, preservando sua segurança.<br><br>"
+                "Ao clicar em 'OK', o Windows Explorer será aberto mostrando o diretório com o novo <b>extrator_hashes_metadados.exe</b>. "
+                "Para evitar confusão e liberar espaço no disco, recomendamos que você apague a pasta da versão antiga manualmente.<br><br>"
+                "⚠️ <b>IMPORTANTE:</b> Como o caminho do programa mudou, lembre-se de <b>refazer seus atalhos</b> na Área de Trabalho e/ou "
+                "<b>vincular novamente o ícone do extrator</b> na Barra de Tarefas do Windows se costuma utilizá-lo fixado lá.<br><br>"
+                "O extrator antigo será encerrado agora."
+                "</p>"
+            )
+            msg_conclusao.setIcon(QMessageBox.Icon.Information)
+
+            # Estilos CSS para forçar a largura mínima da janela (min-width) e formatar o botão
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            if is_dark:
+                msg_conclusao.setStyleSheet(
+                    "QMessageBox { background-color: #2b2b2b; color: #f0f0f0; min-width: 550px; } "
+                    "QLabel { color: #f0f0f0; } "
+                    "QPushButton { background-color: #3c3f41; color: #f0f0f0; padding: 6px 25px; font-weight: bold; font-size: 11pt; border: 1px solid #555555; border-radius: 4px; }"
+                )
+            else:
+                msg_conclusao.setStyleSheet(
+                    "QMessageBox { min-width: 550px; } "
+                    "QLabel { color: #111111; } "
+                    "QPushButton { background-color: #f0f0f0; color: #111111; padding: 6px 25px; font-weight: bold; font-size: 11pt; border: 1px solid #cccccc; border-radius: 4px; }"
+                )
+
+            msg_conclusao.exec()  # 🛑 Pausa a execução aqui até o usuário clicar em "OK"
+            # -----------------------------------------------------------------
 
             # Abre a pasta nova na cara do usuário para ele ver o arquivo
             if os.name == 'nt':
