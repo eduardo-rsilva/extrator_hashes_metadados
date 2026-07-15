@@ -5147,15 +5147,95 @@ class JanelaHashes(QWidget):
         salvar_config(config)
 
     def closeEvent(self, event):
-        """Salva as configurações atuais e limpa rastros ao fechar a janela."""
+        """Intercepta o fechamento, alerta sobre o Write-Blocker, salva as configurações e limpa rastros."""
+
+        # ==========================================================
+        # 1. VERIFICAÇÃO DO WRITE-BLOCKER ANTES DE FECHAR
+        # ==========================================================
+        if hasattr(self, '_verificar_status_wb') and self._verificar_status_wb():
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Aviso Forense - Bloqueio de USB Ativo")
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setText("<h3 style='margin: 0; color: #cc0000;'>O Bloqueio de Escrita USB ainda está ATIVO!</h3>")
+            msg.setInformativeText(
+                "<div style='font-size: 11pt;'>"
+                "<p>Se você fechar o programa agora, o computador <b>continuará bloqueando</b> a gravação em pendrives e HDs externos.</p>"
+                "<p>O que você deseja fazer?</p>"
+                "</div>"
+            )
+
+            # Cria botões com as opções
+            btn_desbloquear = msg.addButton("Desbloquear Escrita em USB\ne fechar o programa", QMessageBox.ActionRole)
+            btn_manter = msg.addButton("Manter Bloqueio de Escrita em USB\ne fechar o programa", QMessageBox.ActionRole)
+            btn_cancelar = msg.addButton("Cancelar fechamento\ndo programa", QMessageBox.RejectRole)
+
+            msg.exec()
+
+            # --- AVALIA A ESCOLHA DO USUÁRIO ---
+            if msg.clickedButton() == btn_cancelar:
+                # O usuário desistiu de fechar. Ignoramos o evento e abortamos o processo de fechamento.
+                event.ignore()
+                return
+
+            elif msg.clickedButton() == btn_desbloquear:
+                # O usuário quer desbloquear antes de fechar. Disparamos a rotina via UAC.
+                sucesso = self._desbloquear_ao_fechar()
+                if not sucesso:
+                    # Falhou no UAC, não deixa o programa fechar para não perder o controle do bloqueio
+                    event.ignore()
+                    return
+
+            # Se ele clicou em "Manter Bloqueado e Fechar", o fluxo simplesmente continua para a etapa 2.
+
+        # ==========================================================
+        # 2. ROTINA ORIGINAL DE FECHAMENTO (SÓ RODA SE ELE DECIDIR FECHAR)
+        # ==========================================================
 
         # Usa a função centralizada de salvamento de configurações
-        self.salvar_estado_atual()
+        if hasattr(self, 'salvar_estado_atual'):
+            self.salvar_estado_atual()
 
         # --- LIMPEZA DE RASTROS AO FECHAR ---
-        self.limpar_arquivos_temporarios()
+        if hasattr(self, 'limpar_arquivos_temporarios'):
+            self.limpar_arquivos_temporarios()
 
         event.accept()
+
+    def _desbloquear_ao_fechar(self):
+        """Executa a rotina de desbloqueio com UAC focada no encerramento do programa."""
+        import subprocess
+
+        argumentos_reg = "add HKLM\\SYSTEM\\CurrentControlSet\\Control\\StorageDevicePolicies /v WriteProtect /t REG_DWORD /d 0 /f"
+        comando = [
+            "powershell",
+            "-NoProfile",
+            "-WindowStyle", "Hidden",
+            "-Command",
+            f"Start-Process -FilePath 'reg.exe' -ArgumentList '{argumentos_reg}' -Verb RunAs -WindowStyle Hidden -Wait"
+        ]
+
+        try:
+            # Chama o UAC do Windows para a alteração
+            subprocess.run(comando, creationflags=0x08000000)
+
+            # Verifica se deu certo
+            status_atualizado = self._verificar_status_wb()
+
+            if status_atualizado == False:  # False = 0 (Desbloqueado com sucesso)
+                return True
+            else:
+                msg_erro = QMessageBox(self)
+                msg_erro.setWindowTitle("Falha no Desbloqueio")
+                msg_erro.setIcon(QMessageBox.Icon.Warning)
+                msg_erro.setText("<h3 style='margin: 0; color: #cc6600;'>O registro NÃO foi alterado.</h3>")
+                msg_erro.setInformativeText(
+                    "Você provavelmente cancelou o aviso do UAC. <b>O programa não será fechado</b> para que você possa tentar novamente.")
+                msg_erro.exec()
+                return False
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro Forense", f"Falha ao tentar desbloquear durante o fechamento: {e}")
+            return False
 
     def limpar_arquivos_temporarios(self):
         """
