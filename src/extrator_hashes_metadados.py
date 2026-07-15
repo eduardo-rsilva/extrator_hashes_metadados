@@ -2947,25 +2947,32 @@ class JanelaHashes(QWidget):
                 msg = QMessageBox(self)
                 msg.setWindowTitle("Status do Software Write-Blocker")
 
+                # --- Verifica o tema atual e define as cores ideais ---
+                is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                cor_vermelha = "#ff5555" if is_dark else "#cc0000"  # Vermelho claro no escuro, escuro no claro
+                cor_verde = "#55cc55" if is_dark else "#007700"  # Verde claro no escuro, escuro no claro
+
                 # Se estamos ATIVANDO o bloqueio (novo_valor == 1)
                 if esperado_ativo:
-                    msg.setIcon(QMessageBox.Icon.Warning)  # Usa ícone de aviso em vez de informação
+                    msg.setIcon(QMessageBox.Icon.Warning)
+                    # Usa f-string (f"...") para injetar a cor verde dinâmica
                     msg.setText(
-                        "<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: #007700;'>ATIVADO</span>!</h3>")
+                        f"<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: {cor_verde};'>ATIVADO</span>!</h3>")
+                    # Usa f-string para injetar a cor vermelha dinâmica nos alertas
                     msg.setInformativeText(
-                        "<div style='font-size: 11pt;'>"
-                        "<p><b style='color: #cc0000; font-size: 13pt;'>⚠️ ATENÇÃO EXTREMA:</b></p>"
-                        "<p>Qualquer pendrive ou HD que <b>JÁ ESTIVESSE PLUGADO</b> antes de você clicar neste botão "
-                        "<b style='color: #cc0000; font-size: 13pt;'><u>NÃO ESTÁ PROTEGIDO</u></b> contra gravação pelo Windows!</p>"
-                        "<p>Para garantir a inalterabilidade da evidência, você deve conectá-la na porta USB <b>SOMENTE AGORA</b>.</p>"
-                        "<p><i>(Se a unidade a ser periciada já estava conectada, ejete-a e recoloque-a imediatamente)</i></p>"
-                        "</div>"
+                        f"<div style='font-size: 11pt;'>"
+                        f"<p><b style='color: {cor_vermelha}; font-size: 13pt;'>⚠️ ATENÇÃO EXTREMA:</b></p>"
+                        f"<p>Qualquer pendrive ou HD que <b>JÁ ESTIVESSE PLUGADO</b> antes de você clicar neste botão "
+                        f"<b style='color: {cor_vermelha}; font-size: 13pt;'><u>NÃO ESTÁ PROTEGIDO</u></b> contra gravação pelo Windows!</p>"
+                        f"<p>Para garantir a inalterabilidade da evidência, você deve conectá-la na porta USB <b>SOMENTE AGORA</b>.</p>"
+                        f"<p><i>(Se a unidade a ser periciada já estava conectada, ejete-a e reconecte-a novamente para protegê-la.)</i></p>"
+                        f"</div>"
                     )
                 # Se estamos DESATIVANDO o bloqueio (novo_valor == 0)
                 else:
                     msg.setIcon(QMessageBox.Icon.Information)
                     msg.setText(
-                        "<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: #cc0000;'>DESATIVADO</span>!</h3>")
+                        f"<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: {cor_vermelha};'>DESATIVADO</span>!</h3>")
                     msg.setInformativeText(
                         "<div style='font-size: 11pt;'>"
                         "<p>As portas USB voltaram ao comportamento padrão do sistema.</p>"
@@ -5156,7 +5163,14 @@ class JanelaHashes(QWidget):
             msg = QMessageBox(self)
             msg.setWindowTitle("Aviso Forense - Bloqueio de USB Ativo")
             msg.setIcon(QMessageBox.Icon.Warning)
-            msg.setText("<h3 style='margin: 0; color: #cc0000;'>O Bloqueio de Escrita USB ainda está ATIVO!</h3>")
+
+            # --- Ajusta a cor do vermelho dinamicamente baseando-se no tema ---
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            cor_alerta = "#ff5555" if is_dark else "#cc0000"
+
+            # Injeta a cor correta na tag HTML
+            msg.setText(f"<h3 style='margin: 0; color: {cor_alerta};'>O Bloqueio de Escrita USB ainda está ATIVO!</h3>")
+
             msg.setInformativeText(
                 "<div style='font-size: 11pt;'>"
                 "<p>Se você fechar o programa agora, o computador <b>continuará bloqueando</b> a gravação em pendrives e HDs externos.</p>"
