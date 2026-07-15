@@ -2823,69 +2823,65 @@ class JanelaHashes(QWidget):
             return False
 
     def atualizar_ui_write_blocker(self):
-        """Muda o texto e a cor do botão baseando-se no registro, com efeitos visuais de hover e clique."""
+        """Muda o texto e a cor do botão baseando-se no registro, garantindo contraste invertido para destaque."""
         ativo = self._verificar_status_wb()
-        texto_atual = self.btn_write_blocker.text()
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
 
         # --- DEFINIÇÃO DOS ESTILOS (QSS) ---
 
-        # 1. ESTILO: ATIVADO (Vermelho)
+        # 1. ESTILO: ATIVADO (Sempre Vermelho Vivo para alerta)
         estilo_ativo = """
             QPushButton {
                 font-weight: bold; color: #ffffff; background-color: #990000; border: 1px solid #770000; padding: 4px; border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #cc0000; /* Vermelho mais claro ao passar o mouse */
+                background-color: #cc0000;
                 border: 1px solid #990000;
             }
             QPushButton:pressed {
-                background-color: #660000; /* Vermelho escuro ao clicar */
-                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil de afundar o texto */
+                background-color: #660000;
+                padding-top: 5px; padding-bottom: 3px;
             }
         """
 
-        # 2. ESTILO: DESATIVADO (Modo Escuro)
+        # 2. ESTILO INVERTIDO: DESATIVADO NO MODO ESCURO (Botão Claro)
         estilo_inativo_escuro = """
-            QPushButton {
-                font-weight: bold; color: #f0f0f0; background-color: #3c3f41; border: 1px solid #555555; padding: 4px; border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #4c4f51; /* Cinza um pouco mais claro */
-                border: 1px solid #777777;
-            }
-            QPushButton:pressed {
-                background-color: #2c2f31; /* Cinza mais escuro ao clicar */
-                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil */
-            }
-        """
-
-        # 3. ESTILO: DESATIVADO (Modo Claro)
-        estilo_inativo_claro = """
             QPushButton {
                 font-weight: bold; color: #111111; background-color: #e0e0e0; border: 1px solid #cccccc; padding: 4px; border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #f0f0f0; /* Quase branco ao passar o mouse */
+                background-color: #ffffff;
                 border: 1px solid #aaaaaa;
             }
             QPushButton:pressed {
-                background-color: #c0c0c0; /* Cinza mais escuro ao clicar */
-                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil */
+                background-color: #c0c0c0;
+                padding-top: 5px; padding-bottom: 3px;
             }
         """
 
-        # --- APLICAÇÃO DOS ESTILOS ---
+        # 3. ESTILO INVERTIDO: DESATIVADO NO MODO CLARO (Botão Escuro)
+        estilo_inativo_claro = """
+            QPushButton {
+                font-weight: bold; color: #f0f0f0; background-color: #3c3f41; border: 1px solid #555555; padding: 4px; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #4c4f51;
+                border: 1px solid #777777;
+            }
+            QPushButton:pressed {
+                background-color: #2c2f31;
+                padding-top: 5px; padding-bottom: 3px;
+            }
+        """
 
-        # Se no registro está ATIVO...
-        if ativo and texto_atual != "DESBLOQUEAR ESCRITA EM USB":
+        # --- APLICAÇÃO DOS ESTILOS (Sem a trava de texto, corrigindo o bug de atualização) ---
+        if ativo:
             self.btn_write_blocker.setText("DESBLOQUEAR ESCRITA EM USB")
             self.btn_write_blocker.setStyleSheet(estilo_ativo)
-
-        # Se no registro está INATIVO...
-        elif not ativo and texto_atual != "BLOQUEAR ESCRITA EM USB":
+        else:
             self.btn_write_blocker.setText("BLOQUEAR ESCRITA EM USB")
-            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
 
+            # Aplica o estilo de alto contraste baseado no tema
             if is_dark:
                 self.btn_write_blocker.setStyleSheet(estilo_inativo_escuro)
             else:
