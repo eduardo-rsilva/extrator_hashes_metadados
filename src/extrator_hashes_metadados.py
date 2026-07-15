@@ -99,6 +99,7 @@ import json
 import msvcrt
 from ctypes import wintypes
 import os
+import winreg
 import re
 from typing import Any
 import subprocess
@@ -2308,14 +2309,45 @@ class JanelaHashes(QWidget):
         layout_principal = QVBoxLayout()
 
         # ==============================================================
-        # --- BLOCO 0: Caixa de Configurações e Ajuda (Linha 0) ---
+        # --- BLOCO 0: Linha Superior (Write-Blocker + Utilidades) ---
         # ==============================================================
+        layout_linha_superior = QHBoxLayout()
+
+        # 1. CAIXA DO WRITE-BLOCKER (Esquerda)
+        self.grupo_wb = QGroupBox("Proteção Forense (Write-Blocker)")
+        self.grupo_wb.setStyleSheet("""
+                            QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                        """)
+        layout_wb = QHBoxLayout()
+
+        self.btn_write_blocker = QPushButton("BLOQUEAR ESCRITA EM USB")
+        self.btn_write_blocker.setMinimumHeight(28)
+        self.btn_write_blocker.setMinimumWidth(240)
+
+        # Tooltip com o aviso pericial do Padrão-Ouro
+        self.btn_write_blocker.setToolTip(
+            "<p><b>Software Write-Blocker (Bloqueio de Registro)</b></p>"
+            "<ul>"
+            "<li>Impede que o Windows grave arquivos ou altere atributos em mídias USB.</li>"
+            "<li><b>Como usar:</b> Ative o bloqueio ANTES de plugar o pendrive/HD na máquina.</li>"
+            "</ul>"
+            "<p><span style='color: #990000;'><b>⚠️ AVISO PERICIAL:</b> O bloqueio lógico via software é muito útil para triagens de campo, "
+            "mas para garantir a inalterabilidade irrefutável em laboratório, o uso de um <b>Hardware Write-Blocker (Bloqueador Físico)</b> "
+            "continua sendo o <b>Padrão-Ouro</b> internacional.</span></p>"
+        )
+        self.btn_write_blocker.clicked.connect(self.alternar_write_blocker)
+        layout_wb.addWidget(self.btn_write_blocker)
+        self.grupo_wb.setLayout(layout_wb)
+
+        layout_linha_superior.addWidget(self.grupo_wb)
+
+        # 2. CAIXA DE CONFIGURAÇÕES E UTILIDADES (Direita)
         self.grupo_topo = QGroupBox("Configurações e Utilidades")
-        # Força o alinhamento e o padding idênticos desde a criação
         self.grupo_topo.setStyleSheet("""
-                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
-                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
-                """)
+                            QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                        """)
         layout_opcoes_topo = QHBoxLayout()
 
         self.btn_formatos = QPushButton("Formatos Suportados")
@@ -2327,35 +2359,14 @@ class JanelaHashes(QWidget):
         self.btn_manual_online = QPushButton("Manual Online")
         self.btn_manual_online.setMinimumWidth(120)
         self.btn_manual_online.setMinimumHeight(28)
-        self.btn_manual_online.setToolTip(
-            "<p><b>Guia de Operação com instruções sobre:</b></p>"
-            "<ul>"
-            "<li><b>0.</b> Primeiros Passos: Download, Extração e Execução</li>"
-            "<li><b>1.</b> Processamento de Arquivos e Pastas</li>"
-            "<li><b>2.</b> Aquisição Forense e Hash RAW (Bit-a-Bit)</li>"
-            "<li><b>3.</b> Validação da Cadeia de Custódia</li>"
-            "<li><b>4.</b> Analisando Metadados e Alertas Periciais</li>"
-            "<li><b>5.</b> Finalização e Relatórios</li>"
-            "</ul>"
-        )
+        self.btn_manual_online.setToolTip("Guia de Operação e Instruções.")
         self.btn_manual_online.clicked.connect(self.abrir_manual_online)
-        self.btn_manual_online.installEventFilter(self)
         layout_opcoes_topo.addWidget(self.btn_manual_online)
 
         self.btn_sobre = QPushButton("Sobre")
         self.btn_sobre.setMinimumWidth(90)
         self.btn_sobre.setMinimumHeight(28)
-        self.btn_sobre.setToolTip(
-            "<p><b>Informações detalhadas sobre:</b></p>"
-            "<ul>"
-            "<li>Funcionalidades Forenses</li>"
-            "<li>Licença e Termos de Uso</li>"
-            "<li>Como Citar este programa</li>"
-            "<li>Agradecimentos</li>"
-            "</ul>"
-        )
         self.btn_sobre.clicked.connect(self.mostrar_sobre)
-        self.btn_sobre.installEventFilter(self)
         layout_opcoes_topo.addWidget(self.btn_sobre)
 
         layout_opcoes_topo.addStretch()
@@ -2365,9 +2376,11 @@ class JanelaHashes(QWidget):
         self.chk_modo_escuro.toggled.connect(self.alternar_modo_escuro)
         layout_opcoes_topo.addWidget(self.chk_modo_escuro)
 
-        # Define o layout interno da caixa e adiciona a caixa na janela
         self.grupo_topo.setLayout(layout_opcoes_topo)
-        layout_principal.addWidget(self.grupo_topo)
+        layout_linha_superior.addWidget(self.grupo_topo)
+
+        # Adiciona a linha superior combinada à janela
+        layout_principal.addLayout(layout_linha_superior)
 
         # ==============================================================
         # --- BLOCO 1: Caixa de Operações Forenses (Controles + Hashes) ---
@@ -2755,6 +2768,14 @@ class JanelaHashes(QWidget):
 
         self.setLayout(layout_principal)
 
+        # Sincroniza a cor e o nome do botão do Write-Blocker com o status real do Windows ao abrir
+        self.atualizar_ui_write_blocker()
+
+        # --- Monitoramento Contínuo do Registro (A cada 2 segundos) ---
+        self.timer_wb = QTimer(self)
+        self.timer_wb.timeout.connect(self.atualizar_ui_write_blocker)
+        self.timer_wb.start(2000)  # 2000 milissegundos = 2 segundos
+
         # Carregar configurações salvas
         config = carregar_config()
 
@@ -2799,6 +2820,164 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
+
+    def _verificar_status_wb(self):
+        """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
+        try:
+            chave = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\StorageDevicePolicies")
+            valor, _ = winreg.QueryValueEx(chave, "WriteProtect")
+            winreg.CloseKey(chave)
+            return valor == 1
+        except Exception:
+            return False
+
+    def atualizar_ui_write_blocker(self):
+        """Muda o texto e a cor do botão baseando-se no registro, com efeitos visuais de hover e clique."""
+        ativo = self._verificar_status_wb()
+        texto_atual = self.btn_write_blocker.text()
+
+        # --- DEFINIÇÃO DOS ESTILOS (QSS) ---
+
+        # 1. ESTILO: ATIVADO (Vermelho)
+        estilo_ativo = """
+            QPushButton {
+                font-weight: bold; color: #ffffff; background-color: #990000; border: 1px solid #770000; padding: 4px; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #cc0000; /* Vermelho mais claro ao passar o mouse */
+                border: 1px solid #990000;
+            }
+            QPushButton:pressed {
+                background-color: #660000; /* Vermelho escuro ao clicar */
+                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil de afundar o texto */
+            }
+        """
+
+        # 2. ESTILO: DESATIVADO (Modo Escuro)
+        estilo_inativo_escuro = """
+            QPushButton {
+                font-weight: bold; color: #f0f0f0; background-color: #3c3f41; border: 1px solid #555555; padding: 4px; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #4c4f51; /* Cinza um pouco mais claro */
+                border: 1px solid #777777;
+            }
+            QPushButton:pressed {
+                background-color: #2c2f31; /* Cinza mais escuro ao clicar */
+                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil */
+            }
+        """
+
+        # 3. ESTILO: DESATIVADO (Modo Claro)
+        estilo_inativo_claro = """
+            QPushButton {
+                font-weight: bold; color: #111111; background-color: #e0e0e0; border: 1px solid #cccccc; padding: 4px; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0; /* Quase branco ao passar o mouse */
+                border: 1px solid #aaaaaa;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0; /* Cinza mais escuro ao clicar */
+                padding-top: 5px; padding-bottom: 3px; /* Efeito tátil */
+            }
+        """
+
+        # --- APLICAÇÃO DOS ESTILOS ---
+
+        # Se no registro está ATIVO...
+        if ativo and texto_atual != "DESBLOQUEAR ESCRITA EM USB":
+            self.btn_write_blocker.setText("DESBLOQUEAR ESCRITA EM USB")
+            self.btn_write_blocker.setStyleSheet(estilo_ativo)
+
+        # Se no registro está INATIVO...
+        elif not ativo and texto_atual != "BLOQUEAR ESCRITA EM USB":
+            self.btn_write_blocker.setText("BLOQUEAR ESCRITA EM USB")
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+            if is_dark:
+                self.btn_write_blocker.setStyleSheet(estilo_inativo_escuro)
+            else:
+                self.btn_write_blocker.setStyleSheet(estilo_inativo_claro)
+
+    def alternar_write_blocker(self):
+        """Dispara a janela do UAC apenas para a alteração de registro, sem elevar o aplicativo inteiro."""
+        ativo = self._verificar_status_wb()
+        novo_valor = 0 if ativo else 1
+        acao_nome = "Desbloqueio" if ativo else "Bloqueio"
+
+        # O comando 'reg.exe add' é a forma mais nativa e estável do Windows.
+        # Ele cria a pasta StorageDevicePolicies caso não exista e injeta o DWORD silenciosamente (/f).
+        argumentos_reg = f"add HKLM\\SYSTEM\\CurrentControlSet\\Control\\StorageDevicePolicies /v WriteProtect /t REG_DWORD /d {novo_valor} /f"
+
+        comando = [
+            "powershell",
+            "-NoProfile",
+            "-WindowStyle", "Hidden",
+            "-Command",
+            f"Start-Process -FilePath 'reg.exe' -ArgumentList '{argumentos_reg}' -Verb RunAs -WindowStyle Hidden -Wait"
+        ]
+
+        try:
+            import subprocess
+            # Ao rodar isso, apenas o comando 'reg.exe' pedirá permissão de Administrador (UAC).
+            # O programa Python ficará aguardando o usuário clicar em "Sim" ou "Não" na tela do Windows.
+            subprocess.run(comando, creationflags=0x08000000)
+
+            # Atualiza o botão visualmente
+            self.atualizar_ui_write_blocker()
+
+            # Verifica se a alteração realmente surtiu efeito no registro
+            status_atualizado = self._verificar_status_wb()
+            esperado_ativo = (novo_valor == 1)
+
+            if status_atualizado == esperado_ativo:
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Status do Software Write-Blocker")
+
+                # Se estamos ATIVANDO o bloqueio (novo_valor == 1)
+                if esperado_ativo:
+                    msg.setIcon(QMessageBox.Icon.Warning)  # Usa ícone de aviso em vez de informação
+                    msg.setText(
+                        "<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: #007700;'>ATIVADO</span>!</h3>")
+                    msg.setInformativeText(
+                        "<div style='font-size: 11pt;'>"
+                        "<p><b style='color: #cc0000; font-size: 13pt;'>⚠️ ATENÇÃO EXTREMA:</b></p>"
+                        "<p>Qualquer pendrive ou HD que <b>JÁ ESTIVESSE PLUGADO</b> antes de você clicar neste botão "
+                        "<b style='color: #cc0000; font-size: 13pt;'><u>NÃO ESTÁ PROTEGIDO</u></b> contra gravação pelo Windows!</p>"
+                        "<p>Para garantir a inalterabilidade da evidência, você deve conectá-la na porta USB <b>SOMENTE AGORA</b>.</p>"
+                        "<p><i>(Se a unidade a ser periciada já estava conectada, ejete-a e recoloque-a imediatamente)</i></p>"
+                        "</div>"
+                    )
+                # Se estamos DESATIVANDO o bloqueio (novo_valor == 0)
+                else:
+                    msg.setIcon(QMessageBox.Icon.Information)
+                    msg.setText(
+                        "<h3 style='margin: 0;'>Bloqueio de Escrita USB <span style='color: #cc0000;'>DESATIVADO</span>!</h3>")
+                    msg.setInformativeText(
+                        "<div style='font-size: 11pt;'>"
+                        "<p>As portas USB voltaram ao comportamento padrão do sistema.</p>"
+                        "<p>Qualquer dispositivo inserido a partir de agora poderá sofrer alterações, indexações ou gravação de arquivos pelo Windows.</p>"
+                        "</div>"
+                    )
+
+                msg.exec()
+            else:
+                msg_erro = QMessageBox(self)
+                msg_erro.setWindowTitle("Aviso - Alteração Cancelada")
+                msg_erro.setIcon(QMessageBox.Icon.Warning)
+                msg_erro.setText("<h3 style='margin: 0; color: #cc6600;'>O registro NÃO foi alterado.</h3>")
+                msg_erro.setInformativeText(
+                    "<div style='font-size: 11pt;'>"
+                    "<p>Você provavelmente <b>cancelou</b> a autorização de Administrador na tela do Windows (UAC) "
+                    "ou inseriu uma credencial incorreta.</p>"
+                    "<p>Nenhuma modificação foi feita no sistema. <b>O status das portas USB permanece inalterado.</b></p>"
+                    "</div>"
+                )
+                msg_erro.exec()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro Forense", f"Falha ao tentar modificar as políticas de USB: {e}")
 
     def _verificar_pre_extracao_custodia(self, texto_custodia):
         """
@@ -2967,8 +3146,15 @@ class JanelaHashes(QWidget):
                 QGroupBox { border: 1px solid #555555; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
                 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #f0f0f0; }
             """
+            if hasattr(self, 'grupo_wb'):
+                self.grupo_wb.setStyleSheet(estilo_caixas_escuro)
+
             self.grupo_topo.setStyleSheet(estilo_caixas_escuro)
             self.grupo_controles.setStyleSheet(estilo_caixas_escuro)
+
+            # Revalida o botão do Write-Blocker para manter o aviso vermelho ou adotar a cor tema correta
+            if hasattr(self, 'atualizar_ui_write_blocker'):
+                self.atualizar_ui_write_blocker()
             if hasattr(self, 'grupo_validacao'):
                 self.grupo_validacao.setStyleSheet(estilo_caixas_escuro)
 
@@ -3014,8 +3200,13 @@ class JanelaHashes(QWidget):
                 QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
                 QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
             """
+            if hasattr(self, 'grupo_wb'):
+                self.grupo_wb.setStyleSheet(estilo_caixas_claro)
             self.grupo_topo.setStyleSheet(estilo_caixas_claro)
             self.grupo_controles.setStyleSheet(estilo_caixas_claro)
+
+            if hasattr(self, 'atualizar_ui_write_blocker'):
+                self.atualizar_ui_write_blocker()
             if hasattr(self, 'grupo_validacao'):
                 self.grupo_validacao.setStyleSheet(estilo_caixas_claro)
 
