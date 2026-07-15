@@ -2324,18 +2324,6 @@ class JanelaHashes(QWidget):
         self.btn_write_blocker = QPushButton("BLOQUEAR ESCRITA EM USB")
         self.btn_write_blocker.setMinimumHeight(28)
         self.btn_write_blocker.setMinimumWidth(240)
-
-        # Tooltip com o aviso pericial do Padrão-Ouro
-        self.btn_write_blocker.setToolTip(
-            "<p><b>Software Write-Blocker (Bloqueio de Registro)</b></p>"
-            "<ul>"
-            "<li>Impede que o Windows grave arquivos ou altere atributos em mídias USB.</li>"
-            "<li><b>Como usar:</b> Ative o bloqueio ANTES de plugar o pendrive/HD na máquina.</li>"
-            "</ul>"
-            "<p><span style='color: #990000;'><b>⚠️ AVISO PERICIAL:</b> O bloqueio lógico via software é muito útil para triagens de campo, "
-            "mas para garantir a inalterabilidade irrefutável em laboratório, o uso de um <b>Hardware Write-Blocker (Bloqueador Físico)</b> "
-            "continua sendo o <b>Padrão-Ouro</b> internacional.</span></p>"
-        )
         self.btn_write_blocker.clicked.connect(self.alternar_write_blocker)
         layout_wb.addWidget(self.btn_write_blocker)
         self.grupo_wb.setLayout(layout_wb)
@@ -2779,6 +2767,9 @@ class JanelaHashes(QWidget):
         # Carregar configurações salvas
         config = carregar_config()
 
+        # Gera a tooltip do Write-Blocker com a cor correta do tema carregado
+        self.atualizar_tooltip_wb()
+
         if config:
             # JÁ EXISTE CONFIGURAÇÃO SALVA: Respeita a escolha anterior do usuário
             # Restaura o Modo Escuro primeiro para não piscar a tela clara
@@ -2899,6 +2890,27 @@ class JanelaHashes(QWidget):
                 self.btn_write_blocker.setStyleSheet(estilo_inativo_escuro)
             else:
                 self.btn_write_blocker.setStyleSheet(estilo_inativo_claro)
+
+    def atualizar_tooltip_wb(self):
+        """Atualiza a cor de alerta da tooltip baseando-se no tema claro/escuro."""
+        # Verifica se o modo escuro está ativado
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+        # Define a cor ideal para cada fundo
+        # #ff5555 = Vermelho vivo/claro (ótimo para fundos escuros)
+        # #990000 = Vermelho escuro (ótimo para fundos claros)
+        cor_alerta = "#ff5555" if is_dark else "#990000"
+
+        self.btn_write_blocker.setToolTip(
+            "<p><b>Software Write-Blocker (Bloqueio de Registro)</b></p>"
+            "<ul>"
+            "<li>Impede que o Windows grave arquivos ou altere atributos em mídias USB.</li>"
+            "<li><b>Como usar:</b> Ative o bloqueio ANTES de plugar o pendrive/HD na máquina.</li>"
+            "</ul>"
+            f"<p><span style='color: {cor_alerta};'><b>⚠️ AVISO PERICIAL:</b> O bloqueio lógico via software é muito útil para triagens de campo, "
+            "mas para garantir a inalterabilidade irrefutável em laboratório, o uso de um <b>Hardware Write-Blocker (Bloqueador Físico)</b> "
+            "continua sendo o <b>Padrão-Ouro</b> internacional.</span></p>"
+        )
 
     def alternar_write_blocker(self):
         """Dispara a janela do UAC apenas para a alteração de registro, sem elevar o aplicativo inteiro."""
@@ -3248,6 +3260,9 @@ class JanelaHashes(QWidget):
                 "intencionalmente ignorado na conferência automática da Cadeia de Custódia.</span></li></ul>"
             )
             self.chk_hashes["CRC32"].setToolTip(tooltip_crc32)
+
+        if hasattr(self, 'atualizar_tooltip_wb'):
+            self.atualizar_tooltip_wb()
 
     def _garantir_exclusividade_basico(self, checked):
         if checked:
