@@ -41,7 +41,7 @@ Antes de processar qualquer evidência via USB, é altamente recomendável ativa
 * **Monitoramento e Segurança:** O programa monitora a chave de registro continuamente. Caso você tente fechar o Extrator com o bloqueio ainda ativo, uma tela de segurança aparecerá para alertá-lo e garantir que o seu computador não fique bloqueado acidentalmente após o uso.
 
     <figure>
-      <img src="imgs/bloqueador_USB.PNG" alt="Botão para bloqueio de escrita em unidades conectadas via USB." style="border: 1px solid black;" width="100%">
+      <img src="imgs/bloqueador_usb.PNG" alt="Botão para bloqueio de escrita em unidades conectadas via USB." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Botão para bloqueio de escrita em unidades conectadas via USB.</i></figcaption>
     </figure>
 ___
