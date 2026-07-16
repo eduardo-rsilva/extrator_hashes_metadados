@@ -5181,9 +5181,12 @@ class JanelaHashes(QWidget):
             )
 
             # Cria botões com as opções
-            btn_desbloquear = msg.addButton("Desbloquear Escrita em USB\ne fechar o programa", QMessageBox.ActionRole)
-            btn_manter = msg.addButton("Manter Bloqueio de Escrita em USB\ne fechar o programa", QMessageBox.ActionRole)
-            btn_cancelar = msg.addButton("Cancelar fechamento\ndo programa", QMessageBox.RejectRole)
+            btn_desbloquear = msg.addButton("Desbloquear Escrita em USB\ne fechar o programa",
+                                            QMessageBox.ButtonRole.ActionRole)
+            btn_manter = msg.addButton("Manter Bloqueio de Escrita em USB\ne fechar o programa",
+                                       QMessageBox.ButtonRole.ActionRole)
+            btn_cancelar = msg.addButton("Cancelar fechamento\ndo programa",
+                                         QMessageBox.ButtonRole.RejectRole)
 
             msg.exec()
 
