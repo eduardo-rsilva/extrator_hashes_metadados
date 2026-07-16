@@ -5569,7 +5569,7 @@ class JanelaHashes(QWidget):
             "<br>"
             f"<div style='background-color: {bg_bloco}; border-left: 5px solid #005a9e; padding: 15px; font-family: Consolas, monospace; color: {cor_bloco}; line-height: 140%;'>"
             f"SILVA, Eduardo R. <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b>. Versão {VERSAO_APP}. "
-            f"São Paulo, SP: GitHub, 2026. Disponível em: <{LINK_GITHUB}/releases>. "
+            f"São Paulo, SP: GitHub, 2026. Disponível em: &lt;<a href='{LINK_GITHUB}/releases' style='color: {cor_bloco};'>{LINK_GITHUB}/releases</a>&gt;. "
             f"Acesso em: [Data de Acesso]."
             f"</div>"
             "<br><br>"
