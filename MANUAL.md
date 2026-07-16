@@ -33,7 +33,20 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > > Você também pode passar o mouse sobre o alerta para ler um resumo das novidades da versão ou clicar no link secundário para ler as notas completas no GitHub.
 ---
 
-## 1. Processamento de Arquivos e Pastas
+## 1. Proteção Forense (v.5.3.0 em diante): Bloqueador de Escrita USB (Software Write-Blocker)
+Antes de processar qualquer evidência via USB, é altamente recomendável ativar o bloqueio de escrita para evitar alterações acidentais pelo sistema operacional.
+
+* **Ativação:** Na interface principal, localize o botão de Bloqueio de Escrita USB.
+* **Elevação de Privilégio:** O sistema solicitará acesso de Administrador (UAC) apenas para alterar a chave de registro `WriteProtect` do Windows, mantendo o resto do programa rodando de forma segura como usuário comum.
+* **Monitoramento e Segurança:** O programa monitora a chave de registro continuamente. Caso você tente fechar o Extrator com o bloqueio ainda ativo, uma tela de segurança aparecerá para alertá-lo e garantir que o seu computador não fique bloqueado acidentalmente após o uso.
+
+    <figure>
+      <img src="imgs/bloqueador_USB.PNG" alt="Botão para bloqueio de escrita em unidades conectadas via USB." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Botão para bloqueio de escrita em unidades conectadas via USB.</i></figcaption>
+    </figure>
+___
+
+## 2. Processamento de Arquivos e Pastas
 A forma mais rápida de utilizar o programa é através da técnica de "arrastar e soltar" (Drag & Drop).
 
 * **Configuração:** Selecione os algoritmos de hash desejados no painel superior (SHA-256 e SHA-512 são recomendados e vêm marcados por padrão).
@@ -62,8 +75,11 @@ A forma mais rápida de utilizar o programa é através da técnica de "arrastar
 ---
 
 
-## 2. Aquisição Forense e Hash RAW (Bit-a-Bit)
+## 3. Aquisição Forense e Hash RAW (Bit-a-Bit)
 Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o módulo RAW.
+
+### Bloqueador de Escrita USB (Recomendado)
+Antes de iniciar a aquisição de um dispositivo USB, ative o Software Write-Blocker diretamente na interface principal. O sistema pedirá elevação de privilégio (UAC) apenas para essa ação. O Extrator possui uma trava de segurança que impedirá o fechamento acidental do programa enquanto o bloqueio estiver ativo, oferecendo opções para desbloquear o sistema de forma segura.
 
 1.  **Acesso:** Clique em **Selecionar Unidade (RAW)**.
 
@@ -114,12 +130,9 @@ Para processar mídias físicas ou volumes lógicos em baixo nível, utilize o m
       <img src="imgs/tela_modo_admin.PNG" alt="Quando o MODO ADMINISTRADOR está ativado, há um demarcador visual evidente para isso: interface gráfica na cor vermelha." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Quando o MODO ADMINISTRADOR está ativado, há um demarcador visual evidente para isso: interface gráfica na cor vermelha.</i></figcaption>
     </figure>
-
-<br>
-
 ---
 
-## 3. Validação da Cadeia de Custódia
+## 4. Validação da Cadeia de Custódia
 O extrator permite auditar listagens de hashes recebidas em laudos de terceiros ou documentos de custódia.
 
 * **Como operar:** Arraste o arquivo de referência (PDF, DOCX, XLSX ou TXT) para a caixa superior "Validar Cadeia de Custódia". Você também pode copiar e colar o contéudo nesse mesmo campo.
@@ -142,12 +155,9 @@ O extrator permite auditar listagens de hashes recebidas em laudos de terceiros 
       <img src="imgs/validacao_cadeia_custodia.PNG" alt="Neste exemplo hipotético, o requisitante do exame enviou uma listagem de hashes que foi copiada na região 'Validação Cadeia de Custódia'. A extração dos hashs dos arquivos analisados foi comparada automaticamente com a referência recebida." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Neste exemplo hipotético, o requisitante do exame enviou uma listagem de hashes que foi copiada na região 'Validação Cadeia de Custódia'. A extração dos hashs dos arquivos analisados foi comparada automaticamente com a referência recebida.</i></figcaption>
     </figure>
-
-<br>
-
 ---
     
-## 4. Analisando Metadados e Alertas Periciais
+## 5. Analisando Metadados e Alertas Periciais
 Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extração dos metadados mais utilizados através de diversas bibliotecas forenses. A opção "Incluir TODOS os metadados (Raw Dump)" vai listar todos os itens disponíveis encontrados:
 
 * **Multimídia:** Coordenadas GPS (com link para mapas), marcas de câmeras e análise avançada de FPS (taxa de quadros) em vídeos.
@@ -160,11 +170,9 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
       <figcaption align="center"><i>Seletor para inclusão de metadados.</i></figcaption>
     </figure>
 
-<br>
-
 ---
 
-## 5. Finalização e Relatórios
+## 6. Finalização e Relatórios
 Ao término do processamento, revise o resumo final para consolidar a perícia:
 
 * **Dados de Geolocalização:** Caso sejam encontrados dados de geolocalização (GPS) em um ou mais arquivos, eles serão agrupados na janela **"Coordenadas GPS Encontradas!"**. Os hiperlinks "Abrir Localização no Google Maps" levam diretamente àquela localização no site Google Maps no browser padrão do usuário. Também é possível ver os primeiros 10 pontos encontrados em link direto no Google Maps (modo Rota), copiar a lista de links gerados em texto puro ou exportar o resultado em formato `.kml` para visualização no "Google Earth" ou no "Google My Maps".
