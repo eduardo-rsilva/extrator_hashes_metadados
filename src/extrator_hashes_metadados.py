@@ -2984,8 +2984,12 @@ class JanelaHashes(QWidget):
                 msg_erro.setText("<h3 style='margin: 0; color: #cc6600;'>O registro NÃO foi alterado.</h3>")
                 msg_erro.setInformativeText(
                     "<div style='font-size: 11pt;'>"
-                    "<p>Você provavelmente <b>cancelou</b> a autorização de Administrador na tela do Windows (UAC) "
-                    "ou inseriu uma credencial incorreta.</p>"
+                    "<p>A operação falhou. Os motivos mais comuns são:</p>"
+                    "<ul>"
+                    "<li>Você <b>cancelou</b> a autorização na tela do Windows (UAC).</li>"
+                    "<li>As credenciais de Administrador inseridas estão incorretas.</li>"
+                    "<li><b>Bloqueio de TI (GPO):</b> O computador possui políticas corporativas que negam silenciosamente a elevação de privilégios para usuários padrão.</li>"
+                    "</ul>"
                     "<p>Nenhuma modificação foi feita no sistema. <b>O status das portas USB permanece inalterado.</b></p>"
                     "</div>"
                 )
@@ -5239,7 +5243,11 @@ class JanelaHashes(QWidget):
                 msg_erro.setIcon(QMessageBox.Icon.Warning)
                 msg_erro.setText("<h3 style='margin: 0; color: #cc6600;'>O registro NÃO foi alterado.</h3>")
                 msg_erro.setInformativeText(
-                    "Você provavelmente cancelou o aviso do UAC. <b>O programa não será fechado</b> para que você possa tentar novamente.")
+                    "<div style='font-size: 11pt;'>"
+                    "<p>A autorização do Windows (UAC) foi cancelada, as credenciais estão incorretas ou há um <b>bloqueio silencioso de TI (GPO)</b> para usuários padrão.</p>"
+                    "<p><b>O programa não será fechado</b> para que você possa tentar novamente.</p>"
+                    "</div>"
+                )
                 msg_erro.exec()
                 return False
 
