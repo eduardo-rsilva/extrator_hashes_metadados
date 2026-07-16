@@ -2901,11 +2901,13 @@ class JanelaHashes(QWidget):
             "<p><b>Software Write-Blocker (Bloqueio de Registro)</b></p>"
             "<ul>"
             "<li>Impede que o Windows grave arquivos ou altere atributos em mídias USB.</li>"
-            "<li><b>Como usar:</b> Ative o bloqueio ANTES de plugar o pendrive/HD na máquina.</li>"
+            "<li><b>Como usar:</b> Ative o bloqueio ANTES de plugar o pendrive/HD na entrada USB da máquina.</li>"
             "</ul>"
-            f"<p><span style='color: {cor_alerta};'><b>⚠️ AVISO PERICIAL:</b> O bloqueio lógico via software é muito útil para triagens de campo, "
-            "mas para garantir a inalterabilidade irrefutável em laboratório, o uso de um <b>Hardware Write-Blocker (Bloqueador Físico)</b> "
-            "continua sendo o <b>Padrão-Ouro</b> internacional.</span></p>"
+            f"<p><span style='color: {cor_alerta};'><b>⚠️ AVISO PERICIAL:</b> O bloqueio lógico via software é um método seguro e "
+            "com pleno valor probatório para a preservação de evidências, desde que seja seguido o protocolo correto: ativação do "
+            "bloqueio <b>ANTES</b> da conexão do dispositivo à entrada USB. Contudo, as diretrizes forenses internacionais mantêm o "
+            "<b>Hardware Write-Blocker (Bloqueador Físico)</b> como <b>Padrão-Ouro</b>, pois, ao atuar na camada física, ele elimina "
+            "os riscos de eventuais falhas de procedimento e/ou instabilidades do Sistema Operacional.</span></p>"
         )
 
     def alternar_write_blocker(self):
