@@ -11,6 +11,14 @@
 
 ---
 
+### 🛑 Software Write-Blocker (Proteção de Escrita USB)
+* **Bloqueio via Registro do Windows:** Altera as políticas de armazenamento do sistema operacional (*StorageDevicePolicies*) para impedir a gravação de dados, indexação indesejada ou criação de arquivos ocultos (como o *System Volume Information*) em mídias USB.
+* **Protocolo de Ativação:** Para garantir a inalterabilidade da evidência, o bloqueio deve ser ativado rigorosamente **antes** da conexão do pendrive ou HD externo à máquina. Dispositivos que já estiverem plugados durante a ativação não estarão protegidos.
+* **Elevação de Privilégio Sob Demanda (UAC):** A alteração da política exige direitos de Administrador. O programa solicita essa elevação de forma isolada e segura apenas para a execução do comando no registro (via *reg.exe*), mantendo a interface principal rodando no escopo do usuário padrão.
+* **Aviso Pericial (Valor Probatório vs. Padrão-Ouro):** O bloqueio lógico via software é um método seguro e com **pleno valor probatório** para a preservação de evidências, desde que o protocolo de ativação seja rigorosamente seguido. Contudo, as diretrizes forenses internacionais mantêm o **Hardware Write-Blocker (Bloqueador Físico)** como o verdadeiro **Padrão-Ouro**, pois, ao atuar na camada física, ele elimina os riscos de eventuais falhas de procedimento e/ou instabilidades do Sistema Operacional.
+
+---
+
 ## 🛡️ Preservação e Análise de Integridade
 A base da ferramenta é a geração simultânea de **múltiplos hashes** (CRC32, MD5, SHA-1, SHA-256, SHA-384, SHA-512). Para garantir a **cadeia de custódia** e a segurança forense durante a leitura, foi implementado um **File Lock** (via API do Windows): assim que o arquivo começa a ser lido, ele é travado contra qualquer tipo de modificação paralela. 
 
