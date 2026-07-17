@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # ====================================================================
-# EXTRATOR DE HASHES E METADADOS FORENSES
+# EXTRATOR DE HASHES E METADADOS (ERS-IC/SP-NIC)
 # Copyright (c) 2026 Eduardo Silva. Todos os direitos reservados.
 # ====================================================================
 # AVISO DE LICENÇA E TERMOS DE USO
@@ -5607,7 +5607,7 @@ class JanelaHashes(QWidget):
 
         conteudo_citar_html = (
             "<h3>📝 Como citar este software (ABNT)</h3>"
-            "<p>Se utilizar o <b>Extrator de Hashes e Metadados Forenses</b> em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte referência:</p>"
+            "<p>Se utilizar o <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b> em trabalhos acadêmicos, laudos periciais ou pesquisas, por favor, utilize a seguinte referência:</p>"
             "<br>"
             f"<div style='background-color: {bg_bloco}; border-left: 5px solid #005a9e; padding: 15px; font-family: Consolas, monospace; color: {cor_bloco}; line-height: 140%;'>"
             f"SILVA, Eduardo R. <b>Extrator de Hashes e Metadados (ERS-IC/SP-NIC)</b>. Versão {VERSAO_APP}. "
