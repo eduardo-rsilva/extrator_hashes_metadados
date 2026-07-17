@@ -3860,6 +3860,37 @@ class JanelaHashes(QWidget):
         # filtra coisas inúteis
         unidades = [u for u in unidades if u[2] in (DRIVE_REMOVABLE, DRIVE_FIXED, DRIVE_CDROM)]
 
+        # ======================================================================
+        # FILTRAR APENAS A UNIDADE ARRASTADA E SEU HARDWARE
+        # ======================================================================
+        if unidade_pre_selecionada:
+            unidades_filtradas = []
+            fisicos_associados = []
+
+            # 1. Tenta descobrir quais discos físicos (PhysicalDrives) pertencem a esta letra lógica
+            try:
+                # Transforma "D:\" em "\\.\D:" para a API de baixo nível do Windows
+                volume_dev = drive_root_to_volume_device(unidade_pre_selecionada)
+                indices_fisicos = volume_to_physical_drives(volume_dev)
+                # Monta a string no formato exato que a lista do Windows devolve
+                fisicos_associados = [f"\\\\.\\PHYSICALDRIVE{idx}".upper() for idx in indices_fisicos]
+            except Exception:
+                pass  # Se falhar (ex: Mídia Óptica), mantém vazio e exibirá apenas o volume lógico
+
+            # 2. Filtra a lista original para manter apenas o Alvo e seu Hardware correspondente
+            for u in unidades:
+                nome_curto, root, dtype, nivel, modelo, capacidade = u
+
+                # Mantém se for o volume lógico arrastado
+                if nivel == "LOGICO" and root.upper() == unidade_pre_selecionada.upper():
+                    unidades_filtradas.append(u)
+                # Mantém se for o disco físico (hardware) que contém aquele volume
+                elif nivel == "FISICO" and root.upper() in fisicos_associados:
+                    unidades_filtradas.append(u)
+
+            unidades = unidades_filtradas
+        # ======================================================================
+
         if not unidades:
             QMessageBox.information(self, "Unidades", "Nenhuma unidade removível/fixa/CD detectada.")
             return
