@@ -2605,7 +2605,9 @@ class JanelaHashes(QWidget):
 
             # 2. Joga para a interface gráfica só se não tiver estourado o limite (500.000 chars)
             if not self._limite_tela_atingido:
-                self.texto_saida._original_append(texto)
+                # Protege os caracteres menores/maiores para não quebrarem o HTML do PySide6
+                texto_tela = texto.replace('<', '&lt;').replace('>', '&gt;')
+                self.texto_saida._original_append(texto_tela)
                 self._chars_na_tela += len(texto)
 
                 if self._chars_na_tela > 500000:
@@ -3359,7 +3361,8 @@ class JanelaHashes(QWidget):
             f"</div>"
         )
 
-        notas = notas_lancamento.replace('\r\n', '\n')
+        import html
+        notas = html.escape(notas_lancamento).replace('\r\n', '\n')
         while '\n\n\n' in notas:
             notas = notas.replace('\n\n\n', '\n\n')
 
@@ -7997,7 +8000,11 @@ class JanelaHashes(QWidget):
         if dialogo.exec() != QDialog.DialogCode.Accepted:
             return  # Usuário fechou ou clicou em Cancelar
 
-        dados_kml = dialogo.obter_dados()
+        import html
+        dados_kml_sujos = dialogo.obter_dados()
+
+        # Higieniza os dados digitados pelo usuário para não corromper o XML do KML
+        dados_kml = {k: html.escape(str(v)) if v is not None else None for k, v in dados_kml_sujos.items()}
 
         # 2. SEGUIMENTO NORMAL (Escolher onde salvar)
         opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
@@ -8247,7 +8254,7 @@ class JanelaHashes(QWidget):
             elif m > 0:
                 str_tempo_final = f"{m}min{s}s"
             else:
-                str_tempo_final = f"{s}s" if s > 0 else "< 1s"
+                str_tempo_final = f"{s}s" if s > 0 else "&lt; 1s"
 
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText(
