@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "5.3.1"
+VERSAO_APP = "4.3.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -3291,9 +3291,15 @@ class JanelaHashes(QWidget):
             try:
                 import urllib.request
                 import json
+                import ssl  # <-- Importação necessária
+
+                # Cria o contexto para contornar bloqueios de proxy/SSL corporativo
+                contexto_ssl = ssl._create_unverified_context()
 
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-                with urllib.request.urlopen(req, timeout=5) as response:
+
+                # Aumentei o timeout para 10s e adicionei o contexto SSL
+                with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
                     dados = json.loads(response.read().decode('utf-8'))
 
                 versao_github_bruta = dados.get('tag_name', '')
@@ -3317,10 +3323,13 @@ class JanelaHashes(QWidget):
                     tup_local = tuple(map(int, str_local.split('.')))
 
                     if tup_gh > tup_local:
-                        # Emite as informações. Passamos o link do ZIP, e o link da página como fallback
-                        self.sinal_atualizacao.emit(versao_github_bruta, url_download_pagina, notas_lancamento, url_download_zip)
+                        self.sinal_atualizacao.emit(versao_github_bruta, url_download_pagina, notas_lancamento,
+                                                    url_download_zip)
 
-            except Exception:
+            except Exception as e:
+                # Opcional: printar o erro caso o DEBUG_MESSAGES esteja ativado
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG] Falha ao checar atualização: {e}")
                 pass
 
         import threading
