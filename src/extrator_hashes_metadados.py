@@ -8440,52 +8440,6 @@ class DialogoMetadadosKML(QDialog):
         }
 
 
-def verificar_execucao_zip():
-    """Verifica se o programa está rodando de dentro de uma pasta temporária (ex: direto do ZIP)."""
-    # Só faz a checagem se estiver compilado (ignorando quando você roda via .py no VSCode)
-    if not getattr(sys, 'frozen', False):
-        return
-
-    caminho_exe = sys.executable.lower()
-    pasta_temp = tempfile.gettempdir().lower()
-
-    # Se o caminho do executável contiver a pasta Temp do Windows, foi aberto do ZIP
-    if pasta_temp in caminho_exe:
-        # Garante que temos uma instância do QApplication para exibir a mensagem
-        app = QApplication.instance()
-        if not app:
-            app = QApplication(sys.argv)
-
-        # Certifique-se de ter importado Qt do PySide6.QtCore no topo do arquivo se já não estiver!
-        from PySide6.QtCore import Qt
-
-        msg_erro = QMessageBox()
-        msg_erro.setWindowTitle("Erro de Execução - Arquivo Compactado")
-        msg_erro.setIcon(QMessageBox.Icon.Warning)
-        msg_erro.setText("<span style='font-size: 12pt;'><b>Por favor, extraia o programa antes de usar!</b></span>")
-
-        # Texto atualizado com a tag HTML <a> apontando para o seu manual
-        msg_erro.setInformativeText(
-            "<p style='font-size: 10pt; line-height: 1.4;'>"
-            "Parece que você está executando o extrator diretamente de dentro do arquivo <b>.zip</b>.<br><br>"
-            "Para que o programa funcione corretamente e consiga ler suas dependências (como a pasta do <i>exiftool</i>), você precisa:<br><br>"
-            "<b>1.</b> Fechar esta mensagem.<br>"
-            "<b>2.</b> Clicar com o botão direito no arquivo .zip que você baixou.<br>"
-            "<b>3.</b> Escolher <b>'Extrair Tudo...'</b> ou 'Extrair Aqui'.<br>"
-            "<b>4.</b> Entrar na nova pasta que foi criada e executar o programa a partir de lá.<br><br>"
-            "📘 Para mais detalhes, veja o <a href='https://github.com/eduardo-rsilva/extrator_hashes_metadados/blob/master/MANUAL.md'>Manual Online</a>.</p>"
-        )
-
-        # ESSENCIAL: Permite que o link seja clicável e abra no navegador padrão
-        msg_erro.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-
-        msg_erro.setStyleSheet("QMessageBox { min-width: 550px; }")
-        msg_erro.exec()
-
-        # Encerra o programa antes que ele comece a quebrar por falta de arquivos
-        sys.exit(1)
-
-
 if __name__ == "__main__":
     def manipulador_excecoes_global(exc_type, exc_value, exc_traceback):
         # 1. Formata as datas (uma para o texto interno, outra segura para o nome do arquivo)
@@ -8562,8 +8516,6 @@ if __name__ == "__main__":
     # Inicialização normal da interface
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-
-    verificar_execucao_zip()
 
     # --- ESTILO GLOBAL PARA TOOLTIPS ---
     app.setStyleSheet("""
