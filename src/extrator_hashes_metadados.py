@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "4.3.1"
+VERSAO_APP = "5.3.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
