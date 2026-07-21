@@ -4594,7 +4594,7 @@ class JanelaHashes(QWidget):
                 formato_escolhido["meta"] = dialogo_meta.obter_dados()
 
             # --- 4. SELEÇÃO DE DESTINO DA IMAGEM ---
-            nome_da_imagem = f"imagem_forense_{info['serial'] if info else 'raw'}"
+            nome_da_imagem = f"imagem_forense_{info.get('serial') or 'raw'}"
 
             while True:
                 # noinspection PyTypeChecker
