@@ -1,4 +1,4 @@
-# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.5.3.1
+# 📖 Guia de Operação - Extrator de Hashes e Metadados (ERS-IC/SP-NIC) - v.5.3.2
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
@@ -10,7 +10,7 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > **DICA:** Este programa pode ser executado a partir de unidades móveis, como _pendrives_..
 
 ### Como Baixar o Arquivo e Descompactá-lo 
-1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.5.3.1)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.5.3.1/Extrator_ERS-IC-SP-NIC_v5.3.1.zip) 
+1. [CLIQUE AQUI PARA BAIXAR A VERSÃO MAIS RECENTE (v.5.3.2)](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases/download/v.5.3.2/Extrator_ERS-IC-SP-NIC_v5.3.2.zip) 
 2. Localize o arquivo `.zip` baixado no seu computador (geralmente na pasta **Downloads**).
 2. Clique com o botão direito do mouse sobre o arquivo e selecione **"Extrair Tudo..."**.
 3. Escolha uma pasta de destino e conclua a extração.
@@ -33,7 +33,7 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > > Você também pode passar o mouse sobre o alerta para ler um resumo das novidades da versão ou clicar no link secundário para ler as notas completas no GitHub.
 ---
 
-## 1. Proteção Forense (v.5.3.1 em diante): Bloqueador de Escrita USB (Software Write-Blocker)
+## 1. Proteção Forense (v.5.3.2 em diante): Bloqueador de Escrita USB (Software Write-Blocker)
 Antes de processar qualquer evidência via USB, é altamente recomendável ativar o bloqueio de escrita para evitar alterações acidentais pelo sistema operacional.
 
 * **Ativação:** Na interface principal, localize o botão de Bloqueio de Escrita USB.
