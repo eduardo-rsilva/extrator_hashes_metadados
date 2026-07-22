@@ -4656,13 +4656,46 @@ class JanelaHashes(QWidget):
             # --- Pergunta sobre o Auto-Salvamento ---
             msg_auto = QMessageBox(self)
             msg_auto.setWindowTitle("Auto-salvar Relatório (Recomendado)")
-            msg_auto.setText("A extração RAW pode demorar horas.")
+
+            # Aplica o padrão de fonte maior
+            fonte = msg_auto.font()
+            fonte.setPointSize(11)
+            msg_auto.setFont(fonte)
+
+            # Coloca o texto principal em negrito para manter a consistência
+            msg_auto.setText("<b>A extração RAW pode demorar horas.</b>")
             msg_auto.setInformativeText(
-                "Deseja selecionar uma pasta para o programa salvar o relatório final (.txt) automaticamente ao término da operação (evitando perda de dados em caso de queda de energia)?")
+                "Deseja selecionar uma pasta para o programa salvar o relatório final (.txt) automaticamente ao término da operação (evitando perda de dados em caso de queda de energia)?"
+            )
             msg_auto.setIcon(QMessageBox.Icon.Question)
 
             btn_sim = msg_auto.addButton("Sim, escolher pasta", QMessageBox.ButtonRole.AcceptRole)
             btn_nao = msg_auto.addButton("Não, exibir apenas na tela", QMessageBox.ButtonRole.RejectRole)
+
+            # Aplica o padrão visual dos botões (Modo Escuro / Claro) do resto do app
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            if is_dark:
+                btn_sim.setStyleSheet("""
+                                QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
+                                QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                                QPushButton:pressed { background-color: #2b2d2e; border: 1px solid #999999; }
+                            """)
+                btn_nao.setStyleSheet("""
+                                QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
+                                QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
+                                QPushButton:pressed { background-color: #1a1a1a; border: 1px solid #888888; }
+                            """)
+            else:
+                btn_sim.setStyleSheet("""
+                                QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                                QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
+                                QPushButton:pressed { background-color: #c0c0c0; border: 1px solid #888888; }
+                            """)
+                btn_nao.setStyleSheet("""
+                                QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
+                                QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
+                                QPushButton:pressed { background-color: #dddddd; border: 1px solid #999999; }
+                            """)
 
             msg_auto.exec()
 
