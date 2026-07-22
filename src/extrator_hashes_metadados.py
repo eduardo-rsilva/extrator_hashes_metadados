@@ -1619,6 +1619,12 @@ class TextEditCustodia(QTextEdit):
 
     def dragEnterEvent(self, event):
         if self.validar_arrasto(event):
+            # Salva o estilo atual de forma dinâmica (suporta o Modo Escuro/Claro)
+            self._estilo_anterior = self.styleSheet()
+            # Aplica o feedback visual: Borda verde tracejada indicando validação
+            self.setStyleSheet(
+                self._estilo_anterior + " border: 2px dashed #28a745; background-color: rgba(40, 167, 69, 0.05);")
+
             event.acceptProposedAction()
         else:
             # Muda a ação para ignorar (🚫) e aceita o evento para não repassar ao pai
@@ -1633,7 +1639,17 @@ class TextEditCustodia(QTextEdit):
             event.setDropAction(Qt.DropAction.IgnoreAction)
             event.accept()
 
+    def dragLeaveEvent(self, event):
+        # Restaura o estilo original se o usuário tirar o mouse de cima (desistir de soltar)
+        if hasattr(self, '_estilo_anterior'):
+            self.setStyleSheet(self._estilo_anterior)
+        super().dragLeaveEvent(event)
+
     def dropEvent(self, event):
+        # Restaura o estilo original logo após o usuário soltar o arquivo
+        if hasattr(self, '_estilo_anterior'):
+            self.setStyleSheet(self._estilo_anterior)
+
         if self.validar_arrasto(event):
             urls = event.mimeData().urls()
             caminho_arquivo = urls[0].toLocalFile()
@@ -7242,6 +7258,14 @@ class JanelaHashes(QWidget):
             event.ignore()
             return
         if event.mimeData().hasUrls():
+            # Salva o estilo original do Grupo de Saída e adiciona o destaque azul
+            if not hasattr(self, '_estilo_grupo_saida_anterior'):
+                self._estilo_grupo_saida_anterior = self.grupo_saida.styleSheet()
+
+            # Aplica CSS direcionado ao QGroupBox para não bagunçar os elementos internos
+            self.grupo_saida.setStyleSheet(
+                self._estilo_grupo_saida_anterior + " QGroupBox { border: 2px dashed #0078D7; background-color: rgba(0, 120, 215, 0.05); }")
+
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
@@ -7250,6 +7274,13 @@ class JanelaHashes(QWidget):
             return
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event):
+        # Se o mouse sair da janela (ou entrar na área de Custódia), removemos o destaque azul
+        if hasattr(self, '_estilo_grupo_saida_anterior'):
+            self.grupo_saida.setStyleSheet(self._estilo_grupo_saida_anterior)
+            del self._estilo_grupo_saida_anterior
+        super().dragLeaveEvent(event)
 
     def perguntar_incluir_subdiretorios(self):
         """Exibe uma caixa de diálogo perguntando se o usuário deseja varrer subdiretórios."""
@@ -7276,6 +7307,11 @@ class JanelaHashes(QWidget):
             return None
 
     def dropEvent(self, event):
+        # Remove o destaque visual da janela logo que a ação for concluída
+        if hasattr(self, '_estilo_grupo_saida_anterior'):
+            self.grupo_saida.setStyleSheet(self._estilo_grupo_saida_anterior)
+            del self._estilo_grupo_saida_anterior
+
         if self.processando:
             return
         if event.mimeData().hasUrls():
