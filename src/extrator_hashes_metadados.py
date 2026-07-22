@@ -2165,10 +2165,11 @@ class WorkerExtracao(QThread):
 
         if self.info_drive:
             self.sig_texto_append.emit("💿 INFORMAÇÕES DA UNIDADE DE ORIGEM (Extração de Unidade Lógica):")
-            self.sig_texto_append.emit(f" ↳ Letra: {self.info_drive['unidade']}")
-            self.sig_texto_append.emit(f" ↳ Rótulo (Label): {self.info_drive['rotulo']}")
-            self.sig_texto_append.emit(f" ↳ Serial do Volume (Lógico): {self.info_drive['serial']}")
-            self.sig_texto_append.emit(f" ↳ Formato (FS): {self.info_drive['sistema_arquivos']}")
+            self.sig_texto_append.emit(f" ↳ Letra: {self.info_drive.get('unidade', 'N/A')}")
+            self.sig_texto_append.emit(f" ↳ Rótulo (Label): {self.info_drive.get('rotulo', '[Sem Rótulo]')}")
+            self.sig_texto_append.emit(
+                f" ↳ Serial do Volume (Lógico): {self.info_drive.get('serial', 'Não detectado')}")
+            self.sig_texto_append.emit(f" ↳ Formato (FS): {self.info_drive.get('sistema_arquivos', 'Desconhecido')}")
             self.sig_texto_append.emit(
                 f" ↳ Capacidade Total: {self.info_drive.get('capacidade', 'Não identificada')}\n")
 
@@ -2222,7 +2223,8 @@ class WorkerExtracao(QThread):
                 self.sig_texto_append.emit(f"Modificado em: {resultado['data']}")
 
                 for algo in self.algos_selecionados:
-                    self.sig_texto_append.emit(f"{algo}: {resultado['hashes'][algo]}")
+                    hash_val = resultado.get('hashes', {}).get(algo, "Indisponível")
+                    self.sig_texto_append.emit(f"{algo}: {hash_val}")
 
                 self.sig_texto_append.emit("")
 
@@ -8371,8 +8373,8 @@ class JanelaHashes(QWidget):
 
     def finalizar_processamento(self, payload):
         """Slot chamado automaticamente quando o Worker conclui o laço for principal."""
-        cancelado = payload["cancelar_operacao"]
-        self.coordenadas_gps_encontradas = payload["coordenadas_gps_encontradas"]
+        cancelado = payload.get("cancelar_operacao", False)
+        self.coordenadas_gps_encontradas = payload.get("coordenadas_gps_encontradas", [])
 
         legenda_fps_tela = ""
         if self.video_teve_fps_geral:
@@ -8387,21 +8389,24 @@ class JanelaHashes(QWidget):
         self.btn_salvar.setEnabled(True)
 
         self.texto_saida.append("Resumo do conteúdo:")
-        extensoes_ordenadas = sorted(payload["contagem_extensoes"].items(), key=lambda item: item[1], reverse=True)
+        contagem_extensoes = payload.get("contagem_extensoes", {})
+        extensoes_ordenadas = sorted(contagem_extensoes.items(), key=lambda item: item[1], reverse=True)
         for ext, qtd in extensoes_ordenadas:
             palavra_arq_ext = "arquivo" if qtd == 1 else "arquivos"
             self.texto_saida.append(f"{qtd} {palavra_arq_ext} {ext}")
 
-        palavra_arq_total = "arquivo" if payload["arquivos_processados_qtd"] == 1 else "arquivos"
+        arquivos_processados_qtd = payload.get("arquivos_processados_qtd", 0)
+        palavra_arq_total = "arquivo" if arquivos_processados_qtd == 1 else "arquivos"
         self.texto_saida.append(
-            f"Total de arquivos processados: {payload['arquivos_processados_qtd']} {palavra_arq_total}\n")
+            f"Total de arquivos processados: {arquivos_processados_qtd} {palavra_arq_total}\n")
 
         # Arquivos Duplicados
-        if payload["arquivos_processados_qtd"] > 1:
+        arquivos_por_hash = payload.get("arquivos_por_hash", {})
+        if arquivos_processados_qtd > 1:
             self.texto_saida.append(
                 "Arquivos idênticos entre si (CRC32 ignorado na comparação se houver outro hash forte):")
             tem_duplicados = False
-            for chave_hash, lista_caminhos in payload["arquivos_por_hash"].items():
+            for chave_hash, lista_caminhos in arquivos_por_hash.items():
                 if len(lista_caminhos) > 1 and chave_hash:
                     tem_duplicados = True
                     algoritmos_coincidentes = " + ".join([item[0] for item in chave_hash])
@@ -8415,7 +8420,8 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("\n" + "-" * 60)
 
         # Resumo Cadeia de Custódia
-        if payload["lista_referencia"] is not None:
+        lista_referencia = payload.get("lista_referencia")
+        if lista_referencia is not None:
             nome_ref = self.texto_referencia.nome_arquivo_origem
             hash_ref = getattr(self.texto_referencia, 'hash_arquivo_origem', None)
 
@@ -8427,17 +8433,18 @@ class JanelaHashes(QWidget):
             else:
                 self.texto_saida.append("\n=== RELAÇÃO ORIGINAL DE HASHES (CADEIA DE CUSTÓDIA) ===")
 
-            for item in payload["lista_referencia"]:
+            for item in lista_referencia:
                 self.texto_saida.append(item)
 
             self.texto_saida.append("\n" + "-" * 60)
             self.texto_saida.append("\n=== RESUMO DA VALIDAÇÃO DE CUSTÓDIA ===")
             self.texto_saida.append(
-                f"✅ Arquivos validados com sucesso (Integridade mantida): {payload['qtd_validados']}")
-            if payload["qtd_alertas_parciais"] > 0: self.texto_saida.append(
-                f"⚠️ Arquivos com alerta parcial (algum hash com divergência): {payload['qtd_alertas_parciais']}")
+                f"✅ Arquivos validados com sucesso (Integridade mantida): {payload.get('qtd_validados', 0)}")
+            if payload.get("qtd_alertas_parciais", 0) > 0:
+                self.texto_saida.append(
+                    f"⚠️ Arquivos com alerta parcial (algum hash com divergência): {payload.get('qtd_alertas_parciais', 0)}")
             self.texto_saida.append(
-                f"❌ Arquivos não validados (Hash divergente ou não encontrados): {payload['qtd_nao_validados']}")
+                f"❌ Arquivos não validados (Hash divergente ou não encontrados): {payload.get('qtd_nao_validados', 0)}")
             self.texto_saida.append("-" * 60)
 
         # Finalização de Tempo
