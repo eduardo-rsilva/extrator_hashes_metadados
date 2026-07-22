@@ -2860,6 +2860,9 @@ class JanelaHashes(QWidget):
                 background-color: #660000;
                 padding-top: 5px; padding-bottom: 3px;
             }
+            QPushButton:disabled {
+                background-color: #cc9999; color: #f0f0f0; border: 1px solid #bb8888;
+            }
         """
 
         # 2. ESTILO INVERTIDO: DESATIVADO NO MODO ESCURO (Botão Claro)
@@ -2875,6 +2878,9 @@ class JanelaHashes(QWidget):
                 background-color: #c0c0c0;
                 padding-top: 5px; padding-bottom: 3px;
             }
+            QPushButton:disabled {
+                background-color: #2b2b2b; color: #666666; border: 1px solid #444444; font-weight: normal;
+            }
         """
 
         # 3. ESTILO INVERTIDO: DESATIVADO NO MODO CLARO (Botão Escuro)
@@ -2889,6 +2895,9 @@ class JanelaHashes(QWidget):
             QPushButton:pressed {
                 background-color: #2c2f31;
                 padding-top: 5px; padding-bottom: 3px;
+            }
+            QPushButton:disabled {
+                background-color: #e0e0e0; color: #888888; border: 1px solid #cccccc; font-weight: normal;
             }
         """
 
@@ -5753,6 +5762,7 @@ class JanelaHashes(QWidget):
 
         # Trava as duas novas caixas superiores inteiras de uma vez
         # (Isso desativa automaticamente: Arquivos, Diretório, RAW, Subdirs, Modo Escuro, Sobre, Formatos, etc.)
+        self.grupo_wb.setEnabled(False)
         self.grupo_topo.setEnabled(False)
         self.grupo_controles.setEnabled(False)
 
@@ -5770,6 +5780,7 @@ class JanelaHashes(QWidget):
         self.processando = False
 
         # Destrava as duas novas caixas superiores inteiras de uma vez
+        self.grupo_wb.setEnabled(True)
         self.grupo_topo.setEnabled(True)
         self.grupo_controles.setEnabled(True)
 
