@@ -2179,7 +2179,13 @@ class WorkerExtracao(QThread):
                 self.sig_texto_append.emit("⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
                 self.sig_texto_append.emit(f" ↳ Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
                 self.sig_texto_append.emit(f" ↳ Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
-                self.sig_texto_append.emit(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}\n")
+                self.sig_texto_append.emit(f" ↳ Serial de Fábrica (Hardware): {hw_info['serial']}")
+
+                # Validação: Sempre exibe a nota técnica se o barramento físico for USB
+                if "USB" in str(hw_info.get('bus_type', '')).upper():
+                    self.sig_texto_append.emit(
+                        "   ↳ Nota: Caso a mídia analisada (como um cartão SD/MicroSD) esteja conectada através de um adaptador ou leitor USB, o número de série exibido acima pode pertencer ao próprio adaptador e não à unidade física de armazenamento.")
+                self.sig_texto_append.emit("\n")
 
         self.sig_texto_append.emit("-" * 60 + "\n")
 
@@ -4104,6 +4110,11 @@ class JanelaHashes(QWidget):
                     self.texto_saida.append(f"Tipo de Conexão (Bus Type): {hw_info['bus_type']}")
                     self.texto_saida.append(f"Dispositivo (Fabricante/Modelo): {hw_info['modelo_fabricante']}")
                     self.texto_saida.append(f"Serial de Fábrica (Hardware): {hw_info['serial']}")
+
+                    # Validação: Sempre exibe a nota técnica se o barramento físico for USB
+                    if "USB" in str(hw_info.get('bus_type', '')).upper():
+                        self.texto_saida.append(
+                            "   ↳ Nota: Caso a mídia analisada (como um cartão SD/MicroSD) esteja conectada através de um adaptador ou leitor USB, o número de série exibido acima pode pertencer ao próprio adaptador e não à unidade física de armazenamento.")
                 else:
                     self.texto_saida.append("Hardware físico: Não foi possível mapear a letra da unidade.")
         else:
@@ -4112,13 +4123,19 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("Tipo: Hardware Direto (Sem Sistema de Arquivos Montado)")
             self.texto_saida.append("\n⚙️  INFORMAÇÕES DE HARDWARE FÍSICO (Device Information):")
 
-            # Correção: Agora lê do item_selecionado da lista em vez do combo extinto
+            # Agora lê do item_selecionado da lista em vez do combo extinto
             texto_lista = item_selecionado.text()
             # Limpa o texto da interface ("HARDWARE DIRETO: \\.\PhysicalDrive0 [X GB]  -  ") para sobrar só o modelo
             modelo_limpo = texto_lista.split("  -  ")[-1] if "  -  " in texto_lista else texto_lista
 
             self.texto_saida.append(f"Dispositivo (ID/Modelo): {modelo_limpo}")
-            self.texto_saida.append(f"Serial de Fábrica (Hardware): {info.get('serial_hardware', 'Não detectado')}")
+            self.texto_saida.append(
+                f"Serial de Fábrica (Hardware): {info.get('serial_hardware', 'Não detectado')}")
+
+            # Validação: Para discos físicos brutos, avalia se o modelo reporta conexão USB
+            if "USB" in modelo_limpo.upper():
+                self.texto_saida.append(
+                    "   ↳ Nota: Caso a mídia analisada (como um cartão SD/MicroSD) esteja conectada através de um adaptador ou leitor USB, o número de série exibido acima pode pertencer ao próprio adaptador e não à unidade física de armazenamento.")
 
         self.texto_saida.append("")
 
