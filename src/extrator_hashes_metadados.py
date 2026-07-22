@@ -4637,6 +4637,9 @@ class JanelaHashes(QWidget):
                     caminho_imagem = os.path.join(pasta_evidencia, f"{nome_da_imagem}{formato_escolhido['ext']}")
                     self._caminho_audit_log = os.path.join(pasta_evidencia, f"{nome_da_imagem}_auditoria.txt")
 
+                    self._raw_caminho_relatorio_auto = os.path.join(pasta_evidencia,
+                                                                    f"{nome_da_imagem}_relatorio_completo.txt")
+
                     self._raw_metodo_escolhido += f" + Geração de Imagem ({formato_escolhido['ext'].upper()})"
                     break
                 else:
@@ -4646,8 +4649,37 @@ class JanelaHashes(QWidget):
             # Chama a função de processamento (Note o novo parâmetro metadados adicionado!)
             self._iniciar_raw_hash_elevado(device_path, caminho_imagem, formato_escolhido["meta"])
 
+
         elif resultado_imagem == 2:
             # O usuário quer APENAS extrair o hash RAW, sem gerar arquivo .dd ou .E01
+
+            # --- Pergunta sobre o Auto-Salvamento ---
+            msg_auto = QMessageBox(self)
+            msg_auto.setWindowTitle("Auto-salvar Relatório (Recomendado)")
+            msg_auto.setText("A extração RAW pode demorar horas.")
+            msg_auto.setInformativeText(
+                "Deseja selecionar uma pasta para o programa salvar o relatório final (.txt) automaticamente ao término da operação (evitando perda de dados em caso de queda de energia)?")
+            msg_auto.setIcon(QMessageBox.Icon.Question)
+
+            btn_sim = msg_auto.addButton("Sim, escolher pasta", QMessageBox.ButtonRole.AcceptRole)
+            btn_nao = msg_auto.addButton("Não, exibir apenas na tela", QMessageBox.ButtonRole.RejectRole)
+
+            msg_auto.exec()
+
+            if msg_auto.clickedButton() == btn_sim:
+                opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
+                dir_escolhido = QFileDialog.getExistingDirectory(self, "Selecione a pasta para auto-salvar o relatório",
+                                                                 options=opcoes_dir)
+                if dir_escolhido:
+                    agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    nome_arq = f"Relatorio_Extracao_RAW_{agora}.txt"
+                    self._raw_caminho_relatorio_auto = os.path.join(os.path.normpath(dir_escolhido), nome_arq)
+                else:
+                    self.texto_saida.append("\n[!] Operação cancelada (Destino do relatório não selecionado).")
+                    return
+            else:
+                self._raw_caminho_relatorio_auto = None
+
             self._iniciar_raw_hash_elevado(device_path)
 
 
@@ -4931,6 +4963,8 @@ class JanelaHashes(QWidget):
 
                 self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Cancelado / Erro")
                 self.lbl_progresso_total.setText("Progresso RAW - Cancelado / Erro")
+
+                self._salvar_relatorio_automatico()
                 return
 
             # SE DEU TUDO CERTO, RODA A FINALIZAÇÃO NORMAL DE SUCESSO AQUI:
@@ -4948,6 +4982,8 @@ class JanelaHashes(QWidget):
             self.barra_total.setValue(100)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
+
+            self._salvar_relatorio_automatico()
             return
 
         # =========================================================
@@ -5162,6 +5198,8 @@ class JanelaHashes(QWidget):
             self.barra_total.setValue(100)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText("Progresso RAW - Concluído!")
+
+            self._salvar_relatorio_automatico()
 
             # --- LIMPEZA DO DIRETÓRIO TEMPORÁRIO ---
             try:
@@ -7462,6 +7500,22 @@ class JanelaHashes(QWidget):
 
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao salvar o relatório:\n{e}")
+
+    def _salvar_relatorio_automatico(self):
+        """Salva o relatório completo automaticamente no caminho pré-definido, protegendo contra queda de energia."""
+        if hasattr(self, '_raw_caminho_relatorio_auto') and self._raw_caminho_relatorio_auto:
+            try:
+                # Puxa o conteúdo exato que está na memória
+                conteudo = "\n".join(self._relatorio_memoria)
+                with open(self._raw_caminho_relatorio_auto, 'w', encoding='utf-8') as f:
+                    f.write(conteudo)
+                self.texto_saida.append(
+                    f"\n💾 Relatório completo salvo automaticamente em:\n   ↳ {self._raw_caminho_relatorio_auto}")
+            except Exception as e:
+                self.texto_saida.append(f"\n⚠️ Falha ao auto-salvar relatório completo: {e}")
+            finally:
+                # Limpa a variável para não interferir em outras extrações futuras
+                self._raw_caminho_relatorio_auto = None
 
     def limpar_tela(self):
         # # --- LINHA TEMPORÁRIA PARA TESTAR O CRASH_LOG - FOI USADA APENAS NA FASE DE DESENVOLVIMENTO ---
