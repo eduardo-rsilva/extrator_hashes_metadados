@@ -2607,7 +2607,7 @@ class JanelaHashes(QWidget):
         layout_resultados.addWidget(self.lbl_alerta_versao)
 
         # =====================================================================
-        # 1. BOTÃO DA SANFONA (Agora fora do Splitter para não deixar buraco)
+        # 1. BOTÃO DA SANFONA (Inicia invisível, pois o padrão é o Clássico)
         # =====================================================================
         self.btn_toggle_custodia = QPushButton("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
         self.btn_toggle_custodia.setStyleSheet("""
@@ -2623,18 +2623,28 @@ class JanelaHashes(QWidget):
                     }
                     QPushButton:hover { background-color: #d5d5d5; }
                 """)
+        self.btn_toggle_custodia.hide()  # <-- Escondido por padrão!
         layout_resultados.addWidget(self.btn_toggle_custodia)
 
         # --- DIVISOR AJUSTÁVEL (QSplitter) ---
         splitter = QSplitter(Qt.Orientation.Vertical)
 
         # =====================================================================
-        # 2. CAIXA DE CUSTÓDIA (Esta sim vai para dentro do Splitter)
+        # 2. CAIXA DE CUSTÓDIA (Volta a ser o QGroupBox Clássico por padrão)
         # =====================================================================
-        self.grupo_validacao = QFrame()
-        self.grupo_validacao.setStyleSheet("""
-                    QFrame { border: 1px solid #cccccc; border-top: none; background-color: #fafafa; }
-                """)
+        self.grupo_validacao = QGroupBox("Validar Cadeia de Custódia (Opcional)")
+
+        # Guardamos as duas "roupas" em variáveis da classe
+        self.estilo_custodia_classico = """
+                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                """
+        self.estilo_custodia_moderno = """
+                    QGroupBox { border: 1px solid #cccccc; border-top: none; margin-top: 0px; padding-top: 5px; background-color: #fafafa; }
+                """
+        # Veste a roupa clássica ao abrir o programa
+        self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)
+
         layout_validacao = QHBoxLayout(self.grupo_validacao)
         layout_validacao.setContentsMargins(5, 5, 5, 5)
 
@@ -2650,10 +2660,7 @@ class JanelaHashes(QWidget):
         layout_validacao.addWidget(self.texto_referencia)
         layout_validacao.addWidget(self.btn_limpar_custodia)
 
-        # Esconde a caixa por padrão ao iniciar o programa
-        self.grupo_validacao.hide()
-
-        # Adiciona APENAS a caixa no splitter
+        # Adiciona a caixa no splitter (Agora ela NÃO recebe mais .hide() aqui, fica sempre visível no clássico)
         splitter.addWidget(self.grupo_validacao)
 
         # --- Lógica da Sanfona ---
@@ -2665,7 +2672,6 @@ class JanelaHashes(QWidget):
                 self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
             else:
                 self.btn_toggle_custodia.setText("▼ Validar Cadeia de Custódia (Clique para recolher)")
-                # Garante que o splitter abra com um espaço decente quando expandido
                 splitter.setSizes([110, 470])
 
         self.btn_toggle_custodia.clicked.connect(alternar_sanfona)
@@ -3071,27 +3077,41 @@ class JanelaHashes(QWidget):
 
     def alternar_visual(self):
         if self.stacked_widget.currentIndex() == 0:
-            # 1. Muda a tela para o visual Moderno
+            # ==============================================================
+            # INDO PARA O MODO MODERNO
+            # ==============================================================
             self.stacked_widget.setCurrentIndex(1)
             self.btn_alternar_visual.setText("Voltar para Visual Clássico")
 
-            # 2. Arranca o painel de resultados do Clássico e joga no Moderno
             self.layout_moderno.addWidget(self.painel_resultados, stretch=1)
-
-            # 3. Adiciona margens dinâmicas (Esquerda, Topo, Direita, Base)
-            # para não ficar colado nas bordas da janela
             self.painel_resultados.layout().setContentsMargins(10, 10, 10, 10)
+
+            # --- Transforma a Custódia em Sanfona ---
+            self.grupo_validacao.setTitle("")  # Apaga o título do GroupBox
+            self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)  # Tira a borda superior
+            self.btn_toggle_custodia.show()  # Mostra o botão clicável da sanfona
+
+            # Força o fechamento da sanfona para focar no drag & drop
+            self.grupo_validacao.hide()
+            self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
+
         else:
-            # 1. Muda a tela de volta para o visual Clássico
+            # ==============================================================
+            # VOLTANDO PARA O MODO CLÁSSICO
+            # ==============================================================
             self.stacked_widget.setCurrentIndex(0)
             self.btn_alternar_visual.setText("Alternar para Visual Moderno (Foco em Drag & Drop)")
 
-            # 2. Devolve o painel de resultados para o layout Clássico
             self.layout_classico.addWidget(self.painel_resultados, stretch=1)
-
-            # 3. Restaura as margens originais (pois o layout principal do modo
-            # clássico já cuida das bordas externas)
             self.painel_resultados.layout().setContentsMargins(0, 5, 0, 0)
+
+            # --- Restaura a Custódia Clássica Original ---
+            self.grupo_validacao.setTitle("Validar Cadeia de Custódia (Opcional)")  # Devolve o título
+            self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)  # Devolve as bordas
+            self.btn_toggle_custodia.hide()  # Esconde o botão da sanfona
+
+            # Garante que a caixa de texto volte a ficar 100% visível na tela
+            self.grupo_validacao.show()
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
