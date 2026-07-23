@@ -2590,6 +2590,13 @@ class JanelaHashes(QWidget):
         self.grupo_controles.setLayout(layout_grupo_controles)
         layout_principal.addWidget(self.grupo_controles)
 
+        # ==============================================================
+        # CONTAINER MÓVEL DOS RESULTADOS (Será teletransportado)
+        # ==============================================================
+        self.painel_resultados = QWidget()
+        layout_resultados = QVBoxLayout(self.painel_resultados)
+        layout_resultados.setContentsMargins(0, 5, 0, 0)
+
         # --- ALERTA DE ATUALIZAÇÃO (Invisível por padrão) ---
         self.lbl_alerta_versao = QLabel()
         self.lbl_alerta_versao.setOpenExternalLinks(False)  # Para o link funcionar
@@ -2597,35 +2604,78 @@ class JanelaHashes(QWidget):
 
         self.lbl_alerta_versao.linkActivated.connect(self._tratar_clique_atualizacao)
 
-        layout_principal.addWidget(self.lbl_alerta_versao)
+        layout_resultados.addWidget(self.lbl_alerta_versao)
 
         # --- DIVISOR AJUSTÁVEL (QSplitter) ---
         # É ele que permite arrastar a linha entre as caixas para redimensioná-las com o mouse
         splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # --- CADEIA DE CUSTÓDIA ---
-        self.grupo_validacao = QGroupBox("Validar Cadeia de Custódia (Opcional)")
-        self.grupo_validacao.setStyleSheet("""
-                    QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
-                    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+        # --- CADEIA DE CUSTÓDIA (ESTILO SANFONA) ---
+        # 1. Cria um contêiner invisível para agrupar o botão e a caixa
+        self.wrapper_custodia = QWidget()
+        layout_wrapper_custodia = QVBoxLayout(self.wrapper_custodia)
+        layout_wrapper_custodia.setContentsMargins(0, 0, 0, 0)
+        layout_wrapper_custodia.setSpacing(0)
+
+        # 2. Cria o botão que fará o papel de título da sanfona
+        self.btn_toggle_custodia = QPushButton("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
+        self.btn_toggle_custodia.setStyleSheet("""
+                    QPushButton {
+                        text-align: left;
+                        font-weight: bold;
+                        padding: 8px;
+                        background-color: #e0e0e0;
+                        color: #333333;
+                        border: 1px solid #cccccc;
+                        border-radius: 3px;
+                        margin-top: 10px;
+                    }
+                    QPushButton:hover { background-color: #d5d5d5; }
                 """)
-        layout_validacao = QHBoxLayout()
+
+        # 3. A sua caixa original de validação (sem o título, pois o botão já faz isso)
+        self.grupo_validacao = QFrame()  # Mudamos de QGroupBox para QFrame para ficar mais limpo
+        self.grupo_validacao.setStyleSheet("""
+                    QFrame { border: 1px solid #cccccc; border-top: none; background-color: #fafafa; }
+                """)
+        layout_validacao = QHBoxLayout(self.grupo_validacao)
+        layout_validacao.setContentsMargins(5, 5, 5, 5)
 
         self.texto_referencia = TextEditCustodia(self)
         self.texto_referencia.setMinimumHeight(100)
 
         self.btn_limpar_custodia = QPushButton("Limpar\nConteúdo")
         self.btn_limpar_custodia.setFixedWidth(80)
-        # Faz o botão acompanhar a altura da caixa de texto
         self.btn_limpar_custodia.setSizePolicy(self.btn_limpar_custodia.sizePolicy().Policy.Fixed,
                                                self.btn_limpar_custodia.sizePolicy().Policy.Expanding)
         self.btn_limpar_custodia.clicked.connect(self.texto_referencia.clear)
 
         layout_validacao.addWidget(self.texto_referencia)
         layout_validacao.addWidget(self.btn_limpar_custodia)
-        self.grupo_validacao.setLayout(layout_validacao)
 
-        splitter.addWidget(self.grupo_validacao)
+        # Esconde a caixa por padrão ao iniciar o programa
+        self.grupo_validacao.hide()
+
+        # 4. A lógica da sanfona (Mostra/Esconde)
+        def alternar_sanfona():
+            esta_visivel = self.grupo_validacao.isVisible()
+            self.grupo_validacao.setVisible(not esta_visivel)  # Inverte o estado
+
+            if esta_visivel:
+                # Se estava visível, agora recolheu
+                self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
+            else:
+                # Se estava escondido, agora expandiu
+                self.btn_toggle_custodia.setText("▼ Validar Cadeia de Custódia (Clique para recolher)")
+
+        self.btn_toggle_custodia.clicked.connect(alternar_sanfona)
+
+        # 5. Adiciona o botão e a caixa ao wrapper
+        layout_wrapper_custodia.addWidget(self.btn_toggle_custodia)
+        layout_wrapper_custodia.addWidget(self.grupo_validacao)
+
+        # 6. Adiciona o WRAPPER inteiro ao splitter (ao invés de adicionar só o grupo)
+        splitter.addWidget(self.wrapper_custodia)
 
         # --- Área de Texto Principal (Envelopada com Título Padronizado) ---
         self.grupo_saida = QGroupBox("Área de Extração Forense (Resultados)")
@@ -2722,7 +2772,7 @@ class JanelaHashes(QWidget):
         splitter.setSizes([110, 470])
 
         # Finalmente, coloca o splitter inteiro na tela principal
-        layout_principal.addWidget(splitter)
+        layout_resultados.addWidget(splitter, stretch=1)
 
         # --- Barras de Progresso ---
         layout_progresso = QVBoxLayout()
@@ -2797,7 +2847,7 @@ class JanelaHashes(QWidget):
         # Adicionado diretamente ao layout vertical para expandir totalmente
         layout_progresso.addWidget(self.btn_cancelar)
 
-        layout_principal.addLayout(layout_progresso)
+        layout_resultados.addLayout(layout_progresso)
 
         # --- Barra Inferior ---
         layout_inferior = QHBoxLayout()
@@ -2814,9 +2864,7 @@ class JanelaHashes(QWidget):
         self.btn_limpar.clicked.connect(self.limpar_tela)
         layout_inferior.addWidget(self.btn_limpar)
 
-        layout_principal.addLayout(layout_inferior)
-
-        self.setLayout(layout_principal)
+        layout_resultados.addLayout(layout_inferior)
 
         # Sincroniza a cor e o nome do botão do Write-Blocker com o status real do Windows ao abrir
         self.atualizar_ui_write_blocker()
@@ -2873,6 +2921,13 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
+
+        # ==============================================================
+        # Adiciona o contêiner móvel ao layout clássico para ele nascer lá
+        layout_principal.addWidget(self.painel_resultados, stretch=1)
+
+        # Salva uma referência deste layout para usarmos no teletransporte
+        self.layout_classico = layout_principal
 
     def setup_ui_moderno(self, parent_widget):
         layout_moderno = QVBoxLayout(parent_widget)
@@ -3017,34 +3072,25 @@ class JanelaHashes(QWidget):
 
         self.action_tema.toggled.connect(alternar_tema_wrapper)
         barra_menus.addAction(self.action_tema)
-
         layout_moderno.addWidget(barra_menus)
 
-        # ==============================================================
-        # 2. ÁREA MAXIMIZADA DE DRAG AND DROP (A SER PREENCHIDA)
-        # ==============================================================
-        self.area_gigante_alvo = QLabel("Solte as Evidências AQUI\n\n(Ou use a opção 'Seleção Manual' acima)")
-        self.area_gigante_alvo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.area_gigante_alvo.setStyleSheet("""
-            QLabel {
-                font-size: 24pt;
-                color: #555555;
-                background-color: #f9f9f9;
-                border: 3px dashed #cccccc;
-                margin: 20px;
-                border-radius: 15px;
-            }
-        """)
-        layout_moderno.addWidget(self.area_gigante_alvo, stretch=1)
+        self.layout_moderno = layout_moderno
 
     def alternar_visual(self):
         if self.stacked_widget.currentIndex() == 0:
+            # 1. Muda a tela para o visual Moderno
             self.stacked_widget.setCurrentIndex(1)
             self.btn_alternar_visual.setText("Voltar para Visual Clássico")
-            # Se quiser, chame funções para reconfigurar estilos ou variáveis aqui
+
+            # 2. Arranca o painel de resultados do Clássico e joga no Moderno (Ocupando a tela toda!)
+            self.layout_moderno.addWidget(self.painel_resultados, stretch=1)
         else:
+            # 1. Muda a tela de volta para o visual Clássico
             self.stacked_widget.setCurrentIndex(0)
             self.btn_alternar_visual.setText("Alternar para Visual Moderno (Foco em Drag & Drop)")
+
+            # 2. Devolve o painel de resultados para o layout Clássico!
+            self.layout_classico.addWidget(self.painel_resultados, stretch=1)
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
