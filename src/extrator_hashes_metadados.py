@@ -2774,12 +2774,14 @@ class JanelaHashes(QWidget):
         layout_resultados.addWidget(splitter, stretch=1)
 
         # --- Barras de Progresso ---
-        layout_progresso = QVBoxLayout()
+        self.container_progresso = QWidget()
+        layout_progresso = QVBoxLayout(self.container_progresso)
+        layout_progresso.setContentsMargins(0, 0, 0, 0)
 
-        # Estilo padrão para as barras (Fundo escuro/Grafite e Letra Branca)
+        # Estilo padrão para as barras
         self.estilo_barra_padrao = """
                     QProgressBar {
-                        border: 1px solid #999999;
+                        border: 1px solid #990000;
                         border-radius: 4px;
                         text-align: center;
                         background-color: #333333;
@@ -2801,7 +2803,7 @@ class JanelaHashes(QWidget):
         self.barra_arquivo.setStyleSheet(self.estilo_barra_padrao)
         layout_progresso.addWidget(self.barra_arquivo)
 
-        layout_progresso.addSpacing(5)  # Pequeno respiro entre as barras
+        layout_progresso.addSpacing(5)
 
         # 2. Progresso Total (Arquivos)
         self.lbl_progresso_total = QLabel("Progresso Total (Arquivos):")
@@ -2810,43 +2812,32 @@ class JanelaHashes(QWidget):
         self.barra_total = QProgressBar()
         self.barra_total.setValue(0)
         self.barra_total.setStyleSheet(self.estilo_barra_padrao)
-
         layout_progresso.addWidget(self.barra_total)
 
-        layout_progresso.addSpacing(10)  # Espaço maior antes do botão
+        layout_progresso.addSpacing(10)
 
-        # 3. Botão Cancelar em linha dedicada e centralizado
+        # 3. Botão Cancelar
         self.btn_cancelar = QPushButton("CANCELAR PROCESSAMENTO")
         self.btn_cancelar.setMinimumWidth(280)
         self.btn_cancelar.setMinimumHeight(40)
         self.btn_cancelar.setStyleSheet("""
-                            QPushButton {
-                                background-color: #ffcccc; 
-                                color: #990000; 
-                                font-weight: bold;
-                                border: 1px solid #cc9999;
-                                border-radius: 5px;
-                            }
-                            QPushButton:hover {
-                                background-color: #ffb3b3; /* Vermelho um pouco mais forte ao passar o mouse */
-                                border: 1px solid #b30000;
-                            }
-                            QPushButton:pressed {
-                                background-color: #ff9999; /* Vermelho ainda mais escuro ao clicar */
-                            }
-                            QPushButton:disabled {
-                                background-color: #e0e0e0; 
-                                color: #888888;
-                                border: 1px solid #cccccc;
-                            }
-                        """)
+                    QPushButton {
+                        background-color: #ffcccc; 
+                        color: #990000; 
+                        font-weight: bold;
+                        border: 1px solid #cc9999;
+                        border-radius: 5px;
+                    }
+                    QPushButton:hover { background-color: #ffb3b3; border: 1px solid #b30000; }
+                    QPushButton:pressed { background-color: #ff9999; }
+                    QPushButton:disabled { background-color: #e0e0e0; color: #888888; border: 1px solid #cccccc; }
+                """)
         self.btn_cancelar.setEnabled(False)
         self.btn_cancelar.clicked.connect(self.acao_cancelar)
-
-        # Adicionado diretamente ao layout vertical para expandir totalmente
         layout_progresso.addWidget(self.btn_cancelar)
 
-        layout_resultados.addLayout(layout_progresso)
+        # Adiciona o contêiner inteiro no painel de resultados
+        layout_resultados.addWidget(self.container_progresso)
 
         # --- Barra Inferior ---
         layout_inferior = QHBoxLayout()
@@ -3110,13 +3101,16 @@ class JanelaHashes(QWidget):
             self.painel_resultados.layout().setContentsMargins(10, 10, 10, 10)
 
             # --- Transforma a Custódia em Sanfona ---
-            self.grupo_validacao.setTitle("")  # Apaga o título do GroupBox
-            self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)  # Tira a borda superior
-            self.btn_toggle_custodia.show()  # Mostra o botão clicável da sanfona
-
-            # Força o fechamento da sanfona para focar no drag & drop
+            self.grupo_validacao.setTitle("")
+            self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)
+            self.btn_toggle_custodia.show()
             self.grupo_validacao.hide()
             self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
+
+            # --- Controle Dinâmico das Barras de Progresso ---
+            # Esconde o progresso se a tela estiver limpa / no estado inicial de boas-vindas
+            if not self._chars_na_tela or self._chars_na_tela <= len(MENSAGEM_VISUAL):
+                self.container_progresso.hide()
 
         else:
             # ==============================================================
@@ -3128,13 +3122,14 @@ class JanelaHashes(QWidget):
             self.layout_classico.addWidget(self.painel_resultados, stretch=1)
             self.painel_resultados.layout().setContentsMargins(0, 5, 0, 0)
 
-            # --- Restaura a Custódia Clássica Original ---
-            self.grupo_validacao.setTitle("Validar Cadeia de Custódia (Opcional)")  # Devolve o título
-            self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)  # Devolve as bordas
-            self.btn_toggle_custodia.hide()  # Esconde o botão da sanfona
-
-            # Garante que a caixa de texto volte a ficar 100% visível na tela
+            # --- Restaura a Custódia Clássica ---
+            self.grupo_validacao.setTitle("Validar Cadeia de Custódia (Opcional)")
+            self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)
+            self.btn_toggle_custodia.hide()
             self.grupo_validacao.show()
+
+            # --- Restaura as Barras no Modo Clássico (Sempre Visíveis) ---
+            self.container_progresso.show()
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
@@ -7916,6 +7911,11 @@ class JanelaHashes(QWidget):
         self.barra_total.setValue(0)
         self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual:")
 
+        # Se estiver na interface moderna, oculta a área de progresso ao limpar a tela
+        if hasattr(self, 'stacked_widget') and self.stacked_widget.currentIndex() == 1:
+            if hasattr(self, 'container_progresso'):
+                self.container_progresso.hide()
+
     def selecionar_arquivo(self):
         if self.processando: return
 
@@ -8023,6 +8023,10 @@ class JanelaHashes(QWidget):
             self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia, caminhos_iniciais)
 
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia="", caminhos_iniciais=None):
+        # Garante que as barras de progresso apareçam ao iniciar o processamento
+        if hasattr(self, 'container_progresso'):
+            self.container_progresso.show()
+
         # ---> CHECAGEM DE ALGORITMOS PRESENTES NA LISTA DE VALIDAÇÃO DE CADEIA DE CUSTÓDIA <---
         texto_custodia = self._verificar_pre_extracao_custodia(texto_custodia)
         if texto_custodia is None:
