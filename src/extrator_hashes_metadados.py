@@ -3075,15 +3075,23 @@ class JanelaHashes(QWidget):
             self.stacked_widget.setCurrentIndex(1)
             self.btn_alternar_visual.setText("Voltar para Visual Clássico")
 
-            # 2. Arranca o painel de resultados do Clássico e joga no Moderno (Ocupando a tela toda!)
+            # 2. Arranca o painel de resultados do Clássico e joga no Moderno
             self.layout_moderno.addWidget(self.painel_resultados, stretch=1)
+
+            # 3. Adiciona margens dinâmicas (Esquerda, Topo, Direita, Base)
+            # para não ficar colado nas bordas da janela
+            self.painel_resultados.layout().setContentsMargins(10, 10, 10, 10)
         else:
             # 1. Muda a tela de volta para o visual Clássico
             self.stacked_widget.setCurrentIndex(0)
             self.btn_alternar_visual.setText("Alternar para Visual Moderno (Foco em Drag & Drop)")
 
-            # 2. Devolve o painel de resultados para o layout Clássico!
+            # 2. Devolve o painel de resultados para o layout Clássico
             self.layout_classico.addWidget(self.painel_resultados, stretch=1)
+
+            # 3. Restaura as margens originais (pois o layout principal do modo
+            # clássico já cuida das bordas externas)
+            self.painel_resultados.layout().setContentsMargins(0, 5, 0, 0)
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
