@@ -2934,21 +2934,34 @@ class JanelaHashes(QWidget):
         layout_moderno.setSpacing(0)
 
         # ==============================================================
-        # 1. BARRA DE MENUS SUPERIOR
+        # 1. LINHA SUPERIOR (BOTÃO FORENSE + BARRA DE MENUS LADO A LADO)
         # ==============================================================
-        barra_menus = QMenuBar()
+        layout_linha_topo = QHBoxLayout()
+        layout_linha_topo.setContentsMargins(5, 0, 0, 0)  # Margem leve para não grudar na parede
+        layout_linha_topo.setSpacing(0)
+        # Força a linha inteira a se alinhar pelo centro vertical
+        layout_linha_topo.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # --- MENU 1: ESCRITA USB (INDICADOR VISUAL DINÂMICO) ---
-        # O título do menu servirá como o indicador visual principal na barra superior
-        self.menu_protecao = barra_menus.addMenu("🔒 USB: Verificando...")
+        # --- BOTÃO 1: ESCRITA USB (Fora do QMenuBar para garantir que não vai sumir) ---
+        self.btn_menu_protecao = QPushButton("🔒 USB: Verificando...")
+        self.btn_menu_protecao.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        menu_drop_protecao = QMenu(self)
         self.action_bloquear_usb = QAction("🔒 Bloquear Escrita em USB", self)
         self.action_bloquear_usb.triggered.connect(self.alternar_write_blocker)
-        self.menu_protecao.addAction(self.action_bloquear_usb)
+        menu_drop_protecao.addAction(self.action_bloquear_usb)
 
         self.action_desbloquear_usb = QAction("🔓 Desbloquear Escrita em USB", self)
         self.action_desbloquear_usb.triggered.connect(self.alternar_write_blocker)
-        self.menu_protecao.addAction(self.action_desbloquear_usb)
+        menu_drop_protecao.addAction(self.action_desbloquear_usb)
+
+        self.btn_menu_protecao.setMenu(menu_drop_protecao)
+
+        # Adiciona o botão no começo (à esquerda) forçando o alinhamento central
+        layout_linha_topo.addWidget(self.btn_menu_protecao, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # --- BARRA DE MENUS (Restante das opções) ---
+        barra_menus = QMenuBar()
 
         # --- MENU 2: SELEÇÃO MANUAL ---
         menu_selecao = barra_menus.addMenu("📂 Seleção Manual")
@@ -3077,7 +3090,11 @@ class JanelaHashes(QWidget):
 
         self.action_tema.toggled.connect(alternar_tema_wrapper)
         barra_menus.addAction(self.action_tema)
-        layout_moderno.addWidget(barra_menus)
+        # Adiciona a barra de menus à direita, preenchendo o espaço (stretch=1) e forçando centro
+        layout_linha_topo.addWidget(barra_menus, stretch=1, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Adiciona a linha inteira no topo da tela moderna
+        layout_moderno.addLayout(layout_linha_topo)
 
         self.layout_moderno = layout_moderno
 
@@ -3204,17 +3221,37 @@ class JanelaHashes(QWidget):
                     self.btn_write_blocker.setStyleSheet(estilo_inativo_claro)
 
         # --- 2. ATUALIZAÇÃO DA INTERFACE MODERNA (Menu) ---
-        if hasattr(self, 'menu_protecao'):
+        if hasattr(self, 'btn_menu_protecao'):
             if ativo:
-                # Estado BLOQUEADO (Seguro)
-                self.menu_protecao.setTitle("🔒 USB: ESCRITA BLOQUEADA")
-                self.action_bloquear_usb.setEnabled(False)      # Já está bloqueado
-                self.action_desbloquear_usb.setEnabled(True)    # Permite desbloquear
+                # Estado BLOQUEADO (Seguro) - Estilo Vermelho Vivo Alerta
+                self.btn_menu_protecao.setText("🔒 USB: ESCRITA BLOQUEADA")
+                self.btn_menu_protecao.setStyleSheet("""
+                    QPushButton {
+                        background-color: #990000;
+                        color: #ffffff;
+                        font-weight: bold;
+                        border: 1px solid #770000;
+                        border-radius: 4px;
+                        padding: 4px 10px;
+                        margin-right: 5px;
+                        min-height: 22px;
+                    }
+                    QPushButton:hover { background-color: #cc0000; }
+                    QPushButton::menu-indicator { image: none; }
+                """)
+                self.action_bloquear_usb.setEnabled(False)
+                self.action_desbloquear_usb.setEnabled(True)
             else:
-                # Estado PERMITIDO (Atenção)
-                self.menu_protecao.setTitle("⚠️ USB: ESCRITA PERMITIDA")
-                self.action_bloquear_usb.setEnabled(True)       # Permite bloquear
-                self.action_desbloquear_usb.setEnabled(False)   # Já está desbloqueado
+                # Estado PERMITIDO (Atenção) - Estilo Neutro Invertido
+                self.btn_menu_protecao.setText("⚠️ USB: ESCRITA PERMITIDA")
+
+                # Aproveita os estilos da interface clássica, forçando a altura mínima
+                css_base = estilo_inativo_escuro if is_dark else estilo_inativo_claro
+                css_adaptado = css_base + "\nQPushButton { margin-right: 5px; padding: 4px 10px; min-height: 22px; }\nQPushButton::menu-indicator { image: none; }"
+
+                self.btn_menu_protecao.setStyleSheet(css_adaptado)
+                self.action_bloquear_usb.setEnabled(True)
+                self.action_desbloquear_usb.setEnabled(False)
 
     def atualizar_tooltip_wb(self):
         """Atualiza a cor de alerta da tooltip baseando-se no tema claro/escuro."""
