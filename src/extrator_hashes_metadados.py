@@ -117,7 +117,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                                QPushButton, QCheckBox, QTextEdit, QFileDialog,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
                                QTabWidget, QFrame, QGroupBox, QLineEdit, QStackedWidget,
-                               QMenuBar, QMenu)
+                               QMenuBar, QMenu, QWidgetAction)
 from PySide6.QtGui import QIcon, QTextCursor, QAction
 from PySide6.QtCore import QTimer, QEvent, QThread, Signal, Qt
 
@@ -2908,24 +2908,77 @@ class JanelaHashes(QWidget):
         # --- MENU 3: ALGORITMOS DE HASH ---
         menu_hashes = barra_menus.addMenu("🔢 Algoritmos de Hash")
         self.acoes_hashes_moderno = {}
+
         for algo in ["CRC32", "MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512"]:
-            acao = QAction(algo, self)
-            acao.setCheckable(True)
-            acao.setChecked(self.chk_hashes[algo].isChecked())  # Herda estado do clássico
-            menu_hashes.addAction(acao)
-            self.acoes_hashes_moderno[algo] = acao
+            # Cria a ação especial que permite embutir widgets
+            acao_widget = QWidgetAction(self)
+
+            # Cria um CheckBox real (com um espacinho para ficar alinhado no menu)
+            chk_box = QCheckBox(f"  {algo}")
+
+            # Deixa ele um pouco mais espaçado e bonito para o menu
+            chk_box.setStyleSheet("padding: 5px; margin-left: 10px;")
+
+            # Herda o estado do modo clássico
+            chk_box.setChecked(self.chk_hashes[algo].isChecked())
+
+            # Sincroniza com o modo clássico (Backend) quando for clicado.
+            # NOTA: O "a=algo" é um truque do Python para o lambda não se perder no loop!
+            chk_box.toggled.connect(lambda checked, a=algo: self.chk_hashes[a].setChecked(checked))
+
+            # Embute o Checkbox na ação e a ação no menu
+            acao_widget.setDefaultWidget(chk_box)
+            menu_hashes.addAction(acao_widget)
+
+            # Guarda a referência caso precise acessar depois
+            self.acoes_hashes_moderno[algo] = chk_box
 
         # --- MENU 4: METADADOS ---
         menu_meta = barra_menus.addMenu("🏷️ Metadados")
-        self.action_meta_basico = QAction("Incluir Metadados Básicos", self)
-        self.action_meta_basico.setCheckable(True)
-        self.action_meta_basico.setChecked(self.chk_metadados.isChecked())
-        menu_meta.addAction(self.action_meta_basico)
 
-        self.action_meta_raw = QAction("Incluir TODOS os metadados (Raw Dump)", self)
-        self.action_meta_raw.setCheckable(True)
-        self.action_meta_raw.setChecked(self.chk_metadados_raw.isChecked())
-        menu_meta.addAction(self.action_meta_raw)
+        # 1. Cria a ação especial e o CheckBox para Metadados Básicos
+        acao_meta_basico = QWidgetAction(self)
+        self.chk_meta_basico_moderno = QCheckBox("  Incluir Metadados Básicos")
+        self.chk_meta_basico_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
+        self.chk_meta_basico_moderno.setChecked(self.chk_metadados.isChecked())
+        acao_meta_basico.setDefaultWidget(self.chk_meta_basico_moderno)
+        menu_meta.addAction(acao_meta_basico)
+
+        # 2. Cria a ação especial e o CheckBox para Metadados Raw
+        acao_meta_raw = QWidgetAction(self)
+        self.chk_meta_raw_moderno = QCheckBox("  Incluir TODOS os metadados (Raw Dump)")
+        self.chk_meta_raw_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
+        self.chk_meta_raw_moderno.setChecked(self.chk_metadados_raw.isChecked())
+        acao_meta_raw.setDefaultWidget(self.chk_meta_raw_moderno)
+        menu_meta.addAction(acao_meta_raw)
+
+        # Lógica de Exclusividade (Um ou Nenhum) + Sincronização com o Backend
+        def alternar_meta_basico(checked):
+            if checked:
+                # Bloqueia temporariamente a emissão de sinais do outro checkbox
+                # para que ele seja desmarcado silenciosamente, sem disparar outro evento
+                self.chk_meta_raw_moderno.blockSignals(True)
+                self.chk_meta_raw_moderno.setChecked(False)
+                self.chk_metadados_raw.setChecked(False)  # Sincroniza backend
+                self.chk_meta_raw_moderno.blockSignals(False)
+
+            # Atualiza o backend com o estado atual do checkbox clicado
+            self.chk_metadados.setChecked(checked)
+
+        def alternar_meta_raw(checked):
+            if checked:
+                # Bloqueia temporariamente a emissão de sinais do outro checkbox
+                self.chk_meta_basico_moderno.blockSignals(True)
+                self.chk_meta_basico_moderno.setChecked(False)
+                self.chk_metadados.setChecked(False)  # Sincroniza backend
+                self.chk_meta_basico_moderno.blockSignals(False)
+
+            # Atualiza o backend com o estado atual do checkbox clicado
+            self.chk_metadados_raw.setChecked(checked)
+
+        # Conectando as funções aos cliques nos novos checkboxes modernos
+        self.chk_meta_basico_moderno.toggled.connect(alternar_meta_basico)
+        self.chk_meta_raw_moderno.toggled.connect(alternar_meta_raw)
 
         # ==============================================================
         # ITENS DIRETOS NA BARRA DE MENUS (Agem como botões)
