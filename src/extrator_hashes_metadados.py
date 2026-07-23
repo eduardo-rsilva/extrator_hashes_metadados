@@ -3533,6 +3533,9 @@ class JanelaHashes(QWidget):
                 msg_box.exec()
 
                 if msg_box.clickedButton() == btn_auto:
+                    # 🔹 SALVA AS ESCOLHAS ORIGINAIS DO USUÁRIO ANTES DE ALTERAR
+                    self._hashes_anteriores = {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()}
+
                     for algo, chk in self.chk_hashes.items():
                         if algo == "CRC32":
                             chk.setChecked(False)
@@ -3544,6 +3547,15 @@ class JanelaHashes(QWidget):
                     return None
 
         return texto_custodia
+
+    def _restaurar_hashes_anteriores(self):
+        """Restaura as escolhas de hashes feitas pelo usuário antes do ajuste automático da custódia."""
+        if hasattr(self, '_hashes_anteriores') and self._hashes_anteriores:
+            for algo, estado in self._hashes_anteriores.items():
+                if algo in self.chk_hashes:
+                    self.chk_hashes[algo].setChecked(estado)
+            self._hashes_anteriores = None
+            self.salvar_estado_atual()
 
     def alternar_modo_escuro(self, ativado):
         app = QApplication.instance()  # Captura a instância global do aplicativo
@@ -5377,6 +5389,7 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append(f"\n ❌ ERRO NA AQUISIÇÃO E01:\n{str(e)}\n")
                 self._desativar_modo_admin_visual()
                 self.destravar_interface()
+                self._restaurar_hashes_anteriores()
 
                 # Restaura as barras parando a animação e zera os valores
                 self.barra_arquivo.setMinimum(0)
@@ -5395,6 +5408,7 @@ class JanelaHashes(QWidget):
             # SE DEU TUDO CERTO, RODA A FINALIZAÇÃO NORMAL DE SUCESSO AQUI:
             self._desativar_modo_admin_visual()
             self.destravar_interface()
+            self._restaurar_hashes_anteriores()
 
             # --- RESTAURA AS BARRAS PARA O MODO PORCENTAGEM PADRÃO ---
             self.barra_arquivo.setMinimum(0)
@@ -5619,6 +5633,7 @@ class JanelaHashes(QWidget):
             self.texto_saida.append("")
             self._desativar_modo_admin_visual()
             self.destravar_interface()
+            self._restaurar_hashes_anteriores()
             self.barra_arquivo.setValue(100)
             self.barra_total.setValue(100)
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
@@ -8871,6 +8886,9 @@ class JanelaHashes(QWidget):
 
         if self.coordenadas_gps_encontradas:
             self.mostrar_alerta_gps()
+
+        # 🔹 RESTAURA OS HASHES SE SELECIONADOS ANTERIORMENTE PELO USUÁRIO
+        self._restaurar_hashes_anteriores()
 
 
 class DialogoMetadadosKML(QDialog):
