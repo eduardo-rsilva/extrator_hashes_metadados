@@ -2938,11 +2938,17 @@ class JanelaHashes(QWidget):
         # ==============================================================
         barra_menus = QMenuBar()
 
-        # --- MENU 1: PROTEÇÃO FORENSE ---
-        menu_protecao = barra_menus.addMenu("🛡️ Proteção Forense")
-        self.action_write_blocker_moderno = QAction("Bloquear/Desbloquear Escrita em USB", self)
-        self.action_write_blocker_moderno.triggered.connect(self.alternar_write_blocker)
-        menu_protecao.addAction(self.action_write_blocker_moderno)
+        # --- MENU 1: ESCRITA USB (INDICADOR VISUAL DINÂMICO) ---
+        # O título do menu servirá como o indicador visual principal na barra superior
+        self.menu_protecao = barra_menus.addMenu("🔒 USB: Verificando...")
+
+        self.action_bloquear_usb = QAction("🔒 Bloquear Escrita em USB", self)
+        self.action_bloquear_usb.triggered.connect(self.alternar_write_blocker)
+        self.menu_protecao.addAction(self.action_bloquear_usb)
+
+        self.action_desbloquear_usb = QAction("🔓 Desbloquear Escrita em USB", self)
+        self.action_desbloquear_usb.triggered.connect(self.alternar_write_blocker)
+        self.menu_protecao.addAction(self.action_desbloquear_usb)
 
         # --- MENU 2: SELEÇÃO MANUAL ---
         menu_selecao = barra_menus.addMenu("📂 Seleção Manual")
@@ -3184,18 +3190,31 @@ class JanelaHashes(QWidget):
             }
         """
 
-        # --- APLICAÇÃO DOS ESTILOS (Sem a trava de texto, corrigindo o bug de atualização) ---
-        if ativo:
-            self.btn_write_blocker.setText("DESBLOQUEAR ESCRITA EM USB")
-            self.btn_write_blocker.setStyleSheet(estilo_ativo)
-        else:
-            self.btn_write_blocker.setText("BLOQUEAR ESCRITA EM USB")
-
-            # Aplica o estilo de alto contraste baseado no tema
-            if is_dark:
-                self.btn_write_blocker.setStyleSheet(estilo_inativo_escuro)
+        # --- 1. APLICAÇÃO DOS ESTILOS NO MODO CLÁSSICO ---
+        if hasattr(self, 'btn_write_blocker'):
+            if ativo:
+                self.btn_write_blocker.setText("DESBLOQUEAR ESCRITA EM USB")
+                self.btn_write_blocker.setStyleSheet(estilo_ativo)
             else:
-                self.btn_write_blocker.setStyleSheet(estilo_inativo_claro)
+                self.btn_write_blocker.setText("BLOQUEAR ESCRITA EM USB")
+                # Aplica o estilo de alto contraste baseado no tema
+                if is_dark:
+                    self.btn_write_blocker.setStyleSheet(estilo_inativo_escuro)
+                else:
+                    self.btn_write_blocker.setStyleSheet(estilo_inativo_claro)
+
+        # --- 2. ATUALIZAÇÃO DA INTERFACE MODERNA (Menu) ---
+        if hasattr(self, 'menu_protecao'):
+            if ativo:
+                # Estado BLOQUEADO (Seguro)
+                self.menu_protecao.setTitle("🔒 USB: ESCRITA BLOQUEADA")
+                self.action_bloquear_usb.setEnabled(False)      # Já está bloqueado
+                self.action_desbloquear_usb.setEnabled(True)    # Permite desbloquear
+            else:
+                # Estado PERMITIDO (Atenção)
+                self.menu_protecao.setTitle("⚠️ USB: ESCRITA PERMITIDA")
+                self.action_bloquear_usb.setEnabled(True)       # Permite bloquear
+                self.action_desbloquear_usb.setEnabled(False)   # Já está desbloqueado
 
     def atualizar_tooltip_wb(self):
         """Atualiza a cor de alerta da tooltip baseando-se no tema claro/escuro."""
