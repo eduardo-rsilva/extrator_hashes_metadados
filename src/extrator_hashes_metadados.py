@@ -2360,8 +2360,8 @@ class JanelaHashes(QWidget):
         self.setup_ui_moderno(self.container_moderno)
         self.stacked_widget.addWidget(self.container_moderno)
 
-        # Define qual tela aparece primeiro ao abrir o app
-        self.stacked_widget.setCurrentIndex(0)
+        # Inicia o aplicativo diretamente no Visual Moderno
+        self.alternar_visual()
 
     def setup_ui_classico(self, parent_widget):
         # A única alteração na sua lógica original é passar o parent_widget aqui:
