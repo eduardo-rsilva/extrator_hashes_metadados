@@ -116,8 +116,9 @@ from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                                QPushButton, QCheckBox, QTextEdit, QFileDialog,
                                QProgressBar, QLabel, QMessageBox, QToolTip, QDialog, QComboBox,
-                               QTabWidget, QFrame, QGroupBox, QLineEdit)
-from PySide6.QtGui import QIcon, QTextCursor
+                               QTabWidget, QFrame, QGroupBox, QLineEdit, QStackedWidget,
+                               QMenuBar, QMenu)
+from PySide6.QtGui import QIcon, QTextCursor, QAction
 from PySide6.QtCore import QTimer, QEvent, QThread, Signal, Qt
 
 # imports para hash bit a bit
@@ -2330,7 +2331,42 @@ class JanelaHashes(QWidget):
         self.checar_atualizacoes()
 
     def setup_ui(self):
-        layout_principal = QVBoxLayout()
+        # Layout raiz da janela inteira
+        layout_raiz = QVBoxLayout(self)
+        layout_raiz.setContentsMargins(0, 0, 0, 0)  # Remove margens globais para maximizar espaço
+
+        # Opcional: Um botão de teste fixo no topo para você alternar os visuais durante o desenvolvimento
+        self.btn_alternar_visual = QPushButton("Alternar para Visual Moderno (Foco em Drag & Drop)")
+        self.btn_alternar_visual.setStyleSheet(
+            "background-color: #0078D7; color: white; font-weight: bold; padding: 5px;")
+        self.btn_alternar_visual.clicked.connect(self.alternar_visual)
+        layout_raiz.addWidget(self.btn_alternar_visual)
+
+        # Cria o "Baralho" de telas
+        self.stacked_widget = QStackedWidget()
+        layout_raiz.addWidget(self.stacked_widget)
+
+        # ---------------------------------------------------------
+        # TELA 0: VISUAL CLÁSSICO
+        # ---------------------------------------------------------
+        self.container_classico = QWidget()
+        self.setup_ui_classico(self.container_classico)
+        self.stacked_widget.addWidget(self.container_classico)
+
+        # ---------------------------------------------------------
+        # TELA 1: VISUAL NOVO
+        # ---------------------------------------------------------
+        self.container_moderno = QWidget()
+        self.setup_ui_moderno(self.container_moderno)
+        self.stacked_widget.addWidget(self.container_moderno)
+
+        # Define qual tela aparece primeiro ao abrir o app
+        self.stacked_widget.setCurrentIndex(0)
+
+    def setup_ui_classico(self, parent_widget):
+        # A única alteração na sua lógica original é passar o parent_widget aqui:
+        layout_principal = QVBoxLayout(parent_widget)
+        layout_principal.setContentsMargins(10, 10, 10, 10)
 
         # ==============================================================
         # --- BLOCO 0: Linha Superior (Write-Blocker + Utilidades) ---
@@ -2837,6 +2873,125 @@ class JanelaHashes(QWidget):
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
+
+    def setup_ui_moderno(self, parent_widget):
+        layout_moderno = QVBoxLayout(parent_widget)
+        layout_moderno.setContentsMargins(0, 0, 0, 0)
+        layout_moderno.setSpacing(0)
+
+        # ==============================================================
+        # 1. BARRA DE MENUS SUPERIOR
+        # ==============================================================
+        barra_menus = QMenuBar()
+
+        # --- MENU 1: PROTEÇÃO FORENSE ---
+        menu_protecao = barra_menus.addMenu("🛡️ Proteção Forense")
+        self.action_write_blocker_moderno = QAction("Bloquear/Desbloquear Escrita em USB", self)
+        self.action_write_blocker_moderno.triggered.connect(self.alternar_write_blocker)
+        menu_protecao.addAction(self.action_write_blocker_moderno)
+
+        # --- MENU 2: SELEÇÃO MANUAL ---
+        menu_selecao = barra_menus.addMenu("📂 Seleção Manual")
+
+        action_arquivo = QAction("Selecionar Arquivo(s)", self)
+        action_arquivo.triggered.connect(self.selecionar_arquivo)
+        menu_selecao.addAction(action_arquivo)
+
+        action_diretorio = QAction("Selecionar Diretório", self)
+        action_diretorio.triggered.connect(self.selecionar_diretorio)
+        menu_selecao.addAction(action_diretorio)
+
+        action_raw = QAction("Selecionar Unidade (RAW)", self)
+        action_raw.triggered.connect(self.selecionar_unidade_raw)
+        menu_selecao.addAction(action_raw)
+
+        # --- MENU 3: ALGORITMOS DE HASH ---
+        menu_hashes = barra_menus.addMenu("🔢 Algoritmos de Hash")
+        self.acoes_hashes_moderno = {}
+        for algo in ["CRC32", "MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512"]:
+            acao = QAction(algo, self)
+            acao.setCheckable(True)
+            acao.setChecked(self.chk_hashes[algo].isChecked())  # Herda estado do clássico
+            menu_hashes.addAction(acao)
+            self.acoes_hashes_moderno[algo] = acao
+
+        # --- MENU 4: METADADOS ---
+        menu_meta = barra_menus.addMenu("🏷️ Metadados")
+        self.action_meta_basico = QAction("Incluir Metadados Básicos", self)
+        self.action_meta_basico.setCheckable(True)
+        self.action_meta_basico.setChecked(self.chk_metadados.isChecked())
+        menu_meta.addAction(self.action_meta_basico)
+
+        self.action_meta_raw = QAction("Incluir TODOS os metadados (Raw Dump)", self)
+        self.action_meta_raw.setCheckable(True)
+        self.action_meta_raw.setChecked(self.chk_metadados_raw.isChecked())
+        menu_meta.addAction(self.action_meta_raw)
+
+        # ==============================================================
+        # ITENS DIRETOS NA BARRA DE MENUS (Agem como botões)
+        # ==============================================================
+
+        # Adiciona um espaço visual (apenas estético, se o estilo permitir)
+        barra_menus.addSeparator()
+
+        action_formatos = QAction("📚 Formatos Suportados", self)
+        action_formatos.triggered.connect(self.mostrar_formatos)
+        barra_menus.addAction(action_formatos)  # Adicionado direto na barra, não em um menu
+
+        action_manual = QAction("📖 Manual Online", self)
+        action_manual.triggered.connect(self.abrir_manual_online)
+        barra_menus.addAction(action_manual)
+
+        action_sobre = QAction("ℹ️ Sobre", self)
+        action_sobre.triggered.connect(self.mostrar_sobre)
+        barra_menus.addAction(action_sobre)
+
+        # --- LÓGICA DO MODO ESCURO / CLARO ---
+        # Define o estado inicial baseado no checkbox do modo clássico
+        estado_inicial_escuro = self.chk_modo_escuro.isChecked()
+        texto_tema_inicial = "☀️ Modo Claro" if estado_inicial_escuro else "🌙 Modo Escuro"
+
+        self.action_tema = QAction(texto_tema_inicial, self)
+        self.action_tema.setCheckable(True)
+        self.action_tema.setChecked(estado_inicial_escuro)
+
+        # Função interna rápida para trocar o texto e acionar a sua função original
+        def alternar_tema_wrapper(checked):
+            self.action_tema.setText("☀️ Modo Claro" if checked else "🌙 Modo Escuro")
+            # Ao alterar o checkbox original, ele dispara o sinal que já aciona a sua
+            # função self.alternar_modo_escuro(checked) automaticamente!
+            self.chk_modo_escuro.setChecked(checked)
+
+        self.action_tema.toggled.connect(alternar_tema_wrapper)
+        barra_menus.addAction(self.action_tema)
+
+        layout_moderno.addWidget(barra_menus)
+
+        # ==============================================================
+        # 2. ÁREA MAXIMIZADA DE DRAG AND DROP (A SER PREENCHIDA)
+        # ==============================================================
+        self.area_gigante_alvo = QLabel("Solte as Evidências AQUI\n\n(Ou use a opção 'Seleção Manual' acima)")
+        self.area_gigante_alvo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.area_gigante_alvo.setStyleSheet("""
+            QLabel {
+                font-size: 24pt;
+                color: #555555;
+                background-color: #f9f9f9;
+                border: 3px dashed #cccccc;
+                margin: 20px;
+                border-radius: 15px;
+            }
+        """)
+        layout_moderno.addWidget(self.area_gigante_alvo, stretch=1)
+
+    def alternar_visual(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.stacked_widget.setCurrentIndex(1)
+            self.btn_alternar_visual.setText("Voltar para Visual Clássico")
+            # Se quiser, chame funções para reconfigurar estilos ou variáveis aqui
+        else:
+            self.stacked_widget.setCurrentIndex(0)
+            self.btn_alternar_visual.setText("Alternar para Visual Moderno (Foco em Drag & Drop)")
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
