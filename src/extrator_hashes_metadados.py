@@ -8262,6 +8262,9 @@ class JanelaHashes(QWidget):
         # --- ALTERAÇÃO: Remover o 'self' para desvincular a hierarquia de janelas ---
         self.janela_gps = QDialog(None)
 
+        # --- CORREÇÃO DO TEMA: Aplica manualmente o estilo da janela principal ---
+        self.janela_gps.setStyleSheet(self.styleSheet())
+
         self.janela_gps.setWindowTitle("📍 Coordenadas GPS Encontradas!")
         self.janela_gps.resize(850, 600)
 
