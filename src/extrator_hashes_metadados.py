@@ -2336,7 +2336,7 @@ class JanelaHashes(QWidget):
         layout_raiz.setContentsMargins(0, 0, 0, 0)  # Remove margens globais para maximizar espaço
 
         # Opcional: Um botão de teste fixo no topo para você alternar os visuais durante o desenvolvimento
-        self.btn_alternar_visual = QPushButton("Alternar para Visual Moderno (Foco em Drag & Drop)")
+        self.btn_alternar_visual = QPushButton("Alternar para Visual Moderno")
         self.btn_alternar_visual.setStyleSheet(
             "background-color: #0078D7; color: white; font-weight: bold; padding: 5px;")
         self.btn_alternar_visual.clicked.connect(self.alternar_visual)
@@ -3118,7 +3118,7 @@ class JanelaHashes(QWidget):
             # INDO PARA O MODO MODERNO
             # ==============================================================
             self.stacked_widget.setCurrentIndex(1)
-            self.btn_alternar_visual.setText("Voltar para Visual Clássico")
+            self.btn_alternar_visual.setText("Alternar para Visual Clássico")
 
             self.layout_moderno.addWidget(self.painel_resultados, stretch=1)
             self.painel_resultados.layout().setContentsMargins(10, 10, 10, 10)
@@ -3140,7 +3140,7 @@ class JanelaHashes(QWidget):
             # VOLTANDO PARA O MODO CLÁSSICO
             # ==============================================================
             self.stacked_widget.setCurrentIndex(0)
-            self.btn_alternar_visual.setText("Alternar para Visual Moderno (Foco em Drag & Drop)")
+            self.btn_alternar_visual.setText("Alternar para Visual Moderno")
 
             self.layout_classico.addWidget(self.painel_resultados, stretch=1)
             self.painel_resultados.layout().setContentsMargins(0, 5, 0, 0)
@@ -3273,6 +3273,12 @@ class JanelaHashes(QWidget):
                 self.btn_menu_protecao.setStyleSheet(css_adaptado)
                 self.action_bloquear_usb.setEnabled(True)
                 self.action_desbloquear_usb.setEnabled(False)
+
+            # 🔥 FORÇA O ESTILO APAGADO/ESMAECIDO NO MODO ESCURO PARA O ITEM DESABILITADO
+            cor_desabilitado = "#666666" if is_dark else "#a0a0a0"
+            css_menu_desabilitado = f"QMenu::item:disabled {{ color: {cor_desabilitado}; background-color: transparent; }}"
+            if hasattr(self.btn_menu_protecao, 'menu') and self.btn_menu_protecao.menu():
+                self.btn_menu_protecao.menu().setStyleSheet(css_menu_desabilitado)
 
     def atualizar_tooltip_wb(self):
         """Atualiza a cor de alerta da tooltip baseando-se no tema claro/escuro."""
@@ -3560,6 +3566,7 @@ class JanelaHashes(QWidget):
                 QCheckBox { color: #f0f0f0; }
                 QComboBox { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; }
                 QTextBrowser { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555; }
+                QMenu::item:disabled { color: #666666; background-color: transparent; }
             """
             self.setStyleSheet(estilo_global)
 
