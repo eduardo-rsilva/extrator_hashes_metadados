@@ -2807,7 +2807,7 @@ class JanelaHashes(QWidget):
                 """
 
         # --- BOTÃO DE REABERTURA GPS (Inicia Oculto) ---
-        self.btn_reabrir_gps = QPushButton("📍 Ver Coordenadas GPS Encontradas")
+        self.btn_reabrir_gps = QPushButton("📍 Ver Coordenadas GPS Encontradas (na última extração)")
         self.btn_reabrir_gps.setStyleSheet("""
                             QPushButton {
                                 background-color: #fffae6; color: #b27a00; font-weight: bold;
@@ -8249,9 +8249,30 @@ class JanelaHashes(QWidget):
         if hasattr(self, 'janela_gps') and self.janela_gps is not None:
             self.janela_gps.deleteLater()
 
-        self.janela_gps = QDialog(self)
+        # --- ALTERAÇÃO: Remover o 'self' para desvincular a hierarquia de janelas ---
+        self.janela_gps = QDialog(None)
+
         self.janela_gps.setWindowTitle("📍 Coordenadas GPS Encontradas!")
         self.janela_gps.resize(850, 600)
+
+        # Mantemos as flags para garantir que tem os botões de minimizar e maximizar
+        from PySide6.QtCore import Qt  # Caso o Qt não esteja importado localmente
+        self.janela_gps.setWindowFlags(
+            Qt.WindowType.Window |
+            Qt.WindowType.WindowMinMaxButtonsHint |
+            Qt.WindowType.WindowCloseButtonHint
+        )
+
+        # Garante que seja não-bloqueante (NonModal)
+        self.janela_gps.setModal(False)
+        self.janela_gps.resize(850, 600)
+
+        # --- ALTERAÇÃO: Define como janela independente com botões de minimizar/maximizar ---
+        self.janela_gps.setWindowFlags(
+            Qt.WindowType.Window |
+            Qt.WindowType.WindowMinMaxButtonsHint |
+            Qt.WindowType.WindowCloseButtonHint
+        )
 
         # Garante que seja não-bloqueante (NonModal)
         self.janela_gps.setModal(False)
