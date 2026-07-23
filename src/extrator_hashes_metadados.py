@@ -2944,6 +2944,10 @@ class JanelaHashes(QWidget):
     def reabrir_janela_gps(self):
         """Reabre a janela de GPS e oculta o botão."""
         if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            # --- ATUALIZA O TEMA ---
+            # Copia novamente o estilo da interface principal caso o usuário tenha mudado o tema
+            self.janela_gps.setStyleSheet(self.styleSheet())
+
             self.janela_gps.show()
             self.janela_gps.raise_()
             self.janela_gps.activateWindow()
