@@ -6260,6 +6260,16 @@ class JanelaHashes(QWidget):
     def travar_interface(self):
         self.processando = True
 
+        # --- LIMPEZA DE DADOS DO GPS PARA NOVA EXTRAÇÃO ---
+        self.coordenadas_gps_encontradas = []
+        if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            self.janela_gps.close()
+            self.janela_gps.deleteLater()
+            self.janela_gps = None
+
+        if hasattr(self, 'btn_reabrir_gps'):
+            self.btn_reabrir_gps.setVisible(False)
+
         # --- BLOQUEIO DA INTERFACE CLÁSSICA ---
         self.grupo_wb.setEnabled(False)
         self.grupo_topo.setEnabled(False)
