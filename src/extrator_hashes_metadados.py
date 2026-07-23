@@ -2606,18 +2606,9 @@ class JanelaHashes(QWidget):
 
         layout_resultados.addWidget(self.lbl_alerta_versao)
 
-        # --- DIVISOR AJUSTÁVEL (QSplitter) ---
-        # É ele que permite arrastar a linha entre as caixas para redimensioná-las com o mouse
-        splitter = QSplitter(Qt.Orientation.Vertical)
-
-        # --- CADEIA DE CUSTÓDIA (ESTILO SANFONA) ---
-        # 1. Cria um contêiner invisível para agrupar o botão e a caixa
-        self.wrapper_custodia = QWidget()
-        layout_wrapper_custodia = QVBoxLayout(self.wrapper_custodia)
-        layout_wrapper_custodia.setContentsMargins(0, 0, 0, 0)
-        layout_wrapper_custodia.setSpacing(0)
-
-        # 2. Cria o botão que fará o papel de título da sanfona
+        # =====================================================================
+        # 1. BOTÃO DA SANFONA (Agora fora do Splitter para não deixar buraco)
+        # =====================================================================
         self.btn_toggle_custodia = QPushButton("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
         self.btn_toggle_custodia.setStyleSheet("""
                     QPushButton {
@@ -2632,9 +2623,15 @@ class JanelaHashes(QWidget):
                     }
                     QPushButton:hover { background-color: #d5d5d5; }
                 """)
+        layout_resultados.addWidget(self.btn_toggle_custodia)
 
-        # 3. A sua caixa original de validação (sem o título, pois o botão já faz isso)
-        self.grupo_validacao = QFrame()  # Mudamos de QGroupBox para QFrame para ficar mais limpo
+        # --- DIVISOR AJUSTÁVEL (QSplitter) ---
+        splitter = QSplitter(Qt.Orientation.Vertical)
+
+        # =====================================================================
+        # 2. CAIXA DE CUSTÓDIA (Esta sim vai para dentro do Splitter)
+        # =====================================================================
+        self.grupo_validacao = QFrame()
         self.grupo_validacao.setStyleSheet("""
                     QFrame { border: 1px solid #cccccc; border-top: none; background-color: #fafafa; }
                 """)
@@ -2656,26 +2653,22 @@ class JanelaHashes(QWidget):
         # Esconde a caixa por padrão ao iniciar o programa
         self.grupo_validacao.hide()
 
-        # 4. A lógica da sanfona (Mostra/Esconde)
+        # Adiciona APENAS a caixa no splitter
+        splitter.addWidget(self.grupo_validacao)
+
+        # --- Lógica da Sanfona ---
         def alternar_sanfona():
             esta_visivel = self.grupo_validacao.isVisible()
-            self.grupo_validacao.setVisible(not esta_visivel)  # Inverte o estado
+            self.grupo_validacao.setVisible(not esta_visivel)
 
             if esta_visivel:
-                # Se estava visível, agora recolheu
                 self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
             else:
-                # Se estava escondido, agora expandiu
                 self.btn_toggle_custodia.setText("▼ Validar Cadeia de Custódia (Clique para recolher)")
+                # Garante que o splitter abra com um espaço decente quando expandido
+                splitter.setSizes([110, 470])
 
         self.btn_toggle_custodia.clicked.connect(alternar_sanfona)
-
-        # 5. Adiciona o botão e a caixa ao wrapper
-        layout_wrapper_custodia.addWidget(self.btn_toggle_custodia)
-        layout_wrapper_custodia.addWidget(self.grupo_validacao)
-
-        # 6. Adiciona o WRAPPER inteiro ao splitter (ao invés de adicionar só o grupo)
-        splitter.addWidget(self.wrapper_custodia)
 
         # --- Área de Texto Principal (Envelopada com Título Padronizado) ---
         self.grupo_saida = QGroupBox("Área de Extração Forense (Resultados)")
