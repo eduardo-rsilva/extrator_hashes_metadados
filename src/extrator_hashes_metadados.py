@@ -2953,6 +2953,7 @@ class JanelaHashes(QWidget):
 
         # --- BARRA DE MENUS (Restante das opções) ---
         barra_menus = QMenuBar()
+        self.barra_menus = barra_menus
 
         # --- MENU 2: SELEÇÃO MANUAL ---
         menu_selecao = barra_menus.addMenu("📂 Seleção Manual")
@@ -6176,18 +6177,22 @@ class JanelaHashes(QWidget):
     def travar_interface(self):
         self.processando = True
 
-        # Trava as duas novas caixas superiores inteiras de uma vez
-        # (Isso desativa automaticamente: Arquivos, Diretório, RAW, Subdirs, Modo Escuro, Sobre, Formatos, etc.)
+        # --- BLOQUEIO DA INTERFACE CLÁSSICA ---
         self.grupo_wb.setEnabled(False)
         self.grupo_topo.setEnabled(False)
         self.grupo_controles.setEnabled(False)
 
-        # Trava os botões do rodapé
+        # --- BLOQUEIO DA INTERFACE MODERNA ---
+        if hasattr(self, 'barra_menus'):
+            self.barra_menus.setEnabled(False)
+        if hasattr(self, 'btn_menu_protecao'):
+            self.btn_menu_protecao.setEnabled(False)
+
+        # --- BLOQUEIO DE ITENS COMUNS (RODAPÉ E CUSTÓDIA) ---
         self.btn_limpar.setEnabled(False)
         self.btn_copiar.setEnabled(False)
         self.btn_salvar.setEnabled(False)
 
-        # Trava a área de cadeia de custódia e o drag & drop global
         self.setAcceptDrops(False)
         self.texto_referencia.setEnabled(False)
         self.btn_limpar_custodia.setEnabled(False)
@@ -6195,17 +6200,22 @@ class JanelaHashes(QWidget):
     def destravar_interface(self):
         self.processando = False
 
-        # Destrava as duas novas caixas superiores inteiras de uma vez
+        # --- DESBLOQUEIO DA INTERFACE CLÁSSICA ---
         self.grupo_wb.setEnabled(True)
         self.grupo_topo.setEnabled(True)
         self.grupo_controles.setEnabled(True)
 
-        # Destrava os botões do rodapé
+        # --- DESBLOQUEIO DA INTERFACE MODERNA ---
+        if hasattr(self, 'barra_menus'):
+            self.barra_menus.setEnabled(True)
+        if hasattr(self, 'btn_menu_protecao'):
+            self.btn_menu_protecao.setEnabled(True)
+
+        # --- DESBLOQUEIO DE ITENS COMUNS (RODAPÉ E CUSTÓDIA) ---
         self.btn_limpar.setEnabled(True)
         self.btn_copiar.setEnabled(True)
         self.btn_salvar.setEnabled(True)
 
-        # Destrava a área de cadeia de custódia e o drag & drop global
         self.setAcceptDrops(True)
         self.texto_referencia.setEnabled(True)
         self.btn_limpar_custodia.setEnabled(True)
