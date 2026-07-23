@@ -2948,6 +2948,9 @@ class JanelaHashes(QWidget):
 
         self.btn_menu_protecao.setMenu(menu_drop_protecao)
 
+        # Injeta a chamada da tooltip aqui, pois agora o botão moderno já foi instanciado.
+        self.atualizar_tooltip_wb()
+
         # Adiciona o botão no começo (à esquerda) forçando o alinhamento central
         layout_linha_topo.addWidget(self.btn_menu_protecao, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -2987,6 +2990,9 @@ class JanelaHashes(QWidget):
             # Herda o estado do modo clássico
             chk_box.setChecked(self.chk_hashes[algo].isChecked())
 
+            # Clona a tooltip correspondente do modo clássico
+            chk_box.setToolTip(self.chk_hashes[algo].toolTip())
+
             # Sincroniza com o modo clássico (Backend) quando for clicado.
             # NOTA: O "a=algo" é um truque do Python para o lambda não se perder no loop!
             chk_box.toggled.connect(lambda checked, a=algo: self.chk_hashes[a].setChecked(checked))
@@ -3006,6 +3012,7 @@ class JanelaHashes(QWidget):
         self.chk_meta_basico_moderno = QCheckBox("  Incluir Metadados Básicos")
         self.chk_meta_basico_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
         self.chk_meta_basico_moderno.setChecked(self.chk_metadados.isChecked())
+        self.chk_meta_basico_moderno.setToolTip(self.chk_metadados.toolTip())  # Clonando tooltip
         acao_meta_basico.setDefaultWidget(self.chk_meta_basico_moderno)
         menu_meta.addAction(acao_meta_basico)
 
@@ -3014,6 +3021,7 @@ class JanelaHashes(QWidget):
         self.chk_meta_raw_moderno = QCheckBox("  Incluir TODOS os metadados (Raw Dump)")
         self.chk_meta_raw_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
         self.chk_meta_raw_moderno.setChecked(self.chk_metadados_raw.isChecked())
+        self.chk_meta_raw_moderno.setToolTip(self.chk_metadados_raw.toolTip())  # Clonando tooltip
         acao_meta_raw.setDefaultWidget(self.chk_meta_raw_moderno)
         menu_meta.addAction(acao_meta_raw)
 
@@ -3052,14 +3060,21 @@ class JanelaHashes(QWidget):
         # Adiciona um espaço visual (apenas estético, se o estilo permitir)
         barra_menus.addSeparator()
 
+        # 1. Formatos Suportados (diretamente na barra de menus)
         action_formatos = QAction("📚 Formatos Suportados", self)
         action_formatos.triggered.connect(self.mostrar_formatos)
-        barra_menus.addAction(action_formatos)  # Adicionado direto na barra, não em um menu
+        barra_menus.addAction(action_formatos)
+
+        # 2. Menu Ajuda (exclusivo para o Manual Online exibir a tooltip)
+        menu_ajuda = barra_menus.addMenu("❓ Ajuda")
+        menu_ajuda.setToolTipsVisible(True)  # Permite que a tooltip apareça no menu suspenso
 
         action_manual = QAction("📖 Manual Online", self)
+        action_manual.setToolTip(self.btn_manual_online.toolTip())  # Clona a tooltip com sucesso
         action_manual.triggered.connect(self.abrir_manual_online)
-        barra_menus.addAction(action_manual)
+        menu_ajuda.addAction(action_manual)
 
+        # 3. Sobre (diretamente na barra de menus)
         action_sobre = QAction("ℹ️ Sobre", self)
         action_sobre.triggered.connect(self.mostrar_sobre)
         barra_menus.addAction(action_sobre)
@@ -3259,7 +3274,7 @@ class JanelaHashes(QWidget):
         # #990000 = Vermelho escuro (ótimo para fundos claros)
         cor_alerta = "#ff5555" if is_dark else "#990000"
 
-        self.btn_write_blocker.setToolTip(
+        texto_tooltip_wb = (
             "<p><b>Software Write-Blocker (Bloqueio de Registro)</b></p>"
             "<ul>"
             "<li>Impede que o Windows grave arquivos ou altere atributos em mídias USB.</li>"
@@ -3271,6 +3286,13 @@ class JanelaHashes(QWidget):
             "<b>Hardware Write-Blocker (Bloqueador Físico)</b> como <b>Padrão-Ouro</b>, pois, ao atuar na camada física, ele elimina "
             "os riscos de eventuais falhas de procedimento e/ou instabilidades do Sistema Operacional.</span></p>"
         )
+
+        # Aplica a tooltip no botão do modo Clássico
+        self.btn_write_blocker.setToolTip(texto_tooltip_wb)
+
+        # Aplica a tooltip no botão do modo Moderno (com checagem de segurança de existência)
+        if hasattr(self, 'btn_menu_protecao'):
+            self.btn_menu_protecao.setToolTip(texto_tooltip_wb)
 
     def alternar_write_blocker(self):
         """Dispara a janela do UAC apenas para a alteração de registro, sem elevar o aplicativo inteiro."""
