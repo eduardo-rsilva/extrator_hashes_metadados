@@ -4046,6 +4046,19 @@ class JanelaHashes(QWidget):
                 self.destravar_interface()  # Destrava a tela para o usuário
                 return  # 🛑 ABORTA A FUNÇÃO AQUI
 
+            # --- MIGRAÇÃO DO ARQUIVO DE CONFIGURAÇÕES ---
+            try:
+                caminho_config_atual = os.path.join(pasta_atual_programa, "config.dat")
+                caminho_config_novo = os.path.join(pasta_extracao, "config.dat")
+
+                if os.path.exists(caminho_config_atual):
+                    import shutil
+                    shutil.copy2(caminho_config_atual, caminho_config_novo)
+                    self.texto_saida.append("   ↳ Configurações do usuário migradas com sucesso.")
+            except Exception as e:
+                self.texto_saida.append(
+                    f"   ↳ Aviso: Não foi possível migrar as preferências (config.dat). Detalhe: {e}")
+
             # 3. Conclusão
             self.texto_saida.append("\n✅ 3/3 - ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!")
             QApplication.processEvents()
