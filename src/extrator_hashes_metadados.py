@@ -3097,15 +3097,13 @@ class JanelaHashes(QWidget):
         self.action_tema.setCheckable(True)
         self.action_tema.setChecked(estado_inicial_escuro)
 
-        # Função interna rápida para trocar o texto e acionar a sua função original
+        # Função interna rápida para trocar o texto e sincronizar com o backend
         def alternar_tema_wrapper(checked):
-            self.action_tema.setText("☀️ Modo Claro" if checked else "🌙 Modo Escuro")
-            # Ao alterar o checkbox original, ele dispara o sinal que já aciona a sua
-            # função self.alternar_modo_escuro(checked) automaticamente!
             self.chk_modo_escuro.setChecked(checked)
 
         self.action_tema.toggled.connect(alternar_tema_wrapper)
         barra_menus.addAction(self.action_tema)
+
         # Adiciona a barra de menus à direita, preenchendo o espaço (stretch=1) e forçando centro
         layout_linha_topo.addWidget(barra_menus, stretch=1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -3543,6 +3541,13 @@ class JanelaHashes(QWidget):
 
     def alternar_modo_escuro(self, ativado):
         app = QApplication.instance()  # Captura a instância global do aplicativo
+
+        # Sincroniza a QAction da barra moderna se ela já tiver sido criada
+        if hasattr(self, 'action_tema'):
+            self.action_tema.blockSignals(True)
+            self.action_tema.setChecked(ativado)
+            self.action_tema.setText("☀️ Modo Claro" if ativado else "🌙 Modo Escuro")
+            self.action_tema.blockSignals(False)
 
         if ativado:
             # --- ESTILO MODO ESCURO ---
