@@ -2360,8 +2360,20 @@ class JanelaHashes(QWidget):
         self.setup_ui_moderno(self.container_moderno)
         self.stacked_widget.addWidget(self.container_moderno)
 
-        # Inicia o aplicativo diretamente no Visual Moderno
-        self.alternar_visual()
+        # ---------------------------------------------------------
+        # APLICAR VISUAL SALVO (Agora que ambas as telas foram construídas)
+        # ---------------------------------------------------------
+        config = carregar_config()
+        if config:
+            visual_salvo = config.get('visual_index', 1)
+            # Como a janela é construída no modo Clássico (índice 0),
+            # se a preferência for 1 (Moderno), realizamos a troca
+            if visual_salvo == 1:
+                self.alternar_visual()
+        else:
+            # Primeira execução (sem config.dat): Padrão é Modo Moderno
+            self.alternar_visual()
+            self.salvar_estado_atual()
 
     def setup_ui_classico(self, parent_widget):
         # A única alteração na sua lógica original é passar o parent_widget aqui:
@@ -2901,9 +2913,6 @@ class JanelaHashes(QWidget):
             if esquema_cor == Qt.ColorScheme.Dark:
                 self.chk_modo_escuro.setChecked(True)
 
-            # Força a criação do config.dat imediatamente na primeira abertura
-            self.salvar_estado_atual()
-
         # --- Salvar em tempo real ---
         self.chk_modo_escuro.toggled.connect(self.salvar_estado_atual)
         self.chk_metadados.toggled.connect(self.salvar_estado_atual)
@@ -3146,6 +3155,9 @@ class JanelaHashes(QWidget):
 
             # --- Restaura as Barras no Modo Clássico (Sempre Visíveis) ---
             self.container_progresso.show()
+
+        # Salva o novo modo visual selecionado na configuração criptografada
+        self.salvar_estado_atual()
 
     def _verificar_status_wb(self):
         """Verifica de forma silenciosa se o bloqueio de escrita USB está ativo no registro."""
@@ -5656,9 +5668,10 @@ class JanelaHashes(QWidget):
         config = {
             'chk_modo_escuro': self.chk_modo_escuro.isChecked(),
             'chk_metadados': self.chk_metadados.isChecked(),
-            'chk_metadados_raw': self.chk_metadados_raw.isChecked(),
+            'chk_metadados_raw': getattr(self, 'chk_metadados_raw', QCheckBox()).isChecked(),
             'chk_subdiretorios': self.chk_subdiretorios.isChecked(),
-            'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()}
+            'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()},
+            'visual_index': self.stacked_widget.currentIndex() if hasattr(self, 'stacked_widget') else 0
         }
         salvar_config(config)
 
