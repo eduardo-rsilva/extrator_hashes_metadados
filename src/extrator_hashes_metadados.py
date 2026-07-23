@@ -2806,6 +2806,19 @@ class JanelaHashes(QWidget):
                     }
                 """
 
+        # --- BOTÃO DE REABERTURA GPS (Inicia Oculto) ---
+        self.btn_reabrir_gps = QPushButton("📍 Ver Coordenadas GPS Encontradas")
+        self.btn_reabrir_gps.setStyleSheet("""
+                            QPushButton {
+                                background-color: #fffae6; color: #b27a00; font-weight: bold;
+                                border: 1px solid #ffe599; border-radius: 4px; padding: 6px;
+                            }
+                            QPushButton:hover { background-color: #fff2cc; }
+                        """)
+        self.btn_reabrir_gps.setVisible(False)
+        self.btn_reabrir_gps.clicked.connect(self.reabrir_janela_gps)
+        layout_progresso.addWidget(self.btn_reabrir_gps)
+
         # 1. Progresso do Arquivo Atual
         self.lbl_progresso_arquivo = QLabel("Progresso do Arquivo Atual:")
         layout_progresso.addWidget(self.lbl_progresso_arquivo)
@@ -2927,6 +2940,14 @@ class JanelaHashes(QWidget):
 
         # Salva uma referência deste layout para usarmos no teletransporte
         self.layout_classico = layout_principal
+
+    def reabrir_janela_gps(self):
+        """Reabre a janela de GPS e oculta o botão."""
+        if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            self.janela_gps.show()
+            self.janela_gps.raise_()
+            self.janela_gps.activateWindow()
+            self.btn_reabrir_gps.setVisible(False)
 
     def setup_ui_moderno(self, parent_widget):
         layout_moderno = QVBoxLayout(parent_widget)
@@ -7988,6 +8009,17 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'container_progresso'):
                 self.container_progresso.hide()
 
+        # --- LIMPEZA DOS DADOS DO GPS ---
+        self.coordenadas_gps_encontradas = []
+        if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            self.janela_gps.close()
+            self.janela_gps.deleteLater()
+            self.janela_gps = None
+
+        # Oculta o botão de reabertura do GPS, caso ele exista
+        if hasattr(self, 'btn_reabrir_gps'):
+            self.btn_reabrir_gps.setVisible(False)
+
     def selecionar_arquivo(self):
         if self.processando: return
 
@@ -8213,16 +8245,29 @@ class JanelaHashes(QWidget):
         self.worker.start()
 
     def mostrar_alerta_gps(self):
-        """Abre uma janela exibindo os links clicáveis para o Google Maps."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("📍 Coordenadas GPS Encontradas!")
-        dialog.resize(850, 600)
+        # Destrói a janela anterior se existir para recriar com os novos dados
+        if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            self.janela_gps.deleteLater()
+
+        self.janela_gps = QDialog(self)
+        self.janela_gps.setWindowTitle("📍 Coordenadas GPS Encontradas!")
+        self.janela_gps.resize(850, 600)
+
+        # Garante que seja não-bloqueante (NonModal)
+        self.janela_gps.setModal(False)
+
+        # Intercepta o evento de fechar a janela para mostrar o botão de reabertura
+        def ao_fechar_gps(event):
+            self.btn_reabrir_gps.setVisible(True)
+            event.accept()
+
+        self.janela_gps.closeEvent = ao_fechar_gps
 
         # --- Força a centralização exata da janela em relação à interface principal ---
         centro_pai = self.geometry().center()
-        dialog.move(centro_pai.x() - dialog.width() // 2, centro_pai.y() - dialog.height() // 2)
-
-        layout = QVBoxLayout(dialog)
+        self.janela_gps.move(centro_pai.x() - self.janela_gps.width() // 2,
+                             centro_pai.y() - self.janela_gps.height() // 2)
+        layout = QVBoxLayout(self.janela_gps)
 
         # =====================================================================
         from PySide6.QtCore import QObject, QEvent
@@ -8464,7 +8509,8 @@ class JanelaHashes(QWidget):
 
         layout.addLayout(layout_botoes)
 
-        dialog.exec()
+        # Exibe a janela de forma não-bloqueante
+        self.janela_gps.show()
 
     def abrir_menu_exportacao_kml(self):
         """Abre uma nova janela contendo as opções específicas de exportação KML."""
