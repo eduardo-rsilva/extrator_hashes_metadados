@@ -5349,6 +5349,13 @@ class JanelaHashes(QWidget):
 
             self.travar_interface()
 
+            if hasattr(self, 'container_progresso'):
+                self.container_progresso.show()
+
+            self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
+            self.texto_saida.append("Processando aquisição de imagem forense (.E01)...\n")
+            # -----------------------------------------------
+
             # --- ATIVA A ANIMAÇÃO DE "VAI E VEM" (MODO INDETERMINADO) ---
             self.barra_arquivo.setMinimum(0)
             self.barra_arquivo.setMaximum(0)
@@ -5581,6 +5588,13 @@ class JanelaHashes(QWidget):
         self._raw_caminho_imagem = caminho_imagem
 
         self.travar_interface()
+
+        if hasattr(self, 'container_progresso'):
+            self.container_progresso.show()
+
+        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
+        self.texto_saida.append("Processando aquisição de unidade RAW...\n")
+
         self.barra_total.setMaximum(100)
         self.barra_total.setValue(0)
         self.lbl_progresso_total.setText("Progresso RAW - Iniciando...")
