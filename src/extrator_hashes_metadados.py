@@ -2963,12 +2963,59 @@ class JanelaHashes(QWidget):
         # Salva uma referência deste layout para usarmos no teletransporte
         self.layout_classico = layout_principal
 
+    def aplicar_tema_botoes_gps(self):
+        """Atualiza dinamicamente as cores dos botões da janela GPS de acordo com o tema."""
+        if not hasattr(self, 'janela_gps') or self.janela_gps is None:
+            return
+
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
+        # 1. Cores do Botão Maps (Amarelo)
+        if hasattr(self.janela_gps, 'btn_maps'):
+            bg_maps = "#2b2000" if is_dark else "#fff2cc"
+            fg_maps = "#ffcc66" if is_dark else "#b27a00"
+            bd_maps = "#664d00" if is_dark else "#ffe599"
+            hv_maps = "#403000" if is_dark else "#ffe599"
+            pr_maps = "#1a1300" if is_dark else "#ffd966"
+            self.janela_gps.btn_maps.setStyleSheet(f"""
+                QPushButton {{ background-color: {bg_maps}; color: {fg_maps}; font-weight: bold; border: 1px solid {bd_maps}; border-radius: 4px; }}
+                QPushButton:hover {{ background-color: {hv_maps}; }}
+                QPushButton:pressed {{ background-color: {pr_maps}; }}
+            """)
+
+        # 2. Cores do Botão Copiar (Verde)
+        if hasattr(self.janela_gps, 'btn_copiar'):
+            bg_copy = "#0d2611" if is_dark else "#e8f5e9"
+            fg_copy = "#81c784" if is_dark else "#2e7d32"
+            bd_copy = "#1b5e20" if is_dark else "#c8e6c9"
+            hv_copy = "#143d1a" if is_dark else "#c8e6c9"
+            pr_copy = "#0a1a0c" if is_dark else "#a5d6a7"
+            self.janela_gps.btn_copiar.setStyleSheet(f"""
+                QPushButton {{ background-color: {bg_copy}; color: {fg_copy}; font-weight: bold; border: 1px solid {bd_copy}; border-radius: 4px; }}
+                QPushButton:hover {{ background-color: {hv_copy}; }}
+                QPushButton:pressed {{ background-color: {pr_copy}; }}
+            """)
+
+        # 3. Cores do Botão KML (Azul)
+        if hasattr(self.janela_gps, 'btn_kml'):
+            bg_kml = "#001a33" if is_dark else "#e6f2ff"
+            fg_kml = "#66b2ff" if is_dark else "#005a9e"
+            bd_kml = "#003366" if is_dark else "#b3d4ff"
+            hv_kml = "#002b5e" if is_dark else "#cce5ff"
+            pr_kml = "#001122" if is_dark else "#99ccff"
+            self.janela_gps.btn_kml.setStyleSheet(f"""
+                QPushButton {{ background-color: {bg_kml}; color: {fg_kml}; font-weight: bold; border: 1px solid {bd_kml}; border-radius: 4px; }}
+                QPushButton:hover {{ background-color: {hv_kml}; }}
+                QPushButton:pressed {{ background-color: {pr_kml}; }}
+            """)
+
     def reabrir_janela_gps(self):
         """Reabre a janela de GPS e oculta o botão."""
         if hasattr(self, 'janela_gps') and self.janela_gps is not None:
             # --- ATUALIZA O TEMA ---
             # Copia novamente o estilo da interface principal caso o usuário tenha mudado o tema
             self.janela_gps.setStyleSheet(self.styleSheet())
+            self.aplicar_tema_botoes_gps()
 
             self.janela_gps.show()
             self.janela_gps.raise_()
@@ -3641,6 +3688,10 @@ class JanelaHashes(QWidget):
             """
             self.setStyleSheet(estilo_global)
 
+            if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+                self.janela_gps.setStyleSheet(estilo_global)
+                self.aplicar_tema_botoes_gps()
+
             # Atualiza o estilo individual de cada QGroupBox para a cor cinza-clara do Modo Escuro
             estilo_caixas_escuro = """
                 QGroupBox { border: 1px solid #555555; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
@@ -3699,6 +3750,10 @@ class JanelaHashes(QWidget):
         else:
             # --- ESTILO MODO CLARO (Padrão) ---
             self.setStyleSheet("")
+
+            if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+                self.janela_gps.setStyleSheet("")
+                self.aplicar_tema_botoes_gps()
 
             # Restaura o estilo individual de cada QGroupBox para a cor preta do Modo Claro
             estilo_caixas_claro = """
@@ -8505,25 +8560,7 @@ class JanelaHashes(QWidget):
             # Criação do botão solicitado para abrir o mapa integrado
             btn_mostrar_10_pontos = QPushButton(texto_botao)
             btn_mostrar_10_pontos.setMinimumHeight(35)
-            # --- CORES DINÂMICAS: BOTÃO MAPS (AMARELO) ---
-            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
-            bg_maps = "#2b2000" if is_dark else "#fff2cc"
-            fg_maps = "#ffcc66" if is_dark else "#b27a00"
-            bd_maps = "#664d00" if is_dark else "#ffe599"
-            hv_maps = "#403000" if is_dark else "#ffe599"
-            pr_maps = "#1a1300" if is_dark else "#ffd966"
-
-            btn_mostrar_10_pontos.setStyleSheet(f"""
-                                                QPushButton {{
-                                                    background-color: {bg_maps}; 
-                                                    color: {fg_maps}; 
-                                                    font-weight: bold; 
-                                                    border: 1px solid {bd_maps}; 
-                                                    border-radius: 4px;
-                                                }}
-                                                QPushButton:hover {{ background-color: {hv_maps}; }}
-                                                QPushButton:pressed {{ background-color: {pr_maps}; }}
-                                            """)
+            self.janela_gps.btn_maps = btn_mostrar_10_pontos  # Vincula o botão
 
             # --- MELHORIA DA TOOLTIP (HTML + POSIÇÃO CENTRALIZADA) ---
             # Adicionado width (largura) e font-size (tamanho da fonte)
@@ -8556,25 +8593,7 @@ class JanelaHashes(QWidget):
 
         btn_copiar = QPushButton("Copiar Lista (Ctrl+C) de links Google Maps (todos os pontos encontrados)")
         btn_copiar.setMinimumHeight(35)
-        # --- CORES DINÂMICAS: BOTÃO COPIAR (VERDE) ---
-        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
-        bg_copy = "#0d2611" if is_dark else "#e8f5e9"
-        fg_copy = "#81c784" if is_dark else "#2e7d32"
-        bd_copy = "#1b5e20" if is_dark else "#c8e6c9"
-        hv_copy = "#143d1a" if is_dark else "#c8e6c9"
-        pr_copy = "#0a1a0c" if is_dark else "#a5d6a7"
-
-        btn_copiar.setStyleSheet(f"""
-                            QPushButton {{
-                                background-color: {bg_copy}; 
-                                color: {fg_copy}; 
-                                font-weight: bold; 
-                                border: 1px solid {bd_copy}; 
-                                border-radius: 4px;
-                            }}
-                            QPushButton:hover {{ background-color: {hv_copy}; }}
-                            QPushButton:pressed {{ background-color: {pr_copy}; }}
-                        """)
+        self.janela_gps.btn_copiar = btn_copiar  # Vincula o botão
 
         # Função interna para formatar a lista simplificada e mandar para a área de transferência
         def copiar_links():
@@ -8608,26 +8627,9 @@ class JanelaHashes(QWidget):
         # Reutiliza o filtro criado acima para garantir que a tooltip apareça centralizada abaixo do botão
         btn_exportar_kml_todos._filtro_centro = FiltroTooltipCentro(btn_exportar_kml_todos)
         btn_exportar_kml_todos.installEventFilter(btn_exportar_kml_todos._filtro_centro)
-        # ----------------------------------------
 
-        # --- CORES DINÂMICAS: BOTÃO KML (AZUL) ---
-        bg_kml = "#001a33" if is_dark else "#e6f2ff"
-        fg_kml = "#66b2ff" if is_dark else "#005a9e"
-        bd_kml = "#003366" if is_dark else "#b3d4ff"
-        hv_kml = "#002b5e" if is_dark else "#cce5ff"
-        pr_kml = "#001122" if is_dark else "#99ccff"
+        self.janela_gps.btn_kml = btn_exportar_kml_todos  # Vincula o botão
 
-        btn_exportar_kml_todos.setStyleSheet(f"""
-                            QPushButton {{
-                                background-color: {bg_kml}; 
-                                color: {fg_kml}; 
-                                font-weight: bold; 
-                                border: 1px solid {bd_kml}; 
-                                border-radius: 4px;
-                            }}
-                            QPushButton:hover {{ background-color: {hv_kml}; }}
-                            QPushButton:pressed {{ background-color: {pr_kml}; }}
-                        """)
         btn_exportar_kml_todos.clicked.connect(self.abrir_menu_exportacao_kml)
 
         # Montagem do layout
@@ -8635,6 +8637,9 @@ class JanelaHashes(QWidget):
         layout_botoes.addWidget(btn_exportar_kml_todos)
 
         layout.addLayout(layout_botoes)
+
+        # Aplica as cores aos 3 botões simultaneamente
+        self.aplicar_tema_botoes_gps()
 
         # Exibe a janela de forma não-bloqueante
         self.janela_gps.show()
