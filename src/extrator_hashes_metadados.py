@@ -2334,17 +2334,20 @@ class JanelaHashes(QWidget):
         # Layout raiz da janela inteira
         layout_raiz = QVBoxLayout(self)
         layout_raiz.setContentsMargins(0, 0, 0, 0)  # Remove margens globais para maximizar espaço
+        layout_raiz.setSpacing(0)  # Remove o espaço vertical separando o botão do resto do programa
 
-        # Opcional: Um botão de teste fixo no topo para você alternar os visuais durante o desenvolvimento
-        self.btn_alternar_visual = QPushButton("Alternar para Visual Moderno")
+        # Cria o botão de alternar visual
+        self.btn_alternar_visual = QPushButton("🎨 Alternar para Visual Moderno")
         self.btn_alternar_visual.setStyleSheet(
-            "background-color: #0078D7; color: white; font-weight: bold; padding: 5px;")
+            "background-color: #0078D7; color: white; font-weight: bold; padding: 5px; border: none;")
         self.btn_alternar_visual.clicked.connect(self.alternar_visual)
-        layout_raiz.addWidget(self.btn_alternar_visual)
 
-        # Cria o "Baralho" de telas
+        # Cria o "Baralho" de telas e adiciona-o PRIMEIRO (Ficará em cima)
         self.stacked_widget = QStackedWidget()
         layout_raiz.addWidget(self.stacked_widget)
+
+        # Adiciona o botão POR ÚLTIMO (Ficará colado na base ocupando toda a linha)
+        layout_raiz.addWidget(self.btn_alternar_visual)
 
         # ---------------------------------------------------------
         # TELA 0: VISUAL CLÁSSICO
