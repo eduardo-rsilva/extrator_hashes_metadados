@@ -4537,9 +4537,12 @@ class JanelaHashes(QWidget):
         if len(self._relatorio_memoria) > 1:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Resultados Anteriores Encontrados")
+
+            # Padronização de Fonte tamanho 11
             fonte = msg_box.font()
             fonte.setPointSize(11)
             msg_box.setFont(fonte)
+
             msg_box.setText("Já existem resultados de extrações anteriores na tela.")
             msg_box.setInformativeText(
                 "Deseja adicionar os resultados da unidade RAW à lista atual ou limpar a tela antes de começar?")
@@ -7611,6 +7614,12 @@ class JanelaHashes(QWidget):
                                 # Pausa a interface para dar o alerta forense
                                 msg_box = QMessageBox(self)
                                 msg_box.setWindowTitle("Aviso Forense - Atributos de Nuvem")
+
+                                # Padronização de Fonte tamanho 11
+                                fonte = msg_box.font()
+                                fonte.setPointSize(11)
+                                msg_box.setFont(fonte)
+
                                 msg_box.setText(
                                     "<b>Foi detectado um arquivo com atributos de 'Nuvem / Apenas Online'.</b>")
                                 msg_box.setInformativeText(
@@ -7660,6 +7669,12 @@ class JanelaHashes(QWidget):
                                     # Pausa a interface para dar o alerta forense ao perito
                                     msg_box = QMessageBox(self)
                                     msg_box.setWindowTitle("Risco Forense - Google Drive Detectado")
+
+                                    # Padronização de Fonte tamanho 11
+                                    fonte = msg_box.font()
+                                    fonte.setPointSize(11)
+                                    msg_box.setFont(fonte)
+
                                     msg_box.setText("<b>Foi detectada uma origem de disco virtual do Google Drive.</b>")
                                     msg_box.setInformativeText(
                                         "O driver de disco virtual do Google Drive oculta o status real do arquivo. Se a evidência "
@@ -7928,6 +7943,12 @@ class JanelaHashes(QWidget):
 
                     msg_box = QMessageBox(self)
                     msg_box.setWindowTitle("Análise de Unidade Inteira (RAW)")
+
+                    # Padronização de Fonte tamanho 11
+                    fonte = msg_box.font()
+                    fonte.setPointSize(11)
+                    msg_box.setFont(fonte)
+
                     msg_box.setText(f"Você arrastou a unidade raiz: <b>{caminho_raiz}</b>")
                     msg_box.setInformativeText("Como deseja processar esta evidência?")
                     msg_box.setIcon(QMessageBox.Icon.Question)
