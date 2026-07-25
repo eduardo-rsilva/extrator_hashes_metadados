@@ -8068,13 +8068,13 @@ class JanelaHashes(QWidget):
             self.coletar_e_processar(caminhos)
 
     def selecionar_diretorio(self):
-        if self.processando: return
+        if self.processando:
+            return
 
         # Adicionado o DontUseNativeDialog para consistência visual com a seleção de arquivos
         # e para evitar que a navegação do Explorer tente gerar thumbnails de evidências em nuvem.
         # noinspection PyTypeChecker
         opcoes = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks | QFileDialog.Option.DontUseNativeDialog
-
         diretorio = QFileDialog.getExistingDirectory(
             self,
             "Seleção Segura (Interface isolada anti-download) - Escolha o diretório",
@@ -8083,7 +8083,13 @@ class JanelaHashes(QWidget):
         )
 
         if diretorio:
-            self.coletar_e_processar([diretorio])
+            incluir_sub = self.perguntar_incluir_subdiretorios()
+
+            # Se o usuário clicar em "Cancelar Extração" ou fechar a janela no X
+            if incluir_sub is None:
+                return
+
+            self.coletar_e_processar([diretorio], override_subdirs=incluir_sub)
 
     def coletar_e_processar(self, caminhos_iniciais, override_subdirs=None):
         import stat  # Importado aqui para garantir o uso seguro dos atributos
