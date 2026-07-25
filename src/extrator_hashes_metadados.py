@@ -3160,6 +3160,9 @@ class JanelaHashes(QWidget):
         self.layout_moderno = layout_moderno
 
     def alternar_visual(self):
+        # Verifica se o modo escuro está ativo no momento da troca
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+
         if self.stacked_widget.currentIndex() == 0:
             # ==============================================================
             # INDO PARA O MODO MODERNO
@@ -3172,13 +3175,17 @@ class JanelaHashes(QWidget):
 
             # --- Transforma a Custódia em Sanfona ---
             self.grupo_validacao.setTitle("")
-            self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)
+            if is_dark:
+                self.grupo_validacao.setStyleSheet(
+                    "QGroupBox { border: 1px solid #555555; border-top: none; margin-top: 0px; padding-top: 5px; background-color: #2b2b2b; }")
+            else:
+                self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)
+
             self.btn_toggle_custodia.show()
             self.grupo_validacao.hide()
             self.btn_toggle_custodia.setText("▶ Validar Cadeia de Custódia (Opcional - Clique para expandir)")
 
             # --- Controle Dinâmico das Barras de Progresso ---
-            # Esconde o progresso se a tela estiver limpa / no estado inicial de boas-vindas
             if not self._chars_na_tela or self._chars_na_tela <= len(MENSAGEM_VISUAL):
                 self.container_progresso.hide()
 
@@ -3194,7 +3201,12 @@ class JanelaHashes(QWidget):
 
             # --- Restaura a Custódia Clássica ---
             self.grupo_validacao.setTitle("Validar Cadeia de Custódia (Opcional)")
-            self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)
+            if is_dark:
+                self.grupo_validacao.setStyleSheet(
+                    "QGroupBox { border: 1px solid #555555; margin-top: 10px; border-radius: 3px; padding-top: 5px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #f0f0f0; }")
+            else:
+                self.grupo_validacao.setStyleSheet(self.estilo_custodia_classico)
+
             self.btn_toggle_custodia.hide()
             self.grupo_validacao.show()
 
@@ -3644,7 +3656,12 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'atualizar_ui_write_blocker'):
                 self.atualizar_ui_write_blocker()
             if hasattr(self, 'grupo_validacao'):
-                self.grupo_validacao.setStyleSheet(estilo_caixas_escuro)
+                # Aplica o escuro respeitando se a sanfona moderna está ativa
+                if hasattr(self, 'stacked_widget') and self.stacked_widget.currentIndex() == 1:
+                    self.grupo_validacao.setStyleSheet(
+                        "QGroupBox { border: 1px solid #555555; border-top: none; margin-top: 0px; padding-top: 5px; background-color: #2b2b2b; }")
+                else:
+                    self.grupo_validacao.setStyleSheet(estilo_caixas_escuro)
 
             if hasattr(self, 'grupo_saida'):
                 self.grupo_saida.setStyleSheet(estilo_caixas_escuro)
@@ -3696,7 +3713,11 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'atualizar_ui_write_blocker'):
                 self.atualizar_ui_write_blocker()
             if hasattr(self, 'grupo_validacao'):
-                self.grupo_validacao.setStyleSheet(estilo_caixas_claro)
+                # Aplica o claro respeitando se a sanfona moderna está ativa
+                if hasattr(self, 'stacked_widget') and self.stacked_widget.currentIndex() == 1:
+                    self.grupo_validacao.setStyleSheet(self.estilo_custodia_moderno)
+                else:
+                    self.grupo_validacao.setStyleSheet(estilo_caixas_claro)
 
             if hasattr(self, 'grupo_saida'):
                 self.grupo_saida.setStyleSheet(estilo_caixas_claro)
