@@ -8939,6 +8939,12 @@ class JanelaHashes(QWidget):
     def responder_pergunta_nuvem(self, payload):
         """Abre a caixa de diálogo na Main Thread travando a extração com segurança."""
         msg_box = QMessageBox(self)
+
+        # Padronização de Fonte tamanho 11
+        fonte = msg_box.font()
+        fonte.setPointSize(11)
+        msg_box.setFont(fonte)
+
         msg_box.setWindowTitle(payload["titulo"])
         msg_box.setText(payload["texto"])
         msg_box.setInformativeText(payload["info"])
