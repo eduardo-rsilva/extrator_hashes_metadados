@@ -4620,6 +4620,9 @@ class JanelaHashes(QWidget):
             self.texto_saida.clear()
         # --------------------------------------------------
 
+        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
+        self.texto_saida.append("Processando aquisição de unidade RAW...\n")
+
         self.texto_saida.append("=== UNIDADE SELECIONADA (RAW) ===")
 
         if nivel == "LOGICO":
