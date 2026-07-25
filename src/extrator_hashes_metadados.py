@@ -7876,6 +7876,12 @@ class JanelaHashes(QWidget):
         """Exibe uma caixa de diálogo perguntando se o usuário deseja varrer subdiretórios."""
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Escopo da Extração")
+
+        # Aplica o mesmo tamanho de fonte (11) utilizado nas demais janelas de aviso do sistema
+        fonte = msg_box.font()
+        fonte.setPointSize(11)
+        msg_box.setFont(fonte)
+
         msg_box.setText("Você adicionou um diretório ou unidade na área de extração.")
         msg_box.setInformativeText(
             "Deseja varrer recursivamente todas as pastas internas (subdiretórios) em busca de arquivos?")
