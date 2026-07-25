@@ -2375,6 +2375,28 @@ class JanelaHashes(QWidget):
             self.alternar_visual()
             self.salvar_estado_atual()
 
+        # =========================================================
+        # SINCRONIZAÇÃO REVERSA (CLÁSSICO -> MODERNO)
+        # Garante que a interface moderna se atualize se o backend mudar
+        # =========================================================
+
+        # 1. Sincroniza os Metadados
+        self.chk_metadados.toggled.connect(
+            lambda checked: self.chk_meta_basico_moderno.setChecked(checked) if hasattr(self,
+                                                                                        'chk_meta_basico_moderno') else None
+        )
+        self.chk_metadados_raw.toggled.connect(
+            lambda checked: self.chk_meta_raw_moderno.setChecked(checked) if hasattr(self,
+                                                                                     'chk_meta_raw_moderno') else None
+        )
+
+        # 2. Sincroniza os Hashes
+        for algo, chk_classico in self.chk_hashes.items():
+            chk_classico.toggled.connect(
+                lambda checked, a=algo: self.acoes_hashes_moderno[a].setChecked(checked) if hasattr(self,
+                                                                                                    'acoes_hashes_moderno') else None
+            )
+
     def setup_ui_classico(self, parent_widget):
         # A única alteração na sua lógica original é passar o parent_widget aqui:
         layout_principal = QVBoxLayout(parent_widget)
