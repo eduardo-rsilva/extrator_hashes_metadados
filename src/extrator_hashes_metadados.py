@@ -8385,6 +8385,7 @@ class JanelaHashes(QWidget):
         self.tempo_inicio_total = time.time()
 
         palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
+        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
         self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
 
         # Verifica se Custódia veio de PDF
