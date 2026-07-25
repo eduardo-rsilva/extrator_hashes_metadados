@@ -2337,7 +2337,7 @@ class JanelaHashes(QWidget):
         layout_raiz.setSpacing(0)  # Remove o espaço vertical separando o botão do resto do programa
 
         # Cria o botão de alternar visual
-        self.btn_alternar_visual = QPushButton("🎨 Alternar para Visual Moderno")
+        self.btn_alternar_visual = QPushButton("Alternar para Visual Moderno")
         self.btn_alternar_visual.setStyleSheet(
             "background-color: #0078D7; color: white; font-weight: bold; padding: 5px; border: none;")
         self.btn_alternar_visual.clicked.connect(self.alternar_visual)
