@@ -3044,11 +3044,11 @@ class JanelaHashes(QWidget):
         self.btn_menu_protecao.setCursor(Qt.CursorShape.PointingHandCursor)
 
         menu_drop_protecao = QMenu(self)
-        self.action_bloquear_usb = QAction("🔒 Bloquear Escrita em USB", self)
+        self.action_bloquear_usb = QAction("⛔ Bloquear Escrita em USB (Somente Leitura)", self)
         self.action_bloquear_usb.triggered.connect(self.alternar_write_blocker)
         menu_drop_protecao.addAction(self.action_bloquear_usb)
 
-        self.action_desbloquear_usb = QAction("🔓 Desbloquear Escrita em USB", self)
+        self.action_desbloquear_usb = QAction("✅ Desbloquear Escrita em USB (Leitura/Escrita)", self)
         self.action_desbloquear_usb.triggered.connect(self.alternar_write_blocker)
         menu_drop_protecao.addAction(self.action_desbloquear_usb)
 
