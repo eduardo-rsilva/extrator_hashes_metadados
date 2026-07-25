@@ -5904,6 +5904,15 @@ class JanelaHashes(QWidget):
         if hasattr(self, 'limpar_arquivos_temporarios'):
             self.limpar_arquivos_temporarios()
 
+        # ==============================================================
+        # ENCERRAMENTO DE JANELAS SECUNDÁRIAS (GPS)
+        # ==============================================================
+        if hasattr(self, 'janela_gps') and self.janela_gps is not None:
+            # Força o fechamento da janela de GPS se ela estiver instanciada
+            self.janela_gps.close()
+            # Libera a referência de memória para evitar processo zumbi
+            self.janela_gps = None
+
         event.accept()
 
     def _desbloquear_ao_fechar(self):
