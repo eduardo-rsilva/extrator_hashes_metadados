@@ -8421,6 +8421,27 @@ class JanelaHashes(QWidget):
 
         self.travar_interface()
 
+        self.cancelar_operacao = False
+        self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
+        self.btn_cancelar.setEnabled(True)
+        self.barra_total.setMaximum(total_arquivos)
+        self.barra_total.setValue(0)
+
+        # Atualiza pré-cálculo para o ETA (mantém a checagem segura anti-nuvem via os.lstat)
+        self.total_bytes_processar = 0
+        for arq in lista_arquivos:
+            try:
+                self.total_bytes_processar += os.lstat(arq).st_size
+            except OSError:
+                pass
+
+        self.bytes_processados_total = 0
+        self.tempo_inicio_total = time.time()
+
+        palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
+        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
+        self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
+
         # Verifica as seleções para exibir os avisos adequados
         tem_metadados = extrair_meta or extrair_raw
 
@@ -8473,27 +8494,6 @@ class JanelaHashes(QWidget):
                 for aviso in dependencias_ausentes:
                     self.texto_saida.append(f"  -> {aviso}\n")
                 self.texto_saida.append("\n")
-
-        self.cancelar_operacao = False
-        self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
-        self.btn_cancelar.setEnabled(True)
-        self.barra_total.setMaximum(total_arquivos)
-        self.barra_total.setValue(0)
-
-        # Atualiza pré-cálculo para o ETA (mantém a checagem segura anti-nuvem via os.lstat)
-        self.total_bytes_processar = 0
-        for arq in lista_arquivos:
-            try:
-                self.total_bytes_processar += os.lstat(arq).st_size
-            except OSError:
-                pass
-
-        self.bytes_processados_total = 0
-        self.tempo_inicio_total = time.time()
-
-        palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
-        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
-        self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
 
         # Verifica se Custódia veio de PDF
         veio_de_pdf = False
