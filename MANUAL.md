@@ -31,7 +31,19 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > > Ao clicar em **"✨ CLIQUE AQUI PARA ATUALIZAR AUTOMATICAMENTE"** (versão 5.2.0 ou superior), o extrator baixará e preparará a nova versão em uma pasta ao lado da pasta da versão atual.
 > 
 > > Você também pode passar o mouse sobre o alerta para ler um resumo das novidades da versão ou clicar no link secundário para ler as notas completas no GitHub.
+
+### Selecione o Layout
+Na borda inferior do programa, há um botão que permite alternar entre o **Visual Clássico** e o **Visual Moderno**.
+    <figure>
+      <img src="imgs/botao_layouts.PNG" alt="Botão para alternar entre os layouts Clássico e Moderno." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Botão para alternar entre os layouts Clássico e Moderno.</i></figcaption>
+    </figure>
+
+> **IMPORTANTE:** O manual a seguir tem imagens referentes ao **Visual Clássico**. As funções abaixo explicadas podem ter seus análogos no menu do **Visual Moderno** facilmente encontrados pelo usuário.
+
 ---
+
+
 
 ## 1. Proteção Forense (v.6.0.0 em diante): Bloqueador de Escrita USB (Software Write-Blocker)
 Antes de processar qualquer evidência via USB, é altamente recomendável ativar o bloqueio de escrita para evitar alterações acidentais pelo sistema operacional.
