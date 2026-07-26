@@ -2836,14 +2836,19 @@ class JanelaHashes(QWidget):
                 """
 
         # --- BOTÃO DE REABERTURA GPS (Inicia Oculto) ---
-        self.btn_reabrir_gps = QPushButton("📍 Ver Coordenadas GPS Encontradas (na última extração)")
+        self.btn_reabrir_gps = QPushButton('📍 Reabrir a janela "Coordenadas GPS Encontradas!" (na última extração)')
         self.btn_reabrir_gps.setStyleSheet("""
-                            QPushButton {
-                                background-color: #fffae6; color: #b27a00; font-weight: bold;
-                                border: 1px solid #ffe599; border-radius: 4px; padding: 6px;
-                            }
-                            QPushButton:hover { background-color: #fff2cc; }
-                        """)
+                                    QPushButton {
+                                        background-color: #ffb300; 
+                                        color: #4d3300; 
+                                        font-weight: bold;
+                                        border: 1px solid #cc8f00; 
+                                        border-radius: 4px; 
+                                        padding: 6px;
+                                    }
+                                    QPushButton:hover { background-color: #ffcc33; }
+                                    QPushButton:pressed { background-color: #e6a100; }
+                                """)
         self.btn_reabrir_gps.setVisible(False)
         self.btn_reabrir_gps.clicked.connect(self.reabrir_janela_gps)
         layout_progresso.addWidget(self.btn_reabrir_gps)
@@ -3796,6 +3801,20 @@ class JanelaHashes(QWidget):
             """)
             self.texto_referencia.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555;")
 
+            if hasattr(self, 'btn_reabrir_gps'):
+                self.btn_reabrir_gps.setStyleSheet("""
+                                QPushButton { 
+                                    background-color: #4d3300; 
+                                    color: #ffcc33; 
+                                    font-weight: bold; 
+                                    border: 1px solid #ffb300;
+                                    border-radius: 4px;
+                                    padding: 6px;
+                                }
+                                QPushButton:hover { background-color: #664400; }
+                                QPushButton:pressed { background-color: #332200; }
+                            """)
+
         else:
             # --- ESTILO MODO CLARO (Padrão) ---
             self.setStyleSheet("")
@@ -3848,6 +3867,20 @@ class JanelaHashes(QWidget):
                 QPushButton:disabled { color: #999999; background-color: #f0f0f0; border: 1px solid #cccccc; }
             """)
             self.texto_referencia.setStyleSheet("")
+
+            if hasattr(self, 'btn_reabrir_gps'):
+                self.btn_reabrir_gps.setStyleSheet("""
+                                QPushButton {
+                                    background-color: #ffb300; 
+                                    color: #4d3300; 
+                                    font-weight: bold;
+                                    border: 1px solid #cc8f00; 
+                                    border-radius: 4px; 
+                                    padding: 6px;
+                                }
+                                QPushButton:hover { background-color: #ffcc33; }
+                                QPushButton:pressed { background-color: #e6a100; }
+                            """)
 
         # --- Atualiza dinamicamente o aviso em vermelho da Tooltip do CRC32 ---
         if hasattr(self, "chk_hashes") and "CRC32" in self.chk_hashes:
