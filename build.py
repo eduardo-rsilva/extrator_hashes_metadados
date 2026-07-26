@@ -55,6 +55,7 @@ nuitka_command = [
     "--include-package=yaml",
     "--include-package=pefile",
     "--include-package=extract_msg",
+    "--include-package=bs4",
     "--include-package=tinytag",
     "--include-package=cryptography",
     "src/extrator_hashes_metadados.py"
