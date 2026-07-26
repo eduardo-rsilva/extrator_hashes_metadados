@@ -3592,66 +3592,105 @@ class JanelaHashes(QWidget):
         # =========================================================================
         if algos_detectados:
             marcados_atualmente = [algo for algo, chk in self.chk_hashes.items() if chk.isChecked() and algo != "CRC32"]
-            faltando = set(algos_detectados) - set(marcados_atualmente)
+            # Converte para list ordenado para respeitar a ordem original do padroes (MD5 -> SHA512)
+            faltando = [algo for algo in algos_detectados if algo not in marcados_atualmente]
 
             if faltando:
-                algos_str = ", ".join(algos_detectados)
-                msg_box = QMessageBox(self)
-                msg_box.setWindowTitle("Inteligência Forense - Ajuste Necessário")
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Inteligência Forense - Ajuste Necessário")
+                dialog.setMinimumWidth(720)
 
-                fonte = msg_box.font()
-                fonte.setPointSize(11)
-                msg_box.setFont(fonte)
+                layout = QVBoxLayout(dialog)
 
-                msg_box.setText(
-                    f"O texto de validação da custódia contém os seguintes hashes:<br><br><b>{algos_str}</b>")
-                msg_box.setInformativeText(
-                    "No momento, as caixas de seleção não estão configuradas para todos eles.\n"
-                    "Esse ajuste é IMPRESCINDÍVEL para evitar inconsistências na validação.\n"
-                    "Deseja ajustar automaticamente antes de iniciar a extração?"
+                lbl_aviso = QLabel(
+                    f"<span style='font-size: 11pt;'>"
+                    f"Foram detectados automaticamente os seguintes hashes no texto de <b>Validação da Cadeia de Custódia</b>:<br><br>"
+                    f"<b>{', '.join(algos_detectados)}</b><br><br>"
+                    f"No entanto, as caixas de seleção da interface não estão marcadas para todos eles.<br>"
+                    f"Como podem ocorrer <b>falsos positivos na detecção automática do validador</b> "
+                    f"(ex: um nome de arquivo ser confundido com um hash), "
+                    f"selecione abaixo quais destes algoritmos sugeridos você deseja de fato adicionar à extração:</span>"
                 )
-                msg_box.setIcon(QMessageBox.Icon.Warning)
+                lbl_aviso.setWordWrap(True)
+                layout.addWidget(lbl_aviso)
 
-                btn_auto = msg_box.addButton("Ajustar automaticamente", QMessageBox.ButtonRole.AcceptRole)
-                btn_cancelar = msg_box.addButton("Cancelar extração", QMessageBox.ButtonRole.RejectRole)
+                layout.addSpacing(10)
 
+                # Checkboxes dinâmicas para os hashes detectados que não estavam marcados
+                checkboxes = {}
+                for algo in faltando:
+                    chk = QCheckBox(f"Adicionar validação de {algo}")
+                    chk.setChecked(True)  # Sugere incluir, mas deixa o usuário desmarcar
+                    chk.setStyleSheet("font-size: 11pt; font-weight: bold; margin-left: 10px;")
+                    checkboxes[algo] = chk
+                    layout.addWidget(chk)
+
+                layout.addSpacing(15)
+
+                botoes = QHBoxLayout()
+                btn_aplicar = QPushButton("Aplicar Selecionados")
+                btn_ignorar = QPushButton("Ignorar Aviso (Manter seleção atual de hashes)")
+                btn_cancelar = QPushButton("Cancelar Extração")
+
+                # Resgatando o tema para manter a consistência visual
                 is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
                 if is_dark:
-                    btn_auto.setStyleSheet("""
-                        QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; }
-                        QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
-                        QPushButton:pressed { background-color: #2b2d2e; border: 1px solid #999999; }
-                    """)
-                    btn_cancelar.setStyleSheet("""
-                        QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; }
-                        QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }
-                        QPushButton:pressed { background-color: #1a1a1a; border: 1px solid #888888; }
-                    """)
+                    estilo_btn_principal = "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #505355; border: 1px solid #777777; }"
+                    estilo_btn_secundario = "QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }"
                 else:
-                    btn_auto.setStyleSheet("""
-                        QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
-                        QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }
-                        QPushButton:pressed { background-color: #c0c0c0; border: 1px solid #888888; }
-                    """)
-                    btn_cancelar.setStyleSheet("""
-                        QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; }
-                        QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }
-                        QPushButton:pressed { background-color: #dddddd; border: 1px solid #999999; }
-                    """)
+                    estilo_btn_principal = "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }"
+                    estilo_btn_secundario = "QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }"
 
-                msg_box.exec()
+                btn_aplicar.setStyleSheet(estilo_btn_principal)
+                btn_ignorar.setStyleSheet(estilo_btn_secundario)
+                btn_cancelar.setStyleSheet(estilo_btn_secundario)
 
-                if msg_box.clickedButton() == btn_auto:
-                    # 🔹 SALVA AS ESCOLHAS ORIGINAIS DO USUÁRIO ANTES DE ALTERAR
-                    self._hashes_anteriores = {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()}
+                # Lógica de resposta do Dialog customizado
+                escolha = {"acao": None}
 
-                    for algo, chk in self.chk_hashes.items():
-                        if algo == "CRC32":
-                            chk.setChecked(False)
-                        else:
-                            chk.setChecked(algo in algos_detectados)
-                    self.salvar_estado_atual()
-                    return texto_custodia
+                def on_aplicar():
+                    escolha["acao"] = "aplicar"
+                    dialog.accept()
+
+                def on_ignorar():
+                    escolha["acao"] = "ignorar"
+                    dialog.accept()
+
+                def on_cancelar():
+                    escolha["acao"] = "cancelar"
+                    dialog.reject()
+
+                btn_aplicar.clicked.connect(on_aplicar)
+                btn_ignorar.clicked.connect(on_ignorar)
+                btn_cancelar.clicked.connect(on_cancelar)
+
+                botoes.addStretch()
+                botoes.addWidget(btn_aplicar)
+                botoes.addWidget(btn_ignorar)
+                botoes.addWidget(btn_cancelar)
+
+                layout.addLayout(botoes)
+
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    if escolha["acao"] == "aplicar":
+                        # Salva as escolhas originais para eventual restauração (recurso do Cancelar pós-erro)
+                        self._hashes_anteriores = {algo: chk.isChecked() for algo, chk in
+                                                   self.chk_hashes.items()}
+
+                        # Ativa SOMENTE os hashes que o usuário deixou marcados na nova janela
+                        for algo, chk in checkboxes.items():
+                            if chk.isChecked() and algo in self.chk_hashes:
+                                self.chk_hashes[algo].setChecked(True)
+
+                        # Remove o CRC32 do escopo para evitar falso positivo na custódia
+                        if "CRC32" in self.chk_hashes:
+                            self.chk_hashes["CRC32"].setChecked(False)
+
+                        self.salvar_estado_atual()
+                        return texto_custodia
+
+                    elif escolha["acao"] == "ignorar":
+                        return texto_custodia
                 else:
                     return None
 
