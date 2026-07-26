@@ -8417,11 +8417,58 @@ class JanelaHashes(QWidget):
 
         self.travar_interface()
 
-        if not algos_selecionados:
-            self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
+        # Verifica as seleções para exibir os avisos adequados
+        tem_metadados = extrair_meta or extrair_raw
 
-        if extrair_meta and not HAS_PIL and not HAS_CV2 and not HAS_PYPDF:
-            self.texto_saida.append("[AVISO] Nenhuma biblioteca extra detectada. Metadados avançados ignorados.\n")
+        if not algos_selecionados and not tem_metadados:
+            self.texto_saida.append(
+                "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas informações básicas do arquivo serão extraídas.\n")
+        elif not algos_selecionados and tem_metadados:
+            self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
+        elif algos_selecionados and not tem_metadados:
+            self.texto_saida.append(
+                "[AVISO] Nenhuma opção de metadados selecionada. Apenas os hashes e informações básicas serão extraídos.\n")
+
+        if extrair_meta:
+            dependencias_ausentes = []
+
+            if not HAS_PIL:
+                dependencias_ausentes.append(
+                    "Imagens (Pillow ausente: metadados EXIF e coordenadas GPS serão ignorados)")
+            if not HAS_CV2:
+                dependencias_ausentes.append(
+                    "Vídeos Base (OpenCV ausente: contagem física de quadros e resolução secundária serão ignorados)")
+            if not HAS_PYPDF:
+                dependencias_ausentes.append(
+                    "Documentos PDF (pypdf ausente: autor, título interno e número de páginas serão ignorados)")
+            if not HAS_OLEFILE:
+                dependencias_ausentes.append(
+                    "Office Legado [.doc, .xls, .ppt] (olefile ausente: autoria e modificador originais serão ignorados)")
+            if not HAS_LNKPARSE:
+                dependencias_ausentes.append(
+                    "Atalhos Windows [.lnk] (LnkParse3 ausente: caminho alvo, argumentos e MAC Address do criador serão ignorados)")
+            if not HAS_PEFILE:
+                dependencias_ausentes.append(
+                    "Executáveis [.exe, .dll, .sys] (pefile ausente: assinatura Authenticode e data real de compilação serão ignorados)")
+            if not HAS_EXTRACT_MSG:
+                dependencias_ausentes.append(
+                    "E-mails Outlook [.msg] (extract_msg ausente: propriedades nativas de remetente, destinatário e assunto serão ignorados)")
+            if not HAS_TINYTAG:
+                dependencias_ausentes.append(
+                    "Áudios (tinytag ausente: duração exata, bitrate e artista originais serão ignorados)")
+            if not HAS_PYMEDIAINFO:
+                dependencias_ausentes.append(
+                    "Mídia Avançada (pymediainfo ausente: taxa de quadros (FPS) variável, anamorfismo e telemetria profunda serão ignorados)")
+            if obter_caminho_exiftool() is None:
+                dependencias_ausentes.append(
+                    "ExifTool (Executável ausente/Pasta renomeada: metadados vitais de mídia e GPS serão ignorados)")
+
+            if dependencias_ausentes:
+                self.texto_saida.append(
+                    "[AVISO] Dependências ausentes detectadas. A extração de metadados avançados falhará para os seguintes formatos (apenas metadados básicos do SO serão coletados):\n")
+                for aviso in dependencias_ausentes:
+                    self.texto_saida.append(f"  -> {aviso}\n")
+                self.texto_saida.append("\n")
 
         self.cancelar_operacao = False
         self.btn_cancelar.setText("CANCELAR PROCESSAMENTO")
