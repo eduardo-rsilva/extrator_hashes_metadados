@@ -2753,6 +2753,10 @@ class JanelaHashes(QWidget):
             if not self._limite_tela_atingido:
                 # Protege os caracteres menores/maiores para não quebrarem o HTML do PySide6
                 texto_tela = texto.replace('<', '&lt;').replace('>', '&gt;')
+
+                # Converte as quebras de linha puras para tags HTML para não aglutinar o texto na tela
+                texto_tela = texto_tela.replace('\n', '<br>')
+
                 self.texto_saida._original_append(texto_tela)
                 self._chars_na_tela += len(texto)
 
