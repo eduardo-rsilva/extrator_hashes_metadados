@@ -47,17 +47,26 @@ nuitka_command = [
     "--include-data-files=src/extrator_hashes_metadados.py=extrator_hashes_metadados.py",
     # Inclui também o arquivo com o hash para auditoria
     "--include-data-files=src/hash_fonte.py=hash_fonte.py",
+
+    # Bibliotecas de extração primárias
     "--include-package=PIL",
     "--include-package=cv2",
     "--include-package=pypdf",
     "--include-package=olefile",
     "--include-package=LnkParse3",
-    "--include-package=yaml",
     "--include-package=pefile",
+    "--include-package=tinytag",
+    "--include-package=pymediainfo",
+
+    # Bibliotecas de e-mail e as suas subdependências frágeis ao Nuitka
     "--include-package=extract_msg",
     "--include-package=bs4",
-    "--include-package=tinytag",
+    "--include-package=tzdata",
+
+    # Utilitários
+    "--include-package=yaml",
     "--include-package=cryptography",
+
     "src/extrator_hashes_metadados.py"
 ]
 
