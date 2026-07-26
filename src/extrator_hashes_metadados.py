@@ -8429,7 +8429,7 @@ class JanelaHashes(QWidget):
             self.texto_saida.append(
                 "[AVISO] Nenhuma opção de metadados selecionada. Apenas os hashes e informações básicas serão extraídos.\n")
 
-        if extrair_meta:
+        if tem_metadados:
             dependencias_ausentes = []
 
             if not HAS_PIL:
