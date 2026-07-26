@@ -3736,9 +3736,11 @@ class JanelaHashes(QWidget):
                 QPushButton:pressed { background-color: #2b2b2b; }
                 QPushButton:disabled { background-color: #2b2b2b; color: #666666; border: 1px solid #444444; }
                 QCheckBox { color: #f0f0f0; }
+                QCheckBox:disabled { color: #666666; }
                 QComboBox { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; }
                 QTextBrowser { background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #555555; }
                 QMenu::item:disabled { color: #666666; background-color: transparent; }
+                QMenuBar::item:disabled { color: #666666; }
             """
             self.setStyleSheet(estilo_global)
 
