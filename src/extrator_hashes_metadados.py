@@ -3070,6 +3070,7 @@ class JanelaHashes(QWidget):
 
         # --- MENU 2: SELEÇÃO MANUAL ---
         menu_selecao = barra_menus.addMenu("📂 Seleção Manual")
+        menu_selecao.setToolTipsVisible(True)  # <-- Habilita os balões de dica neste menu
 
         action_arquivo = QAction("Selecionar Arquivo(s)", self)
         action_arquivo.triggered.connect(self.selecionar_arquivo)
@@ -3080,6 +3081,8 @@ class JanelaHashes(QWidget):
         menu_selecao.addAction(action_diretorio)
 
         action_raw = QAction("Selecionar Unidade (RAW)", self)
+        action_raw.setToolTip(
+            self.btn_unidade_raw.toolTip())  # <-- Clona a tooltip do Visual Clássico
         action_raw.triggered.connect(self.selecionar_unidade_raw)
         menu_selecao.addAction(action_raw)
 
