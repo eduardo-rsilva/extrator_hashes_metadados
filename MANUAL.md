@@ -33,7 +33,13 @@ O **Extrator de Hashes e Metadados (ERS-IC/SP-NIC)** é uma ferramenta portátil
 > > Você também pode passar o mouse sobre o alerta para ler um resumo das novidades da versão ou clicar no link secundário para ler as notas completas no GitHub.
 
 ### Selecione o Layout
-Na borda inferior do programa, há um botão que permite alternar entre o **Visual Clássico** e o **Visual Moderno**.
+O programa tem dois layouts disponíveis: **Visual Moderno** e **Visual Clássico**:
+    <figure>
+      <img src="imgs/layouts.PNG" alt="Layouts do programa: Moderno e Clássico." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Layouts do programa: Moderno e Clássico.</i></figcaption>
+    </figure>
+
+Na borda inferior do programa, há um botão que permite alternar entre os layouts:
     <figure>
       <img src="imgs/botao_layouts.PNG" alt="Botão para alternar entre os layouts Clássico e Moderno." style="border: 1px solid black;" width="100%">
       <figcaption align="center"><i>Botão para alternar entre os layouts Clássico e Moderno.</i></figcaption>
@@ -63,6 +69,7 @@ A forma mais rápida de utilizar o programa é através da técnica de "arrastar
 
 * **Configuração:** Selecione os algoritmos de hash desejados no painel superior (SHA-256 e SHA-512 são recomendados e vêm marcados por padrão).
 * **Incluir Subdiretórios:** Selecione esse campo se quiser analisar todos os arquivos contidos em todos os subdiretórios contidos no diretório selecionado.
+> **Observação:** no **Visual Moderno**, uma caixa de mensagens surgirá para confirmar se o usuário quer incluir subdiretórios. 
 * **Seleção de Metadados:** Selecione **"Incluir Metadados Básicos"**, que é uma seleção dos metadados mais utilizados, ou **"Incluir TODOS os metadados (Raw Dump)"** para ver todos os itens disponíveis encontrados.
 
     <figure>
