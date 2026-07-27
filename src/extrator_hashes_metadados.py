@@ -3658,7 +3658,8 @@ class JanelaHashes(QWidget):
                 btn_cancelar.setStyleSheet(estilo_btn_secundario)
 
                 # Lógica de resposta do Dialog customizado
-                escolha = {"acao": None}
+                # Adicionada a tipagem (Type Hint) na declaração para evitar false warning do PyCharm
+                escolha: dict[str, str | None] = {"acao": None}
 
                 def on_aplicar():
                     escolha["acao"] = "aplicar"
@@ -5330,6 +5331,7 @@ class JanelaHashes(QWidget):
             msg_auto.exec()
 
             if msg_auto.clickedButton() == btn_sim:
+                # noinspection PyTypeChecker
                 opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
                 dir_escolhido = QFileDialog.getExistingDirectory(self, "Selecione a pasta para auto-salvar o relatório",
                                                                  options=opcoes_dir)
