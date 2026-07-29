@@ -6623,20 +6623,31 @@ class JanelaHashes(QWidget):
                 # Se o MIME detectado estiver no nosso dicionário e a extensão atual não bater com nenhuma das esperadas
                 if extensoes_esperadas and (extensao not in extensoes_esperadas):
 
-                    # 1. SUAVIZAÇÃO DE FALSOS POSITIVOS EM ARQUIVOS DE TEXTO/CÓDIGO
-                    whitelist_texto = ['txt', 'csv', 'json', 'py', 'js', 'html', 'log', 'pm', 'pl', 'xml', 'md', 'ini',
-                                       'cfg', 'bat', 'sh', 'ps1', 'css', 'sql', 'php', 'rb', 'java', 'c', 'cpp', 'cs',
-                                       'h']
+                    # 1. TRATAMENTO ESPECÍFICO PARA ARQUIVOS DE TEXTO (Suavização total)
+                    if mime_verdadeiro == 'text/plain':
+                        whitelist_texto = ['txt', 'csv', 'json', 'py', 'js', 'html', 'log', 'pm', 'pl', 'xml', 'md',
+                                           'ini', 'cfg', 'bat', 'sh', 'ps1', 'css', 'sql', 'php', 'rb', 'java', 'c',
+                                           'cpp', 'cs', 'h']
 
-                    if mime_verdadeiro == 'text/plain' and extensao in whitelist_texto:
-                        metadados_extras.append("")
-                        metadados_extras.append(
-                            f"ℹ️ INFORMAÇÃO: Extensão de texto/código (.{extensao}) confirmada estruturalmente como {mime_verdadeiro.upper()}.")
-                        metadados_extras.append("")
-                        # Não forçamos a troca da extensão para evitar quebrar o processamento padrão de arquivos de texto.
+                        if extensao in whitelist_texto:
+                            metadados_extras.append("")
+                            metadados_extras.append(
+                                f"ℹ️ INFORMAÇÃO: Extensão de texto/código (.{extensao}) confirmada estruturalmente como {mime_verdadeiro.upper()}.")
+                            metadados_extras.append("")
+                        else:
+                            # Aviso amarelo/moderado para textos com extensões exóticas (ex: .pc, .conf, .yaml)
+                            metadados_extras.append("")
+                            metadados_extras.append("⚠️ AVISO: EXTENSÃO INCOMUM PARA ARQUIVO DE TEXTO ⚠️")
+                            metadados_extras.append(f"   ↳ Extensão Atual: .{extensao}")
+                            metadados_extras.append(f"   ↳ Estrutura Real: {mime_verdadeiro.upper()}")
+                            metadados_extras.append(
+                                "   ↳ Nota: O arquivo possui estrutura de texto puro, mas usa uma extensão não mapeada nos padrões comuns.")
+                            metadados_extras.append("")
+
+                        # Não forçamos a troca da extensão para evitar quebrar parsers de texto
 
                     else:
-                        # 2. ALERTA FORENSE PARA ADULTERAÇÕES REAIS
+                        # 2. ALERTA FORENSE PARA ADULTERAÇÕES REAIS (Exe, PDF, Zip, Midias, etc.)
                         metadados_extras.append("")
                         metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
                         metadados_extras.append(f"   ↳ Extensão Falsa (Atual): .{extensao}")
@@ -6659,7 +6670,7 @@ class JanelaHashes(QWidget):
                                     elif 'AndroidManifest.xml' in arquivos_internos:
                                         formato_detectado = 'apk'
                             except Exception:
-                                pass  # Se falhar ao abrir, cai graciosamente de volta para 'zip' genérico
+                                pass
 
                             metadados_extras.append(
                                 f"   ↳ Diagnóstico Interno: O contêiner ZIP foi identificado compatível com o formato .{formato_detectado.upper()}.")
@@ -6689,7 +6700,6 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(
                                 f"   ↳ Informação: A extração de metadados abaixo refere-se à estrutura real do arquivo (formato {mime_verdadeiro.upper()}).")
                             metadados_extras.append("")
-                            # Redireciona o fluxo forçando o primeiro formato compatível válido do MIME
                             extensao = extensoes_esperadas[0]
 
         except ImportError as e:
