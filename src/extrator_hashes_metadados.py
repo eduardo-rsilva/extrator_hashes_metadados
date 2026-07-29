@@ -6609,7 +6609,12 @@ class JanelaHashes(QWidget):
                     'application/msword': ['doc', 'xls', 'ppt', 'msi'],
                     'application/vnd.ms-excel': ['xls'],
                     'application/vnd.ms-powerpoint': ['ppt'],
-                    'text/plain': ['txt', 'csv', 'json', 'py', 'js', 'html', 'log']
+                    'text/plain': ['txt', 'csv', 'json', 'py', 'js', 'html', 'log'],
+                    # Inclusão dos tipos MIME específicos de OpenXML (para versões mais recentes do libmagic)
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx'],
+                    'application/vnd.android.package-archive': ['apk']
                 }
 
                 # Procura as extensões válidas para o MIME detectado
@@ -6617,19 +6622,75 @@ class JanelaHashes(QWidget):
 
                 # Se o MIME detectado estiver no nosso dicionário e a extensão atual não bater com nenhuma das esperadas
                 if extensoes_esperadas and (extensao not in extensoes_esperadas):
-                    metadados_extras.append("")
-                    metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
-                    metadados_extras.append(f"   ↳ Extensão Falsa (Atual): .{extensao}")
-                    metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
-                    metadados_extras.append(
-                        f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
-                    metadados_extras.append(
-                        f"   ↳ Informação: A extração de metadados abaixo refere-se à estrutura real do arquivo (formato {mime_verdadeiro.upper()}).")
 
-                    metadados_extras.append("")
+                    # 1. SUAVIZAÇÃO DE FALSOS POSITIVOS EM ARQUIVOS DE TEXTO/CÓDIGO
+                    whitelist_texto = ['txt', 'csv', 'json', 'py', 'js', 'html', 'log', 'pm', 'pl', 'xml', 'md', 'ini',
+                                       'cfg', 'bat', 'sh', 'ps1', 'css', 'sql', 'php', 'rb', 'java', 'c', 'cpp', 'cs',
+                                       'h']
 
-                    # Redireciona o fluxo de análise forçando o sistema a processá-lo pelo formato original
-                    extensao = extensoes_esperadas[0]
+                    if mime_verdadeiro == 'text/plain' and extensao in whitelist_texto:
+                        metadados_extras.append("")
+                        metadados_extras.append(
+                            f"ℹ️ INFORMAÇÃO: Extensão de texto/código (.{extensao}) confirmada estruturalmente como {mime_verdadeiro.upper()}.")
+                        metadados_extras.append("")
+                        # Não forçamos a troca da extensão para evitar quebrar o processamento padrão de arquivos de texto.
+
+                    else:
+                        # 2. ALERTA FORENSE PARA ADULTERAÇÕES REAIS
+                        metadados_extras.append("")
+                        metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
+                        metadados_extras.append(f"   ↳ Extensão Falsa (Atual): .{extensao}")
+                        metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
+                        metadados_extras.append(
+                            f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
+
+                        # 3. TRATAMENTO INTELIGENTE DE FAMÍLIAS MULTI-EXTENSÃO
+                        if mime_verdadeiro == 'application/zip':
+                            formato_detectado = 'zip'
+                            try:
+                                with zipfile.ZipFile(caminho_arquivo, 'r') as z:
+                                    arquivos_internos = z.namelist()
+                                    if 'word/document.xml' in arquivos_internos:
+                                        formato_detectado = 'docx'
+                                    elif 'xl/workbook.xml' in arquivos_internos:
+                                        formato_detectado = 'xlsx'
+                                    elif 'ppt/presentation.xml' in arquivos_internos:
+                                        formato_detectado = 'pptx'
+                                    elif 'AndroidManifest.xml' in arquivos_internos:
+                                        formato_detectado = 'apk'
+                            except Exception:
+                                pass  # Se falhar ao abrir, cai graciosamente de volta para 'zip' genérico
+
+                            metadados_extras.append(
+                                f"   ↳ Diagnóstico Interno: O contêiner ZIP foi identificado compatível com o formato .{formato_detectado.upper()}.")
+                            metadados_extras.append("")
+                            extensao = formato_detectado
+
+                        elif mime_verdadeiro == 'application/msword':
+                            formato_detectado = 'doc'
+                            try:
+                                if HAS_OLEFILE and olefile.isOleFile(caminho_arquivo):
+                                    with olefile.OleFileIO(caminho_arquivo) as ole:
+                                        if ole.exists('WordDocument'):
+                                            formato_detectado = 'doc'
+                                        elif ole.exists('Workbook'):
+                                            formato_detectado = 'xls'
+                                        elif ole.exists('PowerPoint Document'):
+                                            formato_detectado = 'ppt'
+                            except Exception:
+                                pass
+
+                            metadados_extras.append(
+                                f"   ↳ Diagnóstico Interno: O arquivo OLE Legado foi identificado compatível com o formato .{formato_detectado.upper()}.")
+                            metadados_extras.append("")
+                            extensao = formato_detectado
+
+                        else:
+                            metadados_extras.append(
+                                f"   ↳ Informação: A extração de metadados abaixo refere-se à estrutura real do arquivo (formato {mime_verdadeiro.upper()}).")
+                            metadados_extras.append("")
+                            # Redireciona o fluxo forçando o primeiro formato compatível válido do MIME
+                            extensao = extensoes_esperadas[0]
 
         except ImportError as e:
             metadados_extras.append("")
