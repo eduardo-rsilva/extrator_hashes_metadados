@@ -261,6 +261,36 @@ def is_running_compiled() -> bool:
 
 
 BASE_DIR = get_base_dir()
+_MOTOR_MAGIC_CACHE = None
+
+def obter_motor_magic():
+    """Inicializa o libmagic apenas na primeira chamada e retorna a instância."""
+    global _MOTOR_MAGIC_CACHE
+
+    # Se já foi carregado antes, devolve imediatamente
+    if _MOTOR_MAGIC_CACHE is not None:
+        return _MOTOR_MAGIC_CACHE
+
+    # Se não, faz a inicialização pesada (Ocorre apenas 1 vez por execução do programa)
+    caminho_magic_dir = BASE_DIR / "magic"
+    caminho_db = str(caminho_magic_dir / "magic.mgc")
+
+    if hasattr(os, 'add_dll_directory') and caminho_magic_dir.exists():
+        os.add_dll_directory(str(caminho_magic_dir))
+
+    os.environ['PATH'] = str(caminho_magic_dir) + os.pathsep + os.environ.get('PATH', '')
+
+    magic = __import__('magic')
+
+    if os.path.exists(caminho_db):
+        _MOTOR_MAGIC_CACHE = magic.Magic(magic_file=caminho_db, mime=True)
+    else:
+        _MOTOR_MAGIC_CACHE = magic.Magic(mime=True)
+
+    return _MOTOR_MAGIC_CACHE
+
+
+
 ICON_PATH = str(BASE_DIR / "app.ico")
 MENSAGEM_INICIAL = "Arraste e solte arquivo(s), diretório(s) ou ícones de unidades em qualquer lugar desta janela para extração de HASHES e/ou METADADOS."
 
@@ -6553,26 +6583,10 @@ class JanelaHashes(QWidget):
 
         # --- DETECÇÃO DE MAGIC BYTES VIA PYTHON-MAGIC ---
         try:
-            caminho_magic_dir = BASE_DIR / "magic"
-            caminho_db = str(caminho_magic_dir / "magic.mgc")
+            # Obtém a instância (se for o arquivo 2 em diante, é instantâneo)
+            m = obter_motor_magic()
 
-            # 1. Autoriza a pasta 'magic' a carregar as DLLs no Windows (Python 3.8+)
-            if hasattr(os, 'add_dll_directory') and caminho_magic_dir.exists():
-                os.add_dll_directory(str(caminho_magic_dir))
-
-            # 2. Injeta na variável PATH do sistema
-            # O python-magic usa uma função (find_library) que só procura no PATH.
-            os.environ['PATH'] = str(caminho_magic_dir) + os.pathsep + os.environ.get('PATH', '')
-
-            # 3. Importa o motor (agora ele acha as DLLs)
-            magic = __import__('magic')
-
-            # 3. Inicializa apontando para o banco de dados atualizado de 10MB
-            if os.path.exists(caminho_db):
-                m = magic.Magic(magic_file=caminho_db, mime=True)
-            else:
-                m = magic.Magic(mime=True)
-
+            # Faz a análise do arquivo atual
             mime_verdadeiro = m.from_file(caminho_arquivo)
 
             if mime_verdadeiro and mime_verdadeiro != "application/octet-stream":
