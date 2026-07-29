@@ -7873,65 +7873,6 @@ class JanelaHashes(QWidget):
                     # Falha silenciosa para outros erros genéricos da rede de captura
                     pass
 
-        # =====================================================================
-        # DETECÇÃO DE MÍDIA OFUSCADA E MEDIAINFO UNIVERSAL (Rede de Captura)
-        # =====================================================================
-        # Roda sempre que o MediaInfo não foi acionado nativamente, independente do extrair_raw
-        if HAS_PYMEDIAINFO and not mediainfo_executado:
-            try:
-                media_info = MediaInfo.parse(caminho_arquivo)
-
-                # Verifica se existe alguma trilha de Vídeo ou Áudio na estrutura interna
-                tem_midia = any(t.track_type in ["Video", "Audio"] for t in media_info.tracks)
-
-                # 1. ALERTA FORENSE (Funciona mesmo na extração básica)
-                if tem_midia:
-                    metadados_extras.append("")
-                    metadados_extras.append("🚨 ALERTA FORENSE: INCONSISTÊNCIA DE FORMATO DETECTADA 🚨")
-
-                    if extensao:
-                        metadados_extras.append(
-                            f"A extensão do arquivo (.{extensao}) não corresponde à sua verdadeira estrutura interna.")
-                    else:
-                        metadados_extras.append(
-                            "O arquivo não possui extensão, mas sua estrutura interna foi revelada.")
-
-                    metadados_extras.append("O MediaInfo detectou que este arquivo oculta trilhas multimídia:")
-
-                    for track in media_info.tracks:
-                        if track.track_type == "General" and track.format:
-                            metadados_extras.append(f"   ↳ Formato Real do Container: {track.format}")
-                        elif track.track_type == "Video":
-                            formato_vid = track.format or "Desconhecido"
-                            largura = track.width or "?"
-                            altura = track.height or "?"
-                            metadados_extras.append(
-                                f"   ↳ Trilha de Vídeo Oculta: Codec {formato_vid} ({largura}x{altura})")
-                        elif track.track_type == "Audio":
-                            formato_aud = track.format or "Desconhecido"
-                            canais = track.channels or "?"
-                            hz = track.sampling_rate or "?"
-                            metadados_extras.append(
-                                f"   ↳ Trilha de Áudio Oculta: Codec {formato_aud} ({canais} canais, {hz} Hz)")
-
-                # 2. RAW DUMP (Acionado se usuário pediu RAW OU se achamos mídia ofuscada)
-                if (extrair_raw or tem_midia) and media_info.tracks:
-                    dump_temporario = ["\n=== MEDIAINFO (RAW DUMP ESTRUTURAL COMPLETO) ==="]
-                    for track in media_info.tracks:
-                        dump_temporario.append(f"--- Trilha: {track.track_type} ---")
-                        for k_raw, v_raw in track.to_data().items():
-                            if v_raw is not None:
-                                dump_temporario.append(f"{k_raw}: {v_raw}")
-
-                    if not extrair_raw and tem_midia:
-                        # Se NÃO for modo RAW, mas achamos ofuscação, injetamos logo abaixo do alerta
-                        metadados_extras.extend(dump_temporario)
-                    else:
-                        # Se o usuário já tinha pedido modo RAW, vai para a lista do fim do relatório normalmente
-                        raw_dump.extend(dump_temporario)
-            except Exception:
-                pass
-
         # --- MONTAGEM DO RAW DUMP NO FINAL DO RELATÓRIO DO ARQUIVO ---
         if extrair_raw and raw_dump:
             metadados_extras.append("")
