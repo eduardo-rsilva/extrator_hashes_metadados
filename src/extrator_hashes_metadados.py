@@ -6550,6 +6550,75 @@ class JanelaHashes(QWidget):
         raw_dump = []
         extensao = caminho_arquivo.lower().split('.')[-1]
 
+        # --- DETECÇÃO DE MAGIC BYTES VIA PYTHON-MAGIC ---
+        try:
+            import os
+            caminho_magic_dir = BASE_DIR / "magic"
+            caminho_db = str(caminho_magic_dir / "magic.mgc")
+
+            # 1. Autoriza a pasta 'magic' a carregar as DLLs no Windows (Python 3.8+)
+            if hasattr(os, 'add_dll_directory') and caminho_magic_dir.exists():
+                os.add_dll_directory(str(caminho_magic_dir))
+
+            # 2. Injeta na variável PATH do sistema
+            # O python-magic usa uma função (find_library) que só procura no PATH.
+            os.environ['PATH'] = str(caminho_magic_dir) + os.pathsep + os.environ.get('PATH', '')
+
+            # 3. Importa o motor (agora ele acha as DLLs)
+            import magic
+
+            # 3. Inicializa apontando para o banco de dados atualizado de 10MB
+            if os.path.exists(caminho_db):
+                m = magic.Magic(magic_file=caminho_db, mime=True)
+            else:
+                m = magic.Magic(mime=True)
+
+            mime_verdadeiro = m.from_file(caminho_arquivo)
+
+            if mime_verdadeiro and mime_verdadeiro != "application/octet-stream":
+                # Mapeamento robusto entre MIME types e extensões esperadas
+                mime_map = {
+                    'image/jpeg': ['jpg', 'jpeg'],
+                    'image/png': ['png'],
+                    'image/gif': ['gif'],
+                    'image/webp': ['webp'],
+                    'video/mp4': ['mp4'],
+                    'video/x-msvideo': ['avi'],
+                    'video/x-matroska': ['mkv'],
+                    'audio/mpeg': ['mp3'],
+                    'audio/x-wav': ['wav'],
+                    'application/pdf': ['pdf'],
+                    'application/zip': ['zip', 'docx', 'xlsx', 'pptx', 'apk'],
+                    'application/x-rar': ['rar'],
+                    'application/x-7z-compressed': ['7z'],
+                    'application/x-dosexec': ['exe', 'dll', 'sys'],
+                    'application/msword': ['doc', 'xls', 'ppt', 'msi'],
+                    'application/vnd.ms-excel': ['xls'],
+                    'application/vnd.ms-powerpoint': ['ppt'],
+                    'text/plain': ['txt', 'csv', 'json', 'py', 'js', 'html', 'log']
+                }
+
+                # Procura as extensões válidas para o MIME detectado
+                extensoes_esperadas = mime_map.get(mime_verdadeiro, [])
+
+                # Se o MIME detectado estiver no nosso dicionário e a extensão atual não bater com nenhuma das esperadas
+                if extensoes_esperadas and (extensao not in extensoes_esperadas):
+                    metadados_extras.append("")
+                    metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
+                    metadados_extras.append(f" ↳ Extensão Falsa (Atual): .{extensao}")
+                    metadados_extras.append(f" ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
+                    metadados_extras.append(
+                        " ↳ Nota: A extensão do arquivo foi alterada intencionalmente para mascarar sua verdadeira estrutura.")
+                    metadados_extras.append("")
+        except ImportError as e:
+            metadados_extras.append("")
+            metadados_extras.append(f"⚠️ AVISO DE SISTEMA: Falha ao carregar motor de Magic Bytes (libmagic).")
+            metadados_extras.append(f" ↳ Detalhe Técnico: {e}")
+            metadados_extras.append(" ↳ O executável foi compilado sem a DLL necessária ou ela não foi encontrada.")
+        except Exception as e:
+            metadados_extras.append(f"⚠️ Erro ao verificar Magic Bytes com libmagic: {e}")
+        # -----------------------------------------------------------------
+
         # Flag para controlar o ExifTool Universal no final da função
         exiftool_executado = False
 

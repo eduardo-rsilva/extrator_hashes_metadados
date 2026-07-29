@@ -92,6 +92,15 @@ if os.path.exists(destino_ewf):
     shutil.rmtree(destino_ewf)
 shutil.copytree(origem_ewf, destino_ewf)
 
+# ===== CÓPIA DA PASTA DO MAGIC =====
+origem_magic = os.path.join("src", "magic")
+destino_magic = os.path.join("src", "extrator_hashes_metadados.dist", "magic")
+
+print(f"Copiando {origem_magic} para {destino_magic}...")
+if os.path.exists(destino_magic):
+    shutil.rmtree(destino_magic)
+shutil.copytree(origem_magic, destino_magic)
+
 print("Build finalizado com sucesso! A pasta 'extrator_hashes_metadados.dist' está pronta.")
 
 print("Gerando registro de integridade da pasta .dist (Hashes)...")
