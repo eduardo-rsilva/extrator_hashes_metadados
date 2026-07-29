@@ -6623,6 +6623,9 @@ class JanelaHashes(QWidget):
                     metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
                     metadados_extras.append(
                         f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
+                    metadados_extras.append(
+                        f"   ↳ Informação: A extração de metadados abaixo refere-se à estrutura real do arquivo (formato {mime_verdadeiro.upper()}).")
+
                     metadados_extras.append("")
 
                     # Redireciona o fluxo de análise forçando o sistema a processá-lo pelo formato original
@@ -6689,6 +6692,7 @@ class JanelaHashes(QWidget):
                 f"   ↳ Nota: A plataforma {plataforma_detectada} realiza 'Metadata Stripping' (Lavagem de Metadados).")
             metadados_extras.append(
                 f"   ↳ Dados originais como Câmera, GPS e Data de Criação interna são destruídos em envios via {plataforma_detectada}.")
+            metadados_extras.append("")
         # --------------------------------------------------------------------
 
         # 1. IMAGENS (Todos os formatos visuais/imagem suportados pelo ExifTool + fallback do Pillow)
