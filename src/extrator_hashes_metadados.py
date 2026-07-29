@@ -6553,7 +6553,6 @@ class JanelaHashes(QWidget):
 
         # --- DETECÇÃO DE MAGIC BYTES VIA PYTHON-MAGIC ---
         try:
-            import os
             caminho_magic_dir = BASE_DIR / "magic"
             caminho_db = str(caminho_magic_dir / "magic.mgc")
 
@@ -6617,6 +6616,7 @@ class JanelaHashes(QWidget):
             metadados_extras.append(f" ↳ Detalhe Técnico: {e}")
             metadados_extras.append(" ↳ O executável foi compilado sem a DLL necessária ou ela não foi encontrada.")
         except Exception as e:
+            magic = None
             metadados_extras.append(f"⚠️ Erro ao verificar Magic Bytes com libmagic: {e}")
         # -----------------------------------------------------------------
 
