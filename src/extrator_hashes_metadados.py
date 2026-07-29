@@ -6624,6 +6624,10 @@ class JanelaHashes(QWidget):
                     metadados_extras.append(
                         f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
                     metadados_extras.append("")
+
+                    # Redireciona o fluxo de análise forçando o sistema a processá-lo pelo formato original
+                    extensao = extensoes_esperadas[0]
+
         except ImportError as e:
             metadados_extras.append("")
             metadados_extras.append(f"⚠️ AVISO DE SISTEMA: Falha ao carregar motor de Magic Bytes (libmagic).")
