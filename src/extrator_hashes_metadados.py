@@ -6605,10 +6605,10 @@ class JanelaHashes(QWidget):
                 if extensoes_esperadas and (extensao not in extensoes_esperadas):
                     metadados_extras.append("")
                     metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
-                    metadados_extras.append(f" ↳ Extensão Falsa (Atual): .{extensao}")
-                    metadados_extras.append(f" ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
+                    metadados_extras.append(f"   ↳ Extensão Falsa (Atual): .{extensao}")
+                    metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
                     metadados_extras.append(
-                        " ↳ Nota: A extensão do arquivo foi alterada intencionalmente para mascarar sua verdadeira estrutura.")
+                        f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
                     metadados_extras.append("")
         except ImportError as e:
             metadados_extras.append("")
