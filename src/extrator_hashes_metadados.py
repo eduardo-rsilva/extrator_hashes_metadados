@@ -6565,7 +6565,7 @@ class JanelaHashes(QWidget):
             os.environ['PATH'] = str(caminho_magic_dir) + os.pathsep + os.environ.get('PATH', '')
 
             # 3. Importa o motor (agora ele acha as DLLs)
-            import magic
+            magic = __import__('magic')
 
             # 3. Inicializa apontando para o banco de dados atualizado de 10MB
             if os.path.exists(caminho_db):
@@ -6616,7 +6616,6 @@ class JanelaHashes(QWidget):
             metadados_extras.append(f" ↳ Detalhe Técnico: {e}")
             metadados_extras.append(" ↳ O executável foi compilado sem a DLL necessária ou ela não foi encontrada.")
         except Exception as e:
-            magic = None
             metadados_extras.append(f"⚠️ Erro ao verificar Magic Bytes com libmagic: {e}")
         # -----------------------------------------------------------------
 
