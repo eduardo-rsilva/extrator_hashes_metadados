@@ -6543,7 +6543,6 @@ class JanelaHashes(QWidget):
         self.texto_referencia.setEnabled(True)
         self.btn_limpar_custodia.setEnabled(True)
 
-
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
     def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False):
         """Distribui o arquivo para o extrator correto baseado na extensão."""
@@ -6553,6 +6552,9 @@ class JanelaHashes(QWidget):
 
         # Flag para controlar o ExifTool Universal no final da função
         exiftool_executado = False
+
+        # 1. CRIAR A FLAG DE CONTROLO DO MEDIAINFO
+        mediainfo_executado = False
 
         # --- DETECÇÃO DE ADS (Roda para todos os arquivos) ---
         streams = detectar_ads_windows(caminho_arquivo)
@@ -6743,6 +6745,10 @@ class JanelaHashes(QWidget):
             if HAS_PYMEDIAINFO:
                 try:
                     media_info = MediaInfo.parse(caminho_arquivo)
+
+                    # 3. ATUALIZAR A FLAG NO BLOCO DE VÍDEO
+                    mediainfo_executado = True
+
                     if extrair_raw:
                         raw_dump.append("\n=== MEDIAINFO (RAW) ===")
                         for track_raw in media_info.tracks:
@@ -6891,10 +6897,10 @@ class JanelaHashes(QWidget):
                         if audio_track.track_id:
                             metadados_extras.append(f"ID da Trilha de Áudio: {audio_track.track_id}")
 
-                        total_trilhas = len(media_info.tracks)
-                        if total_trilhas > 3:
-                            metadados_extras.append(
-                                f"⚠️ Múltiplas Trilhas Detectadas: {total_trilhas} trilhas no total(possível gravação com múltiplas fontes)")
+                    total_trilhas = len(media_info.tracks)
+                    if total_trilhas > 3:
+                        metadados_extras.append(
+                            f"⚠️ Múltiplas Trilhas Detectadas: {total_trilhas} trilhas no total(possível gravação com múltiplas fontes)")
                 except Exception as e:
                     metadados_extras.append(f"⚠️ Erro ao processar estrutura do vídeo com MediaInfo: {e}")
 
@@ -7518,6 +7524,37 @@ class JanelaHashes(QWidget):
                 except Exception:
                     pass
 
+            # 2. INTEGRAR O MEDIAINFO NO BLOCO DE ÁUDIO
+            if HAS_PYMEDIAINFO:
+                try:
+                    media_info = MediaInfo.parse(caminho_arquivo)
+
+                    # --- NOVO: Fazer o RAW Dump se o utilizador pediu ---
+                    if extrair_raw:
+                        raw_dump.append("\n=== MEDIAINFO (RAW) ===")
+                        for track_raw in media_info.tracks:
+                            raw_dump.append(f"--- Trilha: {track_raw.track_type} ---")
+                            for key_raw, val_raw in track_raw.to_data().items():
+                                if val_raw is not None:
+                                    raw_dump.append(f"{key_raw}: {val_raw}")
+                    # ----------------------------------------------------
+
+                    audio_track = next((t for t in media_info.tracks if t.track_type == "Audio"), None)
+                    if audio_track:
+                        if audio_track.format:
+                            metadados_extras.append(f"Codec (MediaInfo): {audio_track.format}")
+                        if audio_track.channels:
+                            metadados_extras.append(f"Canais (MediaInfo): {audio_track.channels}")
+                        if audio_track.sampling_rate:
+                            metadados_extras.append(
+                                f"Taxa de Amostragem (MediaInfo): {audio_track.sampling_rate} Hz")
+                        if audio_track.bit_rate:
+                            metadados_extras.append(f"Bitrate (MediaInfo): {audio_track.bit_rate} bps")
+
+                    mediainfo_executado = True
+                except Exception as e:
+                    metadados_extras.append(f"⚠️ Erro no MediaInfo para áudio: {e}")
+
             # --- TENTATIVA 2: ExifTool (Formatos exóticos ou Dump complementar) ---
             if not extraiu_algo or extrair_raw:
                 caminho_exiftool = obter_caminho_exiftool()
@@ -7748,6 +7785,20 @@ class JanelaHashes(QWidget):
                 except Exception:
                     # Falha silenciosa para outros erros genéricos da rede de captura
                     pass
+
+        # 4. CRIAR O BLOCO "MEDIAINFO UNIVERSAL COMPLEMENTAR" (Dump RAW)
+        if extrair_raw and HAS_PYMEDIAINFO and not mediainfo_executado:
+            try:
+                media_info = MediaInfo.parse(caminho_arquivo)
+                if media_info.tracks:
+                    raw_dump.append("\n=== MEDIAINFO (RAW DUMP COMPLEMENTAR) ===")
+                    for track in media_info.tracks:
+                        raw_dump.append(f"--- Trilha: {track.track_type} ---")
+                        for k_raw, v_raw in track.to_data().items():
+                            if v_raw is not None:
+                                raw_dump.append(f"{k_raw}: {v_raw}")
+            except Exception:
+                pass
 
         # --- MONTAGEM DO RAW DUMP NO FINAL DO RELATÓRIO DO ARQUIVO ---
         if extrair_raw and raw_dump:
