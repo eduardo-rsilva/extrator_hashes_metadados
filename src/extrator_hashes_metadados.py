@@ -6454,13 +6454,14 @@ class JanelaHashes(QWidget):
 
             "<b>2. Aquisição de Imagem Forense (.E01) via libewf (ewfacquire):</b>"
             "<div style='background-color: #2b2b2b; color: #f0f0f0; padding: 6px; border-radius: 4px; font-family: Consolas, monospace; margin-top: 5px; margin-bottom: 5px;'>"
-            "ewfacquire -u -c fast -t \"destino\" -l \"destino.ewf.log\" -d sha256 -S 4G -C \"Operação\" -E \"Laudo\" \"\\\\.\\PhysicalDrive0\""
+            "ewfacquire -u -c fast -t \"destino\" -l \"destino.ewf.log\" -d sha256 -w -S 4G -C \"Operação\" -E \"Laudo\" \"\\\\.\\PhysicalDrive0\""
             "</div>"
             "<ul>"
             "<li><b>-u:</b> Modo não-interativo (unattended).</li>"
             "<li><b>-c fast:</b> Define o nível de compressão do contêiner EWF.</li>"
             "<li><b>-t / -l:</b> Caminho alvo e caminho exato para a escrita espelhada do log de auditoria.</li>"
             "<li><b>-d sha256:</b> Força a injeção do hash SHA-256 no cabeçalho interno dos blocos.</li>"
+            "<li><b>-w:</b> Ativa o preenchimento por zeros (zero-fill) em setores ilegíveis (bad blocks) para preservar a geometria da imagem.</li>"
             "<li><b>-S / -C / -E:</b> Argumentos dinâmicos preenchidos através da janela 'Cabeçalho Forense'.</li>"
             "</ul>"
 
