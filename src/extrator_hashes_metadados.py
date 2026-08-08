@@ -1438,6 +1438,7 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
 
     erro_detalhado = ""
     foi_abortado = False
+    sucesso_confirmado = False  # <--- NOVA TRAVA: Confirmação estrita de sucesso
 
     # Tenta ler o arquivo temporário de log do console para exibir ao perito caso o programa falhe
     if os.path.exists(caminho_log_temp):
@@ -1448,13 +1449,16 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
 
                 linhas = [l.strip() for l in saida_texto.splitlines() if l.strip()]
 
-                # Se terminou exibindo status de %, o perito fechou a janela no meio
+                # Procura a assinatura explícita de conclusão do ewfacquire nas últimas linhas
+                if any("SUCCESS" in l.upper() or "COMPLETED" in l.upper() for l in linhas[-15:]):
+                    sucesso_confirmado = True
+
                 if linhas and any("Status: at" in l for l in linhas[-5:]):
                     foi_abortado = True
 
                 if linhas:
-                    # 8 últimas linhas para ter um contexto melhor da falha
-                    erro_detalhado = "\n".join(linhas[-8:])
+                    # Aumentamos para 10 linhas para garantir leitura total
+                    erro_detalhado = "\n".join(linhas[-10:])
             os.remove(caminho_log_temp)
         except Exception:
             pass
@@ -1466,17 +1470,20 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
         except Exception:
             pass
 
-    if processo.returncode != 0:
-        if foi_abortado:
-            # Mensagem caso o perito cancele (Ctrl+C ou fechar janela)
+    # NOVA VALIDAÇÃO DE AÇO: Não confiamos apenas no returncode = 0.
+    # Se retornou 0 mas o arquivo de log não registrou a palavra "SUCCESS", a janela foi morta prematuramente.
+    if processo.returncode != 0 or not sucesso_confirmado:
+
+        # Se foi abortado no meio da cópia OU se a janela foi fechada tão rápido que retornou 0 sem dar sucesso
+        if foi_abortado or (processo.returncode == 0 and not sucesso_confirmado):
             raise RuntimeError(
-                "❌ OPERAÇÃO CANCELADA PELO USUÁRIO.\n"
-                "A janela do ewfacquire foi fechada ou interrompida antes da finalização."
+                "❌ OPERAÇÃO CANCELADA OU INTERROMPIDA.\n"
+                "A janela de extração foi fechada pelo usuário ou o processo foi interrompido antes da finalização completa da imagem."
             )
         else:
             msg_erro = f"Falha na extração ou processo abortado no UAC (Código de Retorno: {processo.returncode})."
             if erro_detalhado:
-                msg_erro += f"\n\n--- MENSAGEM DO EWFACQUIRE ---\n{erro_detalhado}"
+                msg_erro += f"\n\n--- ÚLTIMAS MENSAGENS DO EWFACQUIRE ---\n{erro_detalhado}"
             raise RuntimeError(msg_erro)
 
     return True
