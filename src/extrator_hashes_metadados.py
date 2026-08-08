@@ -6400,12 +6400,16 @@ class JanelaHashes(QWidget):
             else:
                 QMessageBox.information(dialog, "Verificação de Atualização", mensagem)
 
-        # Desconecta e reconecta para evitar duplicidade em múltiplas aberturas da janela
-        try:
-            self.sinal_atualizacao_manual.disconnect()
-        except Exception:
-            pass
+        # Verifica se a flag já existe (ou seja, se a janela já foi aberta antes)
+        if hasattr(self, '_sinal_manual_conectado'):
+            try:
+                # Só tenta desconectar a partir da segunda vez
+                self.sinal_atualizacao_manual.disconnect()
+            except Exception:
+                pass
+
         self.sinal_atualizacao_manual.connect(tratar_resultado_manual)
+        self._sinal_manual_conectado = True  # Marca que já foi conectado pelo menos uma vez
         # ---------------------------------------------------------
 
         layout_principal.addLayout(layout_cabecalho)
