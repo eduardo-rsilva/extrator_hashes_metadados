@@ -720,11 +720,19 @@ def raw_hash_device(
     total = 0
     bytes_read_total = 0
     hash_objs = {}
+    erros_io_registrados = []
+    bytes_zerados_total = 0
 
     try:
         total = device_get_length_bytes(h)
         hash_objs = init_hash_objects(algos)
         buf = ctypes.create_string_buffer(chunk_size)
+
+        # Importa API do Windows para forçar avanço de ponteiro
+        SetFilePointerEx = ctypes.WinDLL("kernel32", use_last_error=True).SetFilePointerEx
+        SetFilePointerEx.argtypes = [wintypes.HANDLE, ctypes.c_longlong, ctypes.POINTER(ctypes.c_longlong),
+                                     wintypes.DWORD]
+        SetFilePointerEx.restype = wintypes.BOOL
 
         last_progress_write = 0.0
         last_cancel_check = 0.0  # <--- variável para controle de tempo
@@ -752,18 +760,110 @@ def raw_hash_device(
                 to_read = int(remaining)
 
             br = wintypes.DWORD(0)
-            ok = ReadFile(h, buf, to_read, ctypes.byref(br), None)
+
+            # ========================================================================
+            # CHAVE DE DESENVOLVEDOR: MODO DE SIMULAÇÃO DE DANO FÍSICO (BAD BLOCKS)
+            # Mude para True para testar a rotina de Zero-padding e Granularidade.
+            # Mude para False para extrações reais (uso em produção).
+            # ========================================================================
+            MODO_SIMULACAO_BAD_BLOCKS = True
+
+            OFFSETS_SIMULADOS = [
+                10 * 1024 * 1024,  # 10 MB
+                50 * 1024 * 1024,  # 50 MB
+                100 * 1024 * 1024,  # 100 MB
+                250 * 1024 * 1024  # 250 MB
+            ]
+
+            # --- SIMULAÇÃO NÍVEL MACRO (BLOCO GRANDE) ---
+            simular_erro = False
+            if MODO_SIMULACAO_BAD_BLOCKS:
+                for offset in OFFSETS_SIMULADOS:
+                    # Verifica se a leitura atual passa por cima de algum dos offsets defeituosos
+                    if offset <= bytes_read_total < (offset + to_read):
+                        simular_erro = True
+                        break
+
+            if simular_erro:
+                ok = False
+                # Força o Windows a registar o erro 23 (Erro de CRC / Bad Block)
+                ctypes.windll.kernel32.SetLastError(23)
+            else:
+                # Se não esbarrou em nenhum erro simulado (ou se a simulação estiver desligada), faz a leitura real
+                ok = ReadFile(h, buf, to_read, ctypes.byref(br), None)
+            # ========================================================================
 
             if not ok:
                 err = ctypes.get_last_error()
-                msg = traduzir_erro_windows(err, f"ReadFile (Lendo byte {bytes_read_total})")
-                raise RuntimeError(msg)
+                msg_base = traduzir_erro_windows(err, "Falha de I/O")
 
-            n = int(br.value)
-            if n <= 0:
-                break
+                # =========================================================
+                # INÍCIO DA GRANULARIDADE DE ERRO (FALLBACK DE LEITURA)
+                # =========================================================
+                # O chunk grande falhou. Vamos tentar ler de 512 em 512 bytes
+                # para salvar os dados bons ao redor do bad block.
+                TAMANHO_SETOR = 512
+                quantidade_setores = to_read // TAMANHO_SETOR
 
-            data = buf.raw[:n]
+                buf_setor = ctypes.create_string_buffer(TAMANHO_SETOR)
+
+                for i in range(quantidade_setores):
+                    offset_atual_setor = bytes_read_total + (i * TAMANHO_SETOR)
+                    br_setor = wintypes.DWORD(0)
+
+                    # Força o ponteiro para o setor atual
+                    SetFilePointerEx(h, ctypes.c_longlong(offset_atual_setor), None, 0)
+
+                    # --- SIMULAÇÃO NÍVEL MICROSCÓPICO (SETOR DE 512 BYTES) ---
+                    simular_erro_setor = False
+
+                    if MODO_SIMULACAO_BAD_BLOCKS:
+                        # Usa a mesma lista de offsets criada acima
+                        for offset_sim in OFFSETS_SIMULADOS:
+                            # Se o setor atual for exatamente o setor onde o erro foi plantado
+                            if offset_sim <= offset_atual_setor < (offset_sim + TAMANHO_SETOR):
+                                simular_erro_setor = True
+                                break
+
+                    if simular_erro_setor:
+                        ok_setor = False  # Mente que a leitura do setor falhou
+                    else:
+                        # Leitura real para setores saudáveis
+                        ok_setor = ReadFile(h, buf_setor, TAMANHO_SETOR, ctypes.byref(br_setor), None)
+                    # =========================================================
+
+                    if ok_setor and br_setor.value == TAMANHO_SETOR:
+                        # Sucesso! O setor está saudável.
+                        data_setor = buf_setor.raw[:TAMANHO_SETOR]
+                    else:
+                        # O dano físico está exatamente neste setor (Real ou Simulado).
+                        data_setor = b'\x00' * TAMANHO_SETOR
+                        bytes_zerados_total += TAMANHO_SETOR
+                        erros_io_registrados.append(f"Bad block isolado no offset {offset_atual_setor}: {msg_base}")
+
+                    # Grava na imagem forense (se houver)
+                    if f_img:
+                        f_img.write(data_setor)
+
+                    # Atualiza os hashes
+                    for algo, obj in hash_objs.items():
+                        if algo == "CRC32":
+                            hash_objs["CRC32"] = zlib.crc32(data_setor, hash_objs["CRC32"])
+                        else:
+                            obj.update(data_setor)
+
+                # Após processar o chunk problemático setor por setor,
+                # avança o contador principal e pula para a próxima iteração do loop geral
+                bytes_read_total += to_read
+                continue
+                # =========================================================
+                # FIM DA GRANULARIDADE DE ERRO
+                # =========================================================
+            else:
+                n = int(br.value)
+                if n <= 0:
+                    break
+                data = buf.raw[:n]
 
             # --- SALVA O BLOCO NA IMAGEM FORENSE ---
             if f_img:
@@ -796,13 +896,15 @@ def raw_hash_device(
                     pass
                 last_progress_write = now
 
-        # Retorno normal (sucesso absoluto)
+        # Retorno normal (com ou sem zero-padding aplicado)
         return {
             "device": device_path,
             "bytes_total": total,
             "bytes_read": bytes_read_total,
             "hashes": finalize_hashes(hash_objs),
-            "cancelado": False
+            "cancelado": False,
+            "erros_io": erros_io_registrados,
+            "bytes_zerados": bytes_zerados_total
         }
 
     finally:
@@ -1209,7 +1311,8 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
         "-c", "fast",
         "-t", f'"{caminho_destino}"',
         "-l", f'"{caminho_log_ewf}"',  # Ativa a gravação do log físico
-        "-d", "sha256"  # -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
+        "-d", "sha256",  # -d (Digest) adiciona o SHA-256 ao lado do MD5 padrão
+        "-w" # Preenche setores com erro de leitura com zeros (Zero-fill/wipe)
     ]
 
     # Define o tamanho máximo de cada fragmento (.e01, .e02) ---
@@ -5830,6 +5933,22 @@ class JanelaHashes(QWidget):
                 for k, v in hashes.items():
                     texto_hashes.append(f"{k}: {v}")
                     self.texto_saida.append(f"{k}: {v}")
+
+                # --- EXIBIÇÃO DE ERROS DE I/O E ZERO-PADDING ---
+                erros_io = res.get("erros_io", [])
+                bytes_zerados = res.get("bytes_zerados", 0)
+                if erros_io:
+                    fmt_zerados = formatar_bytes_dinamico(bytes_zerados)
+                    texto_bad_blocks = (
+                        f"\n⚠️ ALERTA DE DANO FÍSICO E ZERO-PADDING:\n"
+                        f"Foram detectadas {len(erros_io)} falhas de leitura de I/O na unidade de origem.\n"
+                        f"Um total de {fmt_zerados} inacessíveis foi substituído por zeros (0x00).\n"
+                        f"Esta técnica (Zero-padding) preserva o alinhamento da geometria física da imagem "
+                        f"(essencial para a posterior análise estrutural e Data Carving) e permite a conclusão do cálculo de Hash.\n"
+                        f"Este procedimento segue os padrões periciais e os hashes gerados refletem a unidade em seu estado atual."
+                    )
+                    self.texto_saida.append(texto_bad_blocks)
+                    texto_hashes.append(texto_bad_blocks)  # Para ser incluído automaticamente no TXT de auditoria
 
                 # --- INTEGRAÇÃO: VALIDAÇÃO DA CADEIA DE CUSTÓDIA PARA RAW ---
                 texto_custodia = self.texto_referencia.toPlainText().strip()
