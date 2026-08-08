@@ -9530,7 +9530,7 @@ class JanelaHashes(QWidget):
             elif m > 0:
                 str_tempo_final = f"{m}min{s}s"
             else:
-                str_tempo_final = f"{s}s" if s > 0 else "&lt; 1s"
+                str_tempo_final = f"{s}s" if s > 0 else "< 1s"
 
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
             self.lbl_progresso_total.setText(
