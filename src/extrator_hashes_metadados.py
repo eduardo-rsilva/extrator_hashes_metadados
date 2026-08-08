@@ -766,7 +766,7 @@ def raw_hash_device(
             # Mude para True para testar a rotina de Zero-padding e Granularidade.
             # Mude para False para extrações reais (uso em produção).
             # ========================================================================
-            MODO_SIMULACAO_BAD_BLOCKS = True
+            MODO_SIMULACAO_BAD_BLOCKS = False
 
             OFFSETS_SIMULADOS = [
                 10 * 1024 * 1024,  # 10 MB
