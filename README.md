@@ -9,6 +9,11 @@
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.
 
+> ### ⚙️ Compatibilidade e Requisitos de Sistema
+> * **Sistema Operacional:** Exclusivo para Windows 64-bits (x64).
+> * **Funcionalidades Básicas:** A extração padrão de hashes e metadados opera normalmente em versões mais antigas do Windows (como o Windows 7 e 8.1), desde que suportadas pelo ambiente gráfico.
+> * **⚠️ Limitação Crítica (Aquisição E01 e Write-Blocker):** As ferramentas avançadas de imagem forense e proteção de escrita exigem rigorosamente o **Windows 10 ou superior**. Elas dependem de recursos modernos e diretivas de execução exclusivas do *PowerShell 5.1*. O uso em versões anteriores (como o Windows 7) causará falha de execução (Código 4294770688).
+
 ---
 
 ### 🛑 Software Write-Blocker (Proteção de Escrita USB)
