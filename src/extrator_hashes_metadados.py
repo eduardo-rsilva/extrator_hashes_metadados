@@ -4796,6 +4796,70 @@ class JanelaHashes(QWidget):
         # Recupera os dados que guardamos no Qt.UserRole
         nome_curto, root, dtype, nivel = item_selecionado.data(Qt.ItemDataRole.UserRole)
 
+        # ---> VALIDAÇÃO DE SEGURANÇA 1: TENTATIVA DE CÓPIA DO "DISCO VIVO" (SISTEMA OPERACIONAL) <---
+        so_drive = os.environ.get("SystemDrive", "C:")
+        so_vol_dev = drive_root_to_volume_device(so_drive + "\\")
+        try:
+            so_fisicos = volume_to_physical_drives(so_vol_dev)
+        except Exception:
+            so_fisicos = []
+
+        is_os_drive = False
+        if nivel == "LOGICO":
+            # Se for a mesma letra ou pertencer ao mesmo disco físico
+            if root.upper().startswith(so_drive.upper()):
+                is_os_drive = True
+            else:
+                try:
+                    alvo_fisicos = volume_to_physical_drives(drive_root_to_volume_device(root))
+                    if any(f in so_fisicos for f in alvo_fisicos):
+                        is_os_drive = True
+                except Exception:
+                    pass
+        elif nivel == "FISICO":
+            # Extrai o número do disco (ex: "Disco 0" ou "\\.\PHYSICALDRIVE0") e compara
+            match = re.search(r'\d+', root)
+            if match and int(match.group()) in so_fisicos:
+                is_os_drive = True
+
+        if is_os_drive:
+            msg_os = QMessageBox(self)
+            msg_os.setWindowTitle("Alerta Crítico - Disco do Sistema (Vivo)")
+            msg_os.setIcon(QMessageBox.Icon.Critical)
+
+            fonte = msg_os.font()
+            fonte.setPointSize(11)
+            msg_os.setFont(fonte)
+
+            msg_os.setText(
+                f"<b>Você selecionou a unidade onde o Sistema Operacional atual ({so_drive}) está rodando!</b>")
+            msg_os.setInformativeText(
+                "A extração de um 'Disco Vivo' (em execução) gera hashes divergentes, pois o Windows altera os dados em segundo plano ininterruptamente.\n\n"
+                "A aquisição resultante NÃO manterá a integridade matemática ponta-a-ponta e não servirá como evidência forense irrefutável.\n\n"
+                "Você está ciente dos riscos e deseja continuar a extração mesmo assim?"
+            )
+
+            btn_continuar_os = msg_os.addButton("Continuar mesmo assim", QMessageBox.ButtonRole.DestructiveRole)
+            btn_cancelar_os = msg_os.addButton("Cancelar operação", QMessageBox.ButtonRole.RejectRole)
+
+            # Formatação adaptável ao Modo Escuro nativo do extrator
+            is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+            if is_dark:
+                btn_continuar_os.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #990000; color: #ffffff; border: 1px solid #770000; border-radius: 4px; } QPushButton:hover { background-color: #cc0000; }")
+                btn_cancelar_os.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; border-radius: 4px; } QPushButton:hover { background-color: #4b4d4f; }")
+            else:
+                btn_continuar_os.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #cc0000; color: #ffffff; border: 1px solid #990000; border-radius: 4px; } QPushButton:hover { background-color: #ff3333; }")
+                btn_cancelar_os.setStyleSheet(
+                    "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; color: #111111; border: 1px solid #cccccc; border-radius: 4px; } QPushButton:hover { background-color: #d4d4d4; }")
+
+            msg_os.exec()
+            if msg_os.clickedButton() == btn_cancelar_os:
+                return
+        # ---------------------------------------------------------------------------------------------
+
         # obter_info_volume só funciona em volumes lógicos (Ex: "E:\")
         info = obter_info_volume(root) if nivel == "LOGICO" else {}
         if info is None:
@@ -5402,6 +5466,16 @@ class JanelaHashes(QWidget):
             # --- 4. SELEÇÃO DE DESTINO DA IMAGEM ---
             nome_da_imagem = f"imagem_forense_{info.get('serial') or 'raw'}"
 
+            # ---> PREPARAÇÃO: CAPTURA DO TAMANHO DA ORIGEM PARA VALIDAÇÃO DE ESPAÇO <---
+            tamanho_origem_bytes = 0
+            try:
+                # Usa lógica nativa de baixo-nível que ignora partições e lê os limites físicos
+                h_origem = open_device_readonly(device_path)
+                tamanho_origem_bytes = device_get_length_bytes(h_origem)
+                CloseHandle(h_origem)
+            except Exception:
+                pass
+
             while True:
                 # noinspection PyTypeChecker
                 opcoes_dir = QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog
@@ -5411,6 +5485,73 @@ class JanelaHashes(QWidget):
                 if diretorio_escolhido:
                     # Normaliza a barra invertida (\) do Windows logo na saída do Qt
                     diretorio_escolhido = os.path.normpath(diretorio_escolhido)
+
+                    # ---> VALIDAÇÃO DE SEGURANÇA 2: ESPAÇO INSUFICIENTE NO DESTINO <---
+                    if tamanho_origem_bytes > 0:
+                        try:
+                            uso_destino = shutil.disk_usage(diretorio_escolhido)
+                            espaco_livre = uso_destino.free
+
+                            # Adiciona uma pequena folga de segurança de 100 MB (para relatórios, metadados E01, ewf log)
+                            folga_seguranca = 100 * 1024 * 1024
+                            espaco_necessario = tamanho_origem_bytes + folga_seguranca
+
+                            if espaco_livre < espaco_necessario:
+                                msg_espaco = QMessageBox(self)
+                                msg_espaco.setWindowTitle("Aviso Forense - Espaço Insuficiente")
+                                msg_espaco.setIcon(QMessageBox.Icon.Warning)
+
+                                fonte = msg_espaco.font()
+                                fonte.setPointSize(11)
+                                msg_espaco.setFont(fonte)
+
+                                # Aproveita a função que gera KBs/MBs/GBs no padrão brasileiro
+                                str_necessario = formatar_bytes_dinamico(espaco_necessario)
+                                str_livre = formatar_bytes_dinamico(espaco_livre)
+
+                                msg_espaco.setText(
+                                    "<b>O local selecionado não possui espaço livre suficiente para armazenar a imagem forense!</b>")
+                                msg_espaco.setInformativeText(
+                                    f"Espaço mínimo estimado (Origem + Folga): <b>{str_necessario}</b><br>"
+                                    f"Espaço livre na pasta de destino: <b>{str_livre}</b><br><br>"
+                                    "A geração da imagem poderá falhar no meio do processo corrompendo a evidência.<br>"
+                                    "O que deseja fazer?"
+                                )
+
+                                btn_continuar_espaco = msg_espaco.addButton("Continuar mesmo assim",
+                                                                            QMessageBox.ButtonRole.DestructiveRole)
+                                btn_novo_local = msg_espaco.addButton("Escolher um novo local",
+                                                                      QMessageBox.ButtonRole.ActionRole)
+                                btn_cancelar_espaco = msg_espaco.addButton("Cancelar extração",
+                                                                           QMessageBox.ButtonRole.RejectRole)
+
+                                is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+                                if is_dark:
+                                    btn_continuar_espaco.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #990000; color: #ffffff; border: 1px solid #770000; border-radius: 4px; } QPushButton:hover { background-color: #cc0000; }")
+                                    btn_novo_local.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; border-radius: 4px; } QPushButton:hover { background-color: #4b4d4f; }")
+                                    btn_cancelar_espaco.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #2b2b2b; color: #ffffff; border: 1px solid #444444; border-radius: 4px; } QPushButton:hover { background-color: #3b3b3b; }")
+                                else:
+                                    btn_continuar_espaco.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #cc0000; color: #ffffff; border: 1px solid #990000; border-radius: 4px; } QPushButton:hover { background-color: #ff3333; }")
+                                    btn_novo_local.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; color: #111111; border: 1px solid #cccccc; border-radius: 4px; } QPushButton:hover { background-color: #d0d0d0; }")
+                                    btn_cancelar_espaco.setStyleSheet(
+                                        "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #ffffff; color: #111111; border: 1px solid #cccccc; border-radius: 4px; } QPushButton:hover { background-color: #eeeeee; }")
+
+                                msg_espaco.exec()
+
+                                if msg_espaco.clickedButton() == btn_novo_local:
+                                    continue  # Volta o loop while para abrir o QFileDialog de novo
+                                elif msg_espaco.clickedButton() == btn_cancelar_espaco:
+                                    self.texto_saida.append(
+                                        "\n[!] Operação cancelada pelo usuário (Espaço insuficiente no destino).")
+                                    return
+                        except Exception:
+                            pass
+                    # -------------------------------------------------------------------------
 
                     pasta_evidencia = os.path.join(diretorio_escolhido, f"{nome_da_imagem}_evidencia")
                     os.makedirs(pasta_evidencia, exist_ok=True)
