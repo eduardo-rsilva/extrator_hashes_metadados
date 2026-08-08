@@ -5414,9 +5414,11 @@ class JanelaHashes(QWidget):
             self._iniciar_raw_hash_elevado(device_path, caminho_imagem, formato_escolhido["meta"])
 
 
+
         elif resultado_imagem == 2:
             # O usuário quer APENAS extrair o hash RAW, sem gerar arquivo .dd ou .E01
 
+            self._caminho_audit_log = None  # Limpa o registro da extração anterior
             # --- Pergunta sobre o Auto-Salvamento ---
             msg_auto = QMessageBox(self)
             msg_auto.setWindowTitle("Auto-salvar Relatório (Recomendado)")
@@ -8563,10 +8565,15 @@ class JanelaHashes(QWidget):
                 conteudo = "\n".join(self._relatorio_memoria)
                 with open(self._raw_caminho_relatorio_auto, 'w', encoding='utf-8') as f:
                     f.write(conteudo)
-                self.texto_saida.append(
-                    f"\n💾 Relatório completo salvo automaticamente em:\n   ↳ {self._raw_caminho_relatorio_auto}")
+
+                msg = f"\n💾 Relatório completo salvo automaticamente em:\n ↳ {self._raw_caminho_relatorio_auto}"
+                # O _original_append joga direto na tela, evitando salvar na memória (e consequentemente no TXT/Ctrl+C)
+                # noinspection PyUnresolvedReferences
+                self.texto_saida._original_append(msg.replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>'))
             except Exception as e:
-                self.texto_saida.append(f"\n⚠️ Falha ao auto-salvar relatório completo: {e}")
+                msg_erro = f"\n⚠️ Falha ao auto-salvar relatório completo: {e}"
+                # noinspection PyUnresolvedReferences
+                self.texto_saida._original_append(msg_erro.replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>'))
             finally:
                 # Limpa a variável para não interferir em outras extrações futuras
                 self._raw_caminho_relatorio_auto = None
