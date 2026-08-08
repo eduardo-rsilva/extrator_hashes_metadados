@@ -2441,6 +2441,7 @@ class WorkerExtracao(QThread):
 
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str, str)
+    sinal_atualizacao_manual = Signal(bool, str)
 
     def __init__(self):
         super().__init__()
@@ -4053,7 +4054,7 @@ class JanelaHashes(QWidget):
         if checked:
             self.chk_metadados.setChecked(False)
 
-    def checar_atualizacoes(self):
+    def checar_atualizacoes(self, manual=False):
         """Checa na API do GitHub se há uma nova Release publicada e obtém o link do ZIP."""
         url = f"https://api.github.com/repos/{USUARIO}/{REPOSITORIO}/releases/latest"
 
@@ -4093,14 +4094,19 @@ class JanelaHashes(QWidget):
                     tup_local = tuple(map(int, str_local.split('.')))
 
                     if tup_gh > tup_local:
-                        self.sinal_atualizacao.emit(versao_github_bruta, url_download_pagina, notas_lancamento,
-                                                    url_download_zip)
+                        self.sinal_atualizacao.emit(versao_github_bruta, url_download_pagina, notas_lancamento, url_download_zip)
+                        if manual:
+                            self.sinal_atualizacao_manual.emit(True, "")
+                    else:
+                        if manual:
+                            self.sinal_atualizacao_manual.emit(False, f"Você já está utilizando a versão mais recente do {NOME_APP} (v.{VERSAO_APP}).")
 
             except Exception as e:
+                if manual:
+                    self.sinal_atualizacao_manual.emit(False, f"Falha ao se conectar com o servidor para checar atualização:\n{e}")
                 # Opcional: printar o erro caso o DEBUG_MESSAGES esteja ativado
                 if DEBUG_MESSAGES:
                     print(f"[DEBUG] Falha ao checar atualização: {e}")
-                pass
 
         import threading
         t = threading.Thread(target=_worker, daemon=True)
@@ -6341,9 +6347,74 @@ class JanelaHashes(QWidget):
             f"</div>"
         )
         lbl_infos_topo.setOpenExternalLinks(True)
+        # Alinha a label ao centro-verticalmente para não ficar "caindo" em relação ao botão
+        lbl_infos_topo.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout_cabecalho.addWidget(lbl_infos_topo)
-        layout_cabecalho.addStretch()
+
+        layout_cabecalho.addStretch()  # Empurra o que vier a seguir (o botão) lá para a direita
+
+        # --- NOVO BOTÃO: Verificar Atualização ---
+        layout_botoes_topo = QVBoxLayout()
+        layout_botoes_topo.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+
+        self.btn_verificar_atualizacao = QPushButton("🔄 Verificar Atualizações")
+        self.btn_verificar_atualizacao.setMinimumHeight(35)
+        self.btn_verificar_atualizacao.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        if is_dark:
+            self.btn_verificar_atualizacao.setStyleSheet("""
+                    QPushButton { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; border-radius: 4px; padding: 6px 15px; font-weight: bold; }
+                    QPushButton:hover { background-color: #505355; border: 1px solid #777777; }
+                    QPushButton:pressed { background-color: #2b2b2b; }
+                    QPushButton:disabled { color: #888888; }
+                """)
+        else:
+            self.btn_verificar_atualizacao.setStyleSheet("""
+                    QPushButton { background-color: #e0e0e0; color: #111111; border: 1px solid #cccccc; border-radius: 4px; padding: 6px 15px; font-weight: bold; }
+                    QPushButton:hover { background-color: #d4d4d4; border: 1px solid #aaaaaa; }
+                    QPushButton:pressed { background-color: #c5c5c5; }
+                    QPushButton:disabled { color: #888888; }
+                """)
+
+        def acao_verificar():
+            self.btn_verificar_atualizacao.setText("⏳ Verificando...")
+            self.btn_verificar_atualizacao.setEnabled(False)
+            self.checar_atualizacoes(manual=True)
+
+        self.btn_verificar_atualizacao.clicked.connect(acao_verificar)
+        layout_botoes_topo.addWidget(self.btn_verificar_atualizacao)
+        layout_cabecalho.addLayout(layout_botoes_topo)
+
+        def tratar_resultado_manual(tem_atualizacao, mensagem):
+            # Restaura o botão caso a janela não tenha sido fechada
+            try:
+                self.btn_verificar_atualizacao.setText("🔄 Verificar Atualizações")
+                self.btn_verificar_atualizacao.setEnabled(True)
+            except Exception:
+                pass
+
+            if tem_atualizacao:
+                QMessageBox.information(dialog, "Nova Atualização!",
+                                        "Uma nova versão foi encontrada!\n\nFeche esta janela para ver as novidades e iniciar a atualização na tela principal.")
+                dialog.accept()  # Fecha a janela SOBRE para o usuário ver o aviso amarelo principal
+            else:
+                QMessageBox.information(dialog, "Verificação de Atualização", mensagem)
+
+        # Desconecta e reconecta para evitar duplicidade em múltiplas aberturas da janela
+        try:
+            self.sinal_atualizacao_manual.disconnect()
+        except Exception:
+            pass
+        self.sinal_atualizacao_manual.connect(tratar_resultado_manual)
+        # ---------------------------------------------------------
+
         layout_principal.addLayout(layout_cabecalho)
+
+        # Linha Divisória
+        linha = QFrame()
+        linha.setFrameShape(QFrame.Shape.HLine)
+        linha.setFrameShadow(QFrame.Shadow.Sunken)
+        layout_principal.addWidget(linha)
 
         # Linha Divisória
         linha = QFrame()
