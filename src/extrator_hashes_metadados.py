@@ -1265,6 +1265,60 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     if not caminho_ewf:
         raise FileNotFoundError("O executável 'ewfacquire.exe' não foi localizado.")
 
+    # ---> VALIDAÇÃO PREVENTIVA DE ESPAÇO (Formato E01) <---
+    # Captura o tamanho bruto da origem usando a API de baixo nível do programa
+    tamanho_origem_bytes = 0
+    try:
+        h_origem = open_device_readonly(device_path)
+        try:
+            tamanho_origem_bytes = device_get_length_bytes(h_origem)
+        finally:
+            # Garante que o handle seja fechado mesmo se der erro na leitura dos bytes
+            CloseHandle(h_origem)
+    except Exception:
+        pass
+
+    if tamanho_origem_bytes > 0:
+        try:
+            dir_destino = os.path.dirname(caminho_destino)
+            uso_destino = shutil.disk_usage(dir_destino)
+            espaco_livre = uso_destino.free
+
+            # Margem de segurança de 100 MB para logs e metadados E01
+            folga = 100 * 1024 * 1024
+            espaco_necessario = tamanho_origem_bytes + folga
+
+            if espaco_livre < espaco_necessario:
+                msg_espaco = QMessageBox()
+                msg_espaco.setWindowTitle("Aviso Forense - Espaço Insuficiente")
+                msg_espaco.setIcon(QMessageBox.Icon.Warning)
+
+                fonte = msg_espaco.font()
+                fonte.setPointSize(11)
+                msg_espaco.setFont(fonte)
+
+                msg_espaco.setText("<b>O local de destino não possui espaço livre suficiente!</b>")
+                str_origem = formatar_bytes_dinamico(tamanho_origem_bytes)
+                str_livre = formatar_bytes_dinamico(espaco_livre)
+
+                msg_espaco.setInformativeText(
+                    f"Tamanho bruto da unidade de origem: <b>{str_origem}</b><br>"
+                    f"Espaço livre disponível no destino: <b>{str_livre}</b><br><br>"
+                    "O E01 realiza compressão nativa (o que pode reduzir o tamanho final), "
+                    "no entanto, se o disco de destino encher, a extração falhará no meio e a evidência será corrompida.<br><br>"
+                    "O que deseja fazer?"
+                )
+                btn_continuar = msg_espaco.addButton("Continuar mesmo assim", QMessageBox.ButtonRole.DestructiveRole)
+                btn_cancelar = msg_espaco.addButton("Cancelar extração", QMessageBox.ButtonRole.RejectRole)
+
+                msg_espaco.exec()
+                if msg_espaco.clickedButton() == btn_cancelar:
+                    raise RuntimeError("Operação cancelada pelo usuário (Espaço insuficiente no destino).")
+        except Exception as e:
+            if "Operação cancelada" in str(e):
+                raise
+    # -----------------------------------------------------------------------
+
     if metadados is None:
         metadados = {}
 
@@ -1340,14 +1394,36 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     args_str = " ".join(args)
     caminho_ewf_ps = escapar_ps(str(caminho_ewf_norm))
 
-    # Removemos o cmd /k. Agora ele fecha sozinho quando terminar a extração.
-    # Adicionamos um bloco try/catch nativo do PowerShell. Se o UAC for negado, ele força a saída com erro (código 1).
+    # ---> MELHORIA AV-FRIENDLY: CAPTURA DO TERMINAL (TEXTO PURO) <---
+    caminho_log_temp = f"{caminho_destino}.ewf_console.txt"
+    caminho_log_temp_ps = escapar_ps(caminho_log_temp)
+
+    # Cria um script .ps1 temporário em texto claro.
+    # Isso permite que os Antivírus escaneiem a string exata, não acionando gatilhos heurísticos de ofuscação.
+    caminho_script_ps1 = f"{caminho_destino}.ewf_runner.ps1"
+
+    conteudo_ps1 = f"& '{caminho_ewf_ps}' {args_str} 2>&1 | Tee-Object -FilePath '{caminho_log_temp_ps}'; exit $LASTEXITCODE"
+
+    try:
+        # utf-8-sig' força a gravação do BOM.
+        # Isso garante que o PowerShell leia os acentos dos caminhos corretamente.
+        with open(caminho_script_ps1, "w", encoding="utf-8-sig") as f_script:
+            f_script.write(conteudo_ps1)
+    except Exception as e:
+        raise RuntimeError(f"Falha ao criar script temporário de extração: {e}")
+
+    caminho_script_ps1_ps = escapar_ps(caminho_script_ps1)
+
+    # Passa os argumentos como um Array ( @() ).
+    # O próprio PowerShell se encarrega de colocar as aspas certas caso a pasta tenha espaços.
     ps_cmd = [
         "powershell",
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-Command",
-        f"try {{ $p = Start-Process -FilePath '{caminho_ewf_ps}' -ArgumentList '{args_str}' -Verb RunAs -Wait -PassThru -ErrorAction Stop; if ($null -ne $p) {{ exit $p.ExitCode }} else {{ exit 1 }} }} catch {{ exit 1 }}"
+        f"$scriptPath = '{caminho_script_ps1_ps}'; "
+        f"$argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Normal', '-File', $scriptPath); "
+        f"try {{ $p = Start-Process -FilePath 'powershell' -ArgumentList $argList -Verb RunAs -Wait -PassThru -ErrorAction Stop; if ($null -ne $p) {{ exit $p.ExitCode }} else {{ exit 1 }} }} catch {{ exit 1 }}"
     ]
 
     creationflags = 0x08000000 if os.name == 'nt' else 0
@@ -1360,11 +1436,49 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
         QApplication.processEvents()
         time.sleep(0.1)  # Pausa rápida para não fritar o processador (CPU)
 
+    erro_detalhado = ""
+    foi_abortado = False
+
+    # Tenta ler o arquivo temporário de log do console para exibir ao perito caso o programa falhe
+    if os.path.exists(caminho_log_temp):
+        try:
+            with open(caminho_log_temp, "rb") as f_temp:
+                raw_bytes = f_temp.read()
+                saida_texto = raw_bytes.replace(b'\x00', b'').decode('utf-8', errors='ignore')
+
+                linhas = [l.strip() for l in saida_texto.splitlines() if l.strip()]
+
+                # Se terminou exibindo status de %, o perito fechou a janela no meio
+                if linhas and any("Status: at" in l for l in linhas[-5:]):
+                    foi_abortado = True
+
+                if linhas:
+                    # 8 últimas linhas para ter um contexto melhor da falha
+                    erro_detalhado = "\n".join(linhas[-8:])
+            os.remove(caminho_log_temp)
+        except Exception:
+            pass
+
+    # Apaga o script .ps1 temporário
+    if os.path.exists(caminho_script_ps1):
+        try:
+            os.remove(caminho_script_ps1)
+        except Exception:
+            pass
+
     if processo.returncode != 0:
-        raise RuntimeError(
-            f"Processo abortado pelo usuário no UAC ou falha no ewfacquire.\n"
-            f"Código retornado: {processo.returncode}"
-        )
+        if foi_abortado:
+            # Mensagem caso o perito cancele (Ctrl+C ou fechar janela)
+            raise RuntimeError(
+                "❌ OPERAÇÃO CANCELADA PELO USUÁRIO.\n"
+                "A janela do ewfacquire foi fechada ou interrompida antes da finalização."
+            )
+        else:
+            msg_erro = f"Falha na extração ou processo abortado no UAC (Código de Retorno: {processo.returncode})."
+            if erro_detalhado:
+                msg_erro += f"\n\n--- MENSAGEM DO EWFACQUIRE ---\n{erro_detalhado}"
+            raise RuntimeError(msg_erro)
+
     return True
 
 
