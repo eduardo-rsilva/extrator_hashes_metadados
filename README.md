@@ -136,13 +136,14 @@ O extrator padroniza a chamada do ExifTool para todas as mídias (Imagens, Víde
 
 **2. Aquisição de Imagem Forense (.E01) via libewf (ewfacquire):**
 Executado encapsulado em uma sessão do PowerShell com elevação de privilégios (UAC) e em modo *unattended* (automação):
-`ewfacquire -u -c fast -t "caminho_destino" -l "caminho_destino.ewf.log" -d sha256 -S 4G -C "Nome da Operação" -D "Descrição do Arquivo" -E "Laudo" -e "Perito" "\\.\PhysicalDrive0"`
+`ewfacquire -u -c fast -t "caminho_destino" -l "caminho_destino.ewf.log" -d sha256 -w -S 4G -C "Nome da Operação" -D "Descrição do Arquivo" -E "Laudo" -e "Perito" "\\.\PhysicalDrive0"`
 
 * **`-u`**: Modo não-interativo (*unattended*), desativando os prompts do terminal original.
 * **`-c fast`**: Define o nível de compressão do contêiner EWF.
 * **`-t`**: Caminho alvo (*target*) sem a extensão do arquivo.
 * **`-l`**: Caminho exato para a escrita espelhada do log de auditoria física nativo do ewfacquire.
 * **`-d sha256`**: Força a injeção do hash SHA-256 (além do MD5 embutido por padrão) no cabeçalho dos blocos E01.
+* **`-w`**: Ativa o preenchimento por zeros (*zero-fill*) em setores ilegíveis (*bad blocks*), garantindo a preservação da geometria física e o alinhamento da imagem forense.
 * **`-S` / `-C` / `-D` / `-E` / `-e`**: Argumentos dinâmicos preenchidos através da janela "Cabeçalho Forense" para fragmentação (ex: `4G`, `640M`) e metadados de custódia.
 * **`\\.\PhysicalDrive0`**: Caminho UNC de baixo nível para o disco físico ou volume lógico alvo (ex: `\\.\E:`).
 
