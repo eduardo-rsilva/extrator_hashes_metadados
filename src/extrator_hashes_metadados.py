@@ -2123,6 +2123,7 @@ class WorkerExtracao(QThread):
         self.bytes_processados_total = 0
         self.arquivos_processados_qtd = 0
         self.contagem_extensoes = {}
+        self.contagem_extensoes_falsas = {}
         self.arquivos_por_hash = {}
         self.coordenadas_gps_encontradas = []
         self._hashes_com_gps = set()
@@ -2375,7 +2376,16 @@ class WorkerExtracao(QThread):
                             "⏳ AVISO: Renderizando Raw Dump massivo... A interface pode pausar por alguns instantes...")
 
                     # Chamada 100% segura, a lógica dele roda na Thread e não altera a GUI
-                    metadados_midia = self.janela.obter_metadados_avancados(arquivo, extrair_raw=self.extrair_raw)
+                    metadados_midia, formato_real_se_falso = self.janela.obter_metadados_avancados(arquivo,
+                                                                                                   extrair_raw=self.extrair_raw)
+
+                    if formato_real_se_falso:
+                        # Pega a extensão atual para criar a label "TXT (na verdade JPG)"
+                        _, ext_atual = os.path.splitext(arquivo)
+                        ext_atual = ext_atual.upper()[1:] if ext_atual else "SEM EXTENSÃO"
+                        alerta_falso = f"{ext_atual} (Mascarando formato real: {formato_real_se_falso})"
+                        self.contagem_extensoes_falsas[alerta_falso] = self.contagem_extensoes_falsas.get(
+                            alerta_falso, 0) + 1
 
                     if self.extrair_raw:
                         self.sig_apagar_ultima_linha.emit()
@@ -2417,6 +2427,7 @@ class WorkerExtracao(QThread):
         payload_final = {
             "cancelar_operacao": self.cancelar_operacao,
             "contagem_extensoes": self.contagem_extensoes,
+            "contagem_extensoes_falsas": self.contagem_extensoes_falsas,
             "arquivos_processados_qtd": self.arquivos_processados_qtd,
             "arquivos_por_hash": self.arquivos_por_hash,
             "qtd_validados": qtd_validados,
@@ -6702,6 +6713,7 @@ class JanelaHashes(QWidget):
         metadados_extras = []
         raw_dump = []
         extensao = caminho_arquivo.lower().split('.')[-1]
+        extensao_falsa_detectada = None
 
         # --- DETECÇÃO DE MAGIC BYTES VIA PYTHON-MAGIC ---
         try:
@@ -6776,6 +6788,9 @@ class JanelaHashes(QWidget):
                         metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
                         metadados_extras.append(
                             f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
+
+                        # Preenche a nova variável com o primeiro formato da lista de extensões esperadas (o mais provável)
+                        extensao_falsa_detectada = extensoes_esperadas[0].upper()
 
                         # 3. TRATAMENTO INTELIGENTE DE FAMÍLIAS MULTI-EXTENSÃO
                         if mime_verdadeiro == 'application/zip':
@@ -8076,7 +8091,7 @@ class JanelaHashes(QWidget):
             metadados_extras.append("=== TODOS OS METADADOS (RAW DUMP) ===")
             metadados_extras.extend(raw_dump)
 
-        return metadados_extras
+        return metadados_extras, extensao_falsa_detectada
 
     def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados, extrair_metadados=False):
         try:
@@ -9471,6 +9486,14 @@ class JanelaHashes(QWidget):
         for ext, qtd in extensoes_ordenadas:
             palavra_arq_ext = "arquivo" if qtd == 1 else "arquivos"
             self.texto_saida.append(f"{qtd} {palavra_arq_ext} {ext}")
+
+        contagem_falsas = payload.get("contagem_extensoes_falsas", {})
+        if contagem_falsas:
+            self.texto_saida.append("\n⚠️ ALERTA DE FORMATOS MASCARADOS:")
+            falsas_ordenadas = sorted(contagem_falsas.items(), key=lambda item: item[1], reverse=True)
+            for f_ext, f_qtd in falsas_ordenadas:
+                f_palavra = "arquivo" if f_qtd == 1 else "arquivos"
+                self.texto_saida.append(f"  ↳ {f_qtd} {f_palavra} com extensão {f_ext}")
 
         arquivos_processados_qtd = payload.get("arquivos_processados_qtd", 0)
         palavra_arq_total = "arquivo" if arquivos_processados_qtd == 1 else "arquivos"
