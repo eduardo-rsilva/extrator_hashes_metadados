@@ -5581,7 +5581,6 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'container_progresso'):
                 self.container_progresso.show()
 
-            self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
             self.texto_saida.append("Processando aquisição de imagem forense (.E01)...\n")
             # -----------------------------------------------
 
@@ -5820,9 +5819,6 @@ class JanelaHashes(QWidget):
 
         if hasattr(self, 'container_progresso'):
             self.container_progresso.show()
-
-        self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
-        self.texto_saida.append("Processando aquisição de unidade RAW...\n")
 
         self.barra_total.setMaximum(100)
         self.barra_total.setValue(0)
