@@ -7002,7 +7002,7 @@ class JanelaHashes(QWidget):
             "<b>Reconhecimentos Especiais:</b>"
             "<ul>"
             "<li><b>Apoio Institucional e Colegas:</b> Ao Diretor do Núcleo de Identificação Criminal Doutor Yuri Ojevan Presto e aos "
-            "Peritos Criminais Doutor Marco Aurélio Santoro e Doutora Luana Maria Garcia de Lima que voluntariaram "
+            "Peritos Criminais Doutor Marco Aurélio Santoro, Doutora Luana Maria Garcia de Lima e Doutora Susel Coneglian que voluntariaram "
             "seu tempo realizando testes de estresse em lotes massivos, validação de metodologias e sugestões de interface e funcionalidades.</li>"
             "<li><b>Comunidade de Software Livre (Open-Source):</b> Aos criadores e mantenedores das ferramentas de base "
             "que compõem este ecossistema, com especial destaque para <i>Joachim Metz (projeto libewf e ewfacquire)</i>, "
