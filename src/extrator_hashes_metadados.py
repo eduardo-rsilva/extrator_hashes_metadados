@@ -6824,6 +6824,15 @@ class JanelaHashes(QWidget):
             "<li><b>Tratamento Transparente de Erros:</b> Diferencia claramente bibliotecas ausentes, arquivos corrompidos e metadados intencionalmente removidos.</li>"
             "</ul>"
             
+            "<h3>🕵️‍♂️ Identificação Estrutural e Detecção de Adulterações (Magic Bytes):</h3>"
+            "<p>Para combater técnicas de ocultação de dados e ofuscação (<i>Anti-Forensics</i>), a ferramenta não confia na extensão declarada no nome do arquivo. Em vez disso, realiza a análise estrutural direta no cabeçalho binário:</p>"
+            "<ul>"
+            "<li><b>Leitura de Magic Bytes:</b> Utiliza o motor <i>libmagic</i> (através de um cache em memória otimizado em <i>Singleton</i> para máxima velocidade durante extrações em lote) para ler os primeiros bytes do arquivo e determinar seu verdadeiro formato (<i>MIME Type</i>).</li>"
+            "<li><b>Matriz de Validação Forense:</b> O formato autêntico descoberto na leitura binária é cruzado com uma matriz rigorosa de extensões permitidas.</li>"
+            "<li><b>Inspeção Profunda de Famílias (Deep Inspection):</b> O sistema não para na assinatura superficial. Para arquivos que compartilham o mesmo contêiner base (como <i>application/zip</i> ou antigos pacotes Microsoft <i>OLE</i>), a ferramenta vasculha a estrutura interna silenciosamente para diferenciar com precisão um arquivo .zip genérico de um documento .docx, .xlsx ou até mesmo de um pacote de aplicativo Android .apk.</li>"
+            "<li><b>Gatilhos de Alerta Forense:</b> Se a extensão autêntica for incompatível com a extensão disfarçada no nome do arquivo (ex: um executável ou script malicioso camuflado de .pdf ou imagem), o extrator injeta automaticamente no laudo a tag <b>\"🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨\"</b>, expondo a verdadeira natureza estrutural do arquivo. <i>(Nota: O sistema possui uma whitelist inteligente para extensões atípicas baseadas em texto plano, aplicando um aviso brando para evitar falsos positivos na triagem).</i></li>"
+            "</ul>"
+            
             "<h3>🛑 Software Write-Blocker (Proteção de Escrita USB):</h3>"
             "<ul>"
             "<li><b>Bloqueio via Registro do Windows:</b> Altera as políticas de armazenamento do sistema operacional (<i>StorageDevicePolicies</i>) para impedir a gravação de dados, indexação indesejada ou criação de arquivos ocultos (como o <i>System Volume Information</i>) em mídias USB.</li>"
