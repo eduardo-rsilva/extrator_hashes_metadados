@@ -4183,7 +4183,6 @@ class JanelaHashes(QWidget):
 
     def checar_notas_desenvolvedor(self):
         """Busca o arquivo notas_desenvolvimento.md no GitHub de forma assíncrona."""
-        # IMPORTANTE: Se a branch principal do seu repositório for 'main', troque 'master' por 'main' abaixo.
         url = f"https://raw.githubusercontent.com/{USUARIO}/{REPOSITORIO}/master/notas_desenvolvimento.md"
 
         def _worker():
@@ -4198,9 +4197,9 @@ class JanelaHashes(QWidget):
                 with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
                     conteudo = response.read().decode('utf-8').strip()
 
-                # Se o arquivo existir e não estiver em branco (exatamente como você planejou)
+                # Se o arquivo existir e não estiver em branco
                 if conteudo:
-                    # Cria um hash MD5 do texto. Se você mudar uma vírgula no aviso, o hash muda e a nota volta a aparecer.
+                    # Cria um hash MD5 do texto. Se houver mudanças no aviso, o hash muda e a nota volta a aparecer.
                     hash_conteudo = hashlib.md5(conteudo.encode('utf-8')).hexdigest()
                     self.sinal_nota_desenvolvedor.emit(conteudo, hash_conteudo)
 
@@ -4267,14 +4266,13 @@ class JanelaHashes(QWidget):
             try:
                 import urllib.request
                 import json
-                import ssl  # <-- Importação necessária
+                import ssl
 
                 # Cria o contexto para contornar bloqueios de proxy/SSL corporativo
                 contexto_ssl = ssl._create_unverified_context()
 
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
 
-                # Aumentei o timeout para 10s e adicionei o contexto SSL
                 with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
                     dados = json.loads(response.read().decode('utf-8'))
 
