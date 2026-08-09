@@ -6443,15 +6443,24 @@ class JanelaHashes(QWidget):
                 print("[DEBUG] Nenhuma operação RAW em andamento para cancelar.")
 
     def salvar_estado_atual(self, *args):
-        """Salva as configurações atuais imediatamente após qualquer alteração."""
+        # 1. Carrega o estado atual do arquivo para não perder as chaves soltas gravadas
+        config_atual = carregar_config()
+
+        # 2. Atualiza as configurações da interface gráfica
         config = {
-            'chk_modo_escuro': self.chk_modo_escuro.isChecked(),
-            'chk_metadados': self.chk_metadados.isChecked(),
-            'chk_metadados_raw': getattr(self, 'chk_metadados_raw', QCheckBox()).isChecked(),
-            'chk_subdiretorios': self.chk_subdiretorios.isChecked(),
-            'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()},
-            'visual_index': self.stacked_widget.currentIndex() if hasattr(self, 'stacked_widget') else 0
+            'visual_index': self.stacked_widget.currentIndex() if hasattr(self, 'stacked_widget') else 1,
+            'chk_modo_escuro': self.chk_modo_escuro.isChecked() if hasattr(self, 'chk_modo_escuro') else False,
+            'chk_metadados': self.chk_metadados.isChecked() if hasattr(self, 'chk_metadados') else True,
+            'chk_metadados_raw': self.chk_metadados_raw.isChecked() if hasattr(self, 'chk_metadados_raw') else False,
+            'chk_subdiretorios': self.chk_subdiretorios.isChecked() if hasattr(self, 'chk_subdiretorios') else True,
+            'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()} if hasattr(self,
+                                                                                                  'chk_hashes') else {}
         }
+
+        # 3. Preserva a chave de ocultação da nota do desenvolvedor, se ela existir
+        if "nota_oculta_hash" in config_atual:
+            config["nota_oculta_hash"] = config_atual["nota_oculta_hash"]
+
         salvar_config(config)
 
     def closeEvent(self, event):
