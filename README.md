@@ -36,6 +36,16 @@ Além disso:
 
 ---
 
+## 🕵️‍♂️ Identificação Estrutural e Detecção de Adulterações (Magic Bytes)
+Para combater técnicas de ocultação de dados e ofuscação (*Anti-Forensics*), a ferramenta não confia na extensão declarada no nome do arquivo. Em vez disso, realiza a análise estrutural direta no cabeçalho binário:
+
+* **Leitura de Magic Bytes:** Utiliza o motor `libmagic` (através de um cache em memória otimizado em *Singleton* para máxima velocidade durante extrações em lote) para ler os primeiros bytes do arquivo e determinar seu verdadeiro formato (*MIME Type*).
+* **Matriz de Validação Forense:** O formato autêntico descoberto na leitura binária é cruzado com uma matriz rigorosa de extensões permitidas.
+* **Inspeção Profunda de Famílias (Deep Inspection):** O sistema não para na assinatura superficial. Para arquivos que compartilham o mesmo contêiner base (como `application/zip` ou antigos pacotes Microsoft `OLE`), a ferramenta vasculha a estrutura interna silenciosamente para diferenciar com precisão um arquivo `.zip` genérico de um documento `.docx`, `.xlsx` ou até mesmo de um pacote de aplicativo Android `.apk`.
+* **Gatilhos de Alerta Forense:** Se a extensão autêntica for incompatível com a extensão disfarçada no nome do arquivo (ex: um executável ou script malicioso camuflado de `.pdf` ou imagem), o extrator injeta automaticamente no laudo a tag **"🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨"**, expondo a verdadeira natureza estrutural do arquivo. *(Nota: O sistema possui uma whitelist inteligente para extensões atípicas baseadas em texto plano, como .ini, .log ou .conf, aplicando um aviso brando para evitar falsos positivos na triagem).*
+
+___
+
 ## 🔗 Validação Automática da Cadeia de Custódia
 * **Conferência de Listagens de Hashes:** Permite o *Drag & Drop* (arrastar e soltar) de laudos e listagens de hashes de origem (nos formatos PDF, DOCX, XLSX, TXT) ou inserção de texto livre, para auditar a extração feita pelo responsável pela coleta original dos dados e preservar intacta a Cadeia de Custódia.
 * **Limpeza Forense de Texto:** Motor de extração blindado contra sujeiras de formatação e artefatos visuais de PDFs (como espaços invisíveis e quebras de linha fantasmas), garantindo a leitura exata do nome e do hash.
