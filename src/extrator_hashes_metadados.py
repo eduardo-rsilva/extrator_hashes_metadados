@@ -2563,6 +2563,7 @@ class WorkerExtracao(QThread):
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str, str)
     sinal_atualizacao_manual = Signal(bool, str)
+    sinal_nota_desenvolvedor = Signal(str, str)
 
     def __init__(self):
         super().__init__()
@@ -2593,8 +2594,13 @@ class JanelaHashes(QWidget):
 
         # Conecta o sinal emitido pela thread à função que altera a interface
         self.sinal_atualizacao.connect(self._exibir_alerta_atualizacao)
+        self.sinal_nota_desenvolvedor.connect(self._exibir_nota_desenvolvedor)
+
         # --- CHAMA A ROTINA DE CHECAGEM DE NOVA ATUALIZAÇÃO DE VERSÃO ---
         self.checar_atualizacoes()
+
+        # --- CHAMA A ROTINA DE NOTAS DO DESENVOLVEDOR ---
+        self.checar_notas_desenvolvedor()
 
     def setup_ui(self):
         # Layout raiz da janela inteira
@@ -4174,6 +4180,84 @@ class JanelaHashes(QWidget):
     def _garantir_exclusividade_raw(self, checked):
         if checked:
             self.chk_metadados.setChecked(False)
+
+    def checar_notas_desenvolvedor(self):
+        """Busca o arquivo notas_desenvolvimento.md no GitHub de forma assíncrona."""
+        # IMPORTANTE: Se a branch principal do seu repositório for 'main', troque 'master' por 'main' abaixo.
+        url = f"https://raw.githubusercontent.com/{USUARIO}/{REPOSITORIO}/master/notas_desenvolvimento.md"
+
+        def _worker():
+            try:
+                import urllib.request
+                import ssl
+                import hashlib
+
+                contexto_ssl = ssl._create_unverified_context()
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+
+                with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
+                    conteudo = response.read().decode('utf-8').strip()
+
+                # Se o arquivo existir e não estiver em branco (exatamente como você planejou)
+                if conteudo:
+                    # Cria um hash MD5 do texto. Se você mudar uma vírgula no aviso, o hash muda e a nota volta a aparecer.
+                    hash_conteudo = hashlib.md5(conteudo.encode('utf-8')).hexdigest()
+                    self.sinal_nota_desenvolvedor.emit(conteudo, hash_conteudo)
+
+            except Exception as e:
+                # Se der erro 404 (arquivo não existe ainda) ou faltar internet, ignora silenciosamente.
+                if DEBUG_MESSAGES:
+                    print(f"[DEBUG] Erro ao checar notas do desenvolvedor: {e}")
+
+        import threading
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
+
+    def _exibir_nota_desenvolvedor(self, conteudo, hash_conteudo):
+        """Exibe o popup e lida com a escolha do usuário baseada no hash do aviso."""
+        config = carregar_config()
+
+        # Verifica no config.dat se esta nota (por seu hash) já foi silenciada
+        if config.get("nota_oculta_hash") == hash_conteudo:
+            return
+
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Nota do Desenvolvedor")
+        msg_box.setIcon(QMessageBox.Icon.Information)
+
+        fonte = msg_box.font()
+        fonte.setPointSize(11)
+        msg_box.setFont(fonte)
+
+        # Transforma quebras de linha em <br> e escapa caracteres HTML para não quebrar a caixa de texto
+        import html
+        texto_html = html.escape(conteudo).replace('\n', '<br>')
+
+        msg_box.setText("<b>Foi publicado um novo aviso para você:</b>")
+        msg_box.setInformativeText(f"<div style='font-size: 11pt; line-height: 1.4;'><br>{texto_html}</div>")
+
+        btn_ok = msg_box.addButton("OK, entendi", QMessageBox.ButtonRole.AcceptRole)
+        btn_nao_mostrar = msg_box.addButton("OK, não mostrar novamente", QMessageBox.ButtonRole.ActionRole)
+
+        # Mantém o padrão de cores dinâmicas (Dark/Light mode) das outras caixas de mensagem
+        is_dark = hasattr(self, "chk_modo_escuro") and self.chk_modo_escuro.isChecked()
+        if is_dark:
+            btn_ok.setStyleSheet(
+                "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #3c3f41; border: 1px solid #555555; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #505355; border: 1px solid #777777; }")
+            btn_nao_mostrar.setStyleSheet(
+                "QPushButton { padding: 6px 12px; background-color: #2b2b2b; border: 1px solid #444444; border-radius: 4px; color: #ffffff; } QPushButton:hover { background-color: #3b3b3b; border: 1px solid #666666; }")
+        else:
+            btn_ok.setStyleSheet(
+                "QPushButton { padding: 6px 12px; font-weight: bold; background-color: #e0e0e0; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #d0d0d0; border: 1px solid #aaaaaa; }")
+            btn_nao_mostrar.setStyleSheet(
+                "QPushButton { padding: 6px 12px; background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; color: #000000; } QPushButton:hover { background-color: #eeeeee; border: 1px solid #bbbbbb; }")
+
+        msg_box.exec()
+
+        if msg_box.clickedButton() == btn_nao_mostrar:
+            # Salva o hash criptografado no config.dat. Isso vincula a regra do "não mostrar" estritamente a este texto.
+            config["nota_oculta_hash"] = hash_conteudo
+            salvar_config(config)
 
     def checar_atualizacoes(self, manual=False):
         """Checa na API do GitHub se há uma nova Release publicada e obtém o link do ZIP."""
