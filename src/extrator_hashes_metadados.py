@@ -8992,11 +8992,12 @@ class JanelaHashes(QWidget):
     def copiar_para_area_transferencia(self):
         # Em vez de ler da interface (toPlainText), puxamos do array em memória
         conteudo = "\n".join(self._relatorio_memoria)
-
         if conteudo.strip() and conteudo.strip() != MENSAGEM_INICIAL:
-            QApplication.clipboard().setText(conteudo)
-            self.btn_copiar.setText("Copiado!")
+            # Limpa os Null Bytes antes de mandar para o Clipboard
+            conteudo_limpo = conteudo.replace('\x00', '')
 
+            QApplication.clipboard().setText(conteudo_limpo)
+            self.btn_copiar.setText("Copiado!")
             # Agenda a restauração do texto do botão para daqui a 1000ms (1 segundo)
             QTimer.singleShot(1000, lambda: self.btn_copiar.setText("Copiar Relatório (Ctrl+C)"))
 
