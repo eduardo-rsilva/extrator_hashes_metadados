@@ -261,6 +261,8 @@ def is_running_compiled() -> bool:
 
 
 BASE_DIR = get_base_dir()
+
+import mimetypes
 _MOTOR_MAGIC_CACHE = None
 
 def obter_motor_magic():
@@ -7185,10 +7187,36 @@ class JanelaHashes(QWidget):
                     'application/vnd.android.package-archive': ['apk']
                 }
 
-                # Procura as extensões válidas para o MIME detectado
-                extensoes_esperadas = mime_map.get(mime_verdadeiro, [])
+                # 1. Procura as extensões válidas priorizando o dicionário mime_map
+                extensoes_esperadas = mime_map.get(mime_verdadeiro)
 
-                # Se o MIME detectado estiver no nosso dicionário e a extensão atual não bater com nenhuma das esperadas
+                # 2. Se a assinatura não estiver no mime_map, consulta o arquivo 'mime.types' (banco de dados padronizado)
+                if not extensoes_esperadas:
+                    extensoes_sistema = mimetypes.guess_all_extensions(mime_verdadeiro)
+                    extensoes_esperadas = [ext.lstrip('.').lower() for ext in
+                                           extensoes_sistema] if extensoes_sistema else []
+
+                # =====================================================================
+                # Extração Heurística Dinâmica
+                # =====================================================================
+                # Se o arquivo não estava no mime_map e também falhou no mime.types,
+                # o programa deduz a extensão a partir do próprio nome do formato
+                if not extensoes_esperadas and '/' in mime_verdadeiro:
+                    # Pega a parte depois da barra (ex: "audio/x-flac" vira "x-flac")
+                    subtipo = mime_verdadeiro.split('/')[-1].lower()
+
+                    # Remove o prefixo legado "x-" se existir (ex: "x-flac" vira "flac")
+                    if subtipo.startswith('x-'):
+                        subtipo = subtipo[2:]
+
+                    # Remove sufixos complexos (ex: "epub+zip" vira "epub")
+                    subtipo = subtipo.split('+')[0]
+
+                    # Salva a dedução para forçar o alerta forense
+                    extensoes_esperadas = [subtipo]
+                # =====================================================================
+
+                # 3. A lógica original continua intacta: Se achou extensões esperadas e a atual não bate
                 if extensoes_esperadas and (extensao not in extensoes_esperadas):
 
                     # 1. TRATAMENTO ESPECÍFICO PARA ARQUIVOS DE TEXTO (Suavização total)
@@ -7271,7 +7299,10 @@ class JanelaHashes(QWidget):
                             metadados_extras.append(
                                 f"   ↳ Informação: A extração de metadados abaixo refere-se à estrutura real do arquivo (formato {mime_verdadeiro.upper()}).")
                             metadados_extras.append("")
-                            extensao = extensoes_esperadas[0]
+
+                            # Trava de segurança: Só altera a extensão se a lista não for vazia
+                            if extensoes_esperadas:
+                                extensao = extensoes_esperadas[0]
 
         except ImportError as e:
             metadados_extras.append("")
@@ -9256,6 +9287,19 @@ class JanelaHashes(QWidget):
         palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
         self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
         self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
+
+        # --- VERIFICAÇÃO DO BANCO DE DADOS DE EXTENSÕES (MIME.TYPES) ---
+        caminho_arquivo_mime = str(BASE_DIR / "magic" / "mime.types")
+
+        if os.path.exists(caminho_arquivo_mime):
+            mimetypes.init(files=[caminho_arquivo_mime])
+        else:
+            self.texto_saida.append("⚠️ AVISO FORENSE: Arquivo 'magic/mime.types' ausente!")
+            self.texto_saida.append(" ↳ O extrator usará as extensões registradas no sistema operacional host.")
+            self.texto_saida.append(
+                " ↳ Os resultados de detecção de formato podem variar dependendo dos softwares instalados nesta máquina.\n")
+            mimetypes.init()
+        # ---------------------------------------------------------------
 
         # Verifica as seleções para exibir os avisos adequados
         tem_metadados = extrair_meta or extrair_raw
