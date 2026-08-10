@@ -2382,14 +2382,29 @@ class WorkerExtracao(QThread):
                         probabilidade = contagem / tamanho_bytes
                         entropia -= probabilidade * math.log2(probabilidade)
 
-                _, ext_arquivo = os.path.splitext(caminho_arquivo)
-                ext_arquivo = ext_arquivo.lower().replace('.', '')
-                formatos_comprimidos = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'gz', 'mp4', 'mkv',
-                                        'avi', 'mp3', 'm4a', 'pdf']
+                # Identifica a VERDADEIRA natureza do arquivo via Magic Bytes (MIME Type)
+                try:
+                    motor_magic = obter_motor_magic()
+                    mime_real = motor_magic.from_file(caminho_arquivo).lower()
+                except Exception as e:
+                    mime_real = f"erro_leitura_{e}"
+
+                # Prefixos e tipos MIME genéricos que são naturalmente comprimidos (alta entropia)
+                mimes_comprimidos = [
+                    'image/', 'video/', 'audio/',
+                    'application/zip', 'application/x-7z-compressed', 'application/x-rar',
+                    'application/gzip', 'application/pdf',
+                    'application/vnd.openxmlformats'
+                ]
+
+                is_comprimido_real = any(mime_real.startswith(p) for p in mimes_comprimidos)
 
                 status_entropia = ""
                 if entropia > 7.9:
-                    status_entropia = " (Normal para o formato comprimido deste arquivo)" if ext_arquivo in formatos_comprimidos else " (⚠️ ALERTA: Alta entropia - Possível Criptografia / Arquivo Packed)"
+                    if is_comprimido_real:
+                        status_entropia = f" (Normal para o formato real detectado: {mime_real})"
+                    else:
+                        status_entropia = f" (⚠️ ALERTA: Alta entropia - Possível Criptografia. Debug Mime: '{mime_real}')"
                 elif entropia < 1.0:
                     status_entropia = " (Baixa entropia - Arquivo altamente repetitivo ou vazio)"
                 else:
@@ -8767,22 +8782,32 @@ class JanelaHashes(QWidget):
                         probabilidade = contagem / tamanho_bytes
                         entropia -= probabilidade * math.log2(probabilidade)
 
-                # Identifica a extensão para evitar falsos positivos de compressão natural
-                _, ext_arquivo = os.path.splitext(caminho_arquivo)
-                ext_arquivo = ext_arquivo.lower().replace('.', '')
-                formatos_comprimidos = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'gz', 'mp4', 'mkv', 'avi',
-                                        'mp3', 'm4a', 'pdf']
+                # Identifica a VERDADEIRA natureza do arquivo via Magic Bytes (MIME Type)
+                try:
+                    motor_magic = obter_motor_magic()
+                    mime_real = motor_magic.from_file(caminho_arquivo).lower()
+                except Exception as e:
+                    mime_real = f"erro_leitura_{e}"
+
+                # Prefixos e tipos MIME genéricos que são naturalmente comprimidos (alta entropia)
+                mimes_comprimidos = [
+                    'image/', 'video/', 'audio/',
+                    'application/zip', 'application/x-7z-compressed', 'application/x-rar',
+                    'application/gzip', 'application/pdf',
+                    'application/vnd.openxmlformats'
+                ]
+
+                is_comprimido_real = any(mime_real.startswith(p) for p in mimes_comprimidos)
 
                 status_entropia = ""
                 if entropia > 7.9:
-                    if ext_arquivo in formatos_comprimidos:
-                        status_entropia = " (Normal para o formato comprimido deste arquivo)"
+                    if is_comprimido_real:
+                        status_entropia = f" (Normal para o formato real detectado: {mime_real})"
                     else:
-                        status_entropia = " (⚠️ ALERTA: Alta entropia - Possível Criptografia / Arquivo Packed)"
+                        status_entropia = f" (⚠️ ALERTA: Alta entropia - Possível Criptografia. Debug Mime: '{mime_real}')"
                 elif entropia < 1.0:
                     status_entropia = " (Baixa entropia - Arquivo altamente repetitivo ou vazio)"
                 else:
-                    # --- Mensagem para a faixa normal (entre 1.0 e 7.9) ---
                     status_entropia = " (Entropia normal - Sem indícios de ofuscação ou criptografia)"
 
                 resultado_entropia = f"{entropia:.4f}{status_entropia}"
