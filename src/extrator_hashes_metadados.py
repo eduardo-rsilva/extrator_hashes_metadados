@@ -7226,8 +7226,19 @@ class JanelaHashes(QWidget):
                     'application/vnd.android.package-archive': ['apk']
                 }
 
-                # 1. Procura as extensões válidas priorizando o dicionário mime_map
-                extensoes_esperadas = mime_map.get(mime_verdadeiro)
+                # 1. Procura as extensões válidas interceptando famílias de executáveis primeiro
+                if 'dosexec' in mime_verdadeiro or 'portable-executable' in mime_verdadeiro:
+                    # Família Windows (PE)
+                    extensoes_esperadas = ['exe', 'dll', 'sys', 'ocx', 'scr', 'cpl', '']
+                elif 'x-executable' in mime_verdadeiro or 'x-pie-executable' in mime_verdadeiro or 'x-sharedlib' in mime_verdadeiro:
+                    # Família Linux / Android (ELF)
+                    extensoes_esperadas = ['elf', 'so', 'ko', '']
+                elif 'mach-binary' in mime_verdadeiro:
+                    # Família macOS / iOS (Mach-O)
+                    extensoes_esperadas = ['dylib', 'kext', '']
+                else:
+                    # Se não for nenhum executável de sistema, busca no dicionário exato
+                    extensoes_esperadas = mime_map.get(mime_verdadeiro)
 
                 # 2. Se a assinatura não estiver no mime_map, consulta o arquivo 'mime.types' (banco de dados padronizado)
                 if not extensoes_esperadas:
