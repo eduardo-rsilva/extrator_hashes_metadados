@@ -2399,6 +2399,7 @@ class WorkerExtracao(QThread):
             self.sig_progresso_arquivo.emit(100)
 
             resultado_entropia = None
+            mime_real = None
             if extrair_metadados:
                 entropia = 0.0
                 if tamanho_bytes > 0:
@@ -2448,7 +2449,8 @@ class WorkerExtracao(QThread):
                 alg in resultados_hash and resultados_hash[alg] == h for alg, h in hashes_arquivo_vazio.items())
 
             return {'sucesso': True, 'hashes': resultados_hash, 'bytes': tamanho_bytes, 'mb': tamanho_mb,
-                    'data': data_modificacao, 'entropia': resultado_entropia, 'arquivo_vazio': arquivo_vazio_detectado}
+                    'data': data_modificacao, 'entropia': resultado_entropia, 'arquivo_vazio': arquivo_vazio_detectado,
+                    'mime_real': mime_real}
         except Exception as e:
             return {'sucesso': False, 'erro': repr(e)}
 
@@ -2538,8 +2540,10 @@ class WorkerExtracao(QThread):
                             "⏳ AVISO: Renderizando Raw Dump massivo... A interface pode pausar por alguns instantes...")
 
                     # Chamada 100% segura, a lógica dele roda na Thread e não altera a GUI
+                    mime_reaproveitado = resultado.get('mime_real')  # Resgata a leitura prévia
                     metadados_midia, formato_real_se_falso = self.janela.obter_metadados_avancados(arquivo,
-                                                                                                   extrair_raw=self.extrair_raw)
+                                                                                                   extrair_raw=self.extrair_raw,
+                                                                                                   mime_pre_calculado=mime_reaproveitado)
 
                     if formato_real_se_falso:
                         # Pega a extensão atual para criar a label "TXT (na verdade JPG)"
@@ -7183,7 +7187,7 @@ class JanelaHashes(QWidget):
         self.btn_limpar_custodia.setEnabled(True)
 
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
-    def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False):
+    def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False, mime_pre_calculado=None):
         """Distribui o arquivo para o extrator correto baseado na extensão."""
         metadados_extras = []
         raw_dump = []
@@ -7192,11 +7196,12 @@ class JanelaHashes(QWidget):
 
         # --- DETECÇÃO DE MAGIC BYTES VIA PYTHON-MAGIC ---
         try:
-            # Obtém a instância (se for o arquivo 2 em diante, é instantâneo)
-            m = obter_motor_magic()
-
-            # Faz a análise do arquivo atual
-            mime_verdadeiro = m.from_file(caminho_arquivo)
+            # Aproveita a leitura já feita na extração de entropia, evitando I/O duplicado no disco
+            if mime_pre_calculado and not mime_pre_calculado.startswith("erro_"):
+                mime_verdadeiro = mime_pre_calculado
+            else:
+                m = obter_motor_magic()
+                mime_verdadeiro = m.from_file(caminho_arquivo).lower()
 
             if mime_verdadeiro and mime_verdadeiro != "application/octet-stream":
                 # Mapeamento robusto entre MIME types e extensões esperadas
