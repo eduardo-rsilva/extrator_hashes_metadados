@@ -259,11 +259,35 @@ def is_running_compiled() -> bool:
     return False
 
 
-
 BASE_DIR = get_base_dir()
 
 import mimetypes
+
 _MOTOR_MAGIC_CACHE = None
+_MIME_TYPES_CARREGADO = False  # Nova flag global de controle
+
+
+def inicializar_mimetypes(texto_saida=None):
+    """Garante que a base do mime.types seja lida do disco rígido apenas uma vez."""
+    global _MIME_TYPES_CARREGADO
+
+    # Se já foi carregado em uma extração anterior, sai instantaneamente (evita a lentidão)
+    if _MIME_TYPES_CARREGADO:
+        return
+
+    caminho_arquivo_mime = str(BASE_DIR / "magic" / "mime.types")
+    if os.path.exists(caminho_arquivo_mime):
+        # Força a leitura do arquivo limpo, impedindo que o Python varra o Registro do Windows
+        mimetypes.init(files=[caminho_arquivo_mime])
+    else:
+        if texto_saida is not None:
+            texto_saida.append("⚠️ AVISO FORENSE: Arquivo 'magic/mime.types' ausente!")
+            texto_saida.append(" ↳ O extrator usará as extensões registradas no sistema operacional host.")
+            texto_saida.append(" ↳ Os resultados podem variar dependendo dos softwares desta máquina.\n")
+        mimetypes.init()
+
+    _MIME_TYPES_CARREGADO = True
+
 
 def obter_motor_magic():
     """Inicializa o libmagic apenas na primeira chamada e retorna a instância."""
@@ -9229,6 +9253,9 @@ class JanelaHashes(QWidget):
             self.processar_arquivos(arquivos_encontrados, info_drive, texto_custodia, caminhos_iniciais)
 
     def processar_arquivos(self, lista_arquivos, info_drive=None, texto_custodia="", caminhos_iniciais=None):
+        # Carrega a base de mimetypes do disco apenas uma vez antes da extração em lote iniciar
+        inicializar_mimetypes(self.texto_saida)
+
         # Garante que as barras de progresso apareçam ao iniciar o processamento
         if hasattr(self, 'container_progresso'):
             self.container_progresso.show()
@@ -9313,19 +9340,6 @@ class JanelaHashes(QWidget):
         palavra_arq_inicio = "arquivo" if total_arquivos == 1 else "arquivos"
         self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
         self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
-
-        # --- VERIFICAÇÃO DO BANCO DE DADOS DE EXTENSÕES (MIME.TYPES) ---
-        caminho_arquivo_mime = str(BASE_DIR / "magic" / "mime.types")
-
-        if os.path.exists(caminho_arquivo_mime):
-            mimetypes.init(files=[caminho_arquivo_mime])
-        else:
-            self.texto_saida.append("⚠️ AVISO FORENSE: Arquivo 'magic/mime.types' ausente!")
-            self.texto_saida.append(" ↳ O extrator usará as extensões registradas no sistema operacional host.")
-            self.texto_saida.append(
-                " ↳ Os resultados de detecção de formato podem variar dependendo dos softwares instalados nesta máquina.\n")
-            mimetypes.init()
-        # ---------------------------------------------------------------
 
         # Verifica as seleções para exibir os avisos adequados
         tem_metadados = extrair_meta or extrair_raw
