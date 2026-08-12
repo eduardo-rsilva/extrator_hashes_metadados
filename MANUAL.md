@@ -188,7 +188,7 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
 * **ADS (NTFS):** O programa alerta sobre dados ocultos em fluxos de dados alternativos e fornece comandos PowerShell prontos para extração de payloads.
 * **Redes Sociais:** Identifica se o arquivo foi "lavado" (*metadata stripping*) por plataformas como WhatsApp, Telegram ou Facebook.
 * **Entropia:** Valores de Entropia de Shannon acima de 7.9 indicam alta probabilidade de criptografia ou arquivos *packed*.
-* **Adulteração de Extensões (Magic Bytes):** O programa realiza a leitura binária estrutural dos arquivos, não confiando apenas na extensão do nome. Caso um executável malicioso ou script seja camuflado como imagem ou PDF, por exemplo, o relatório emitirá o aviso **"🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨"**, expondo o verdadeiro formato oculto (técnica de *Anti-Forensics*).
+* **Adulteração de Extensões (Magic Bytes):** O programa realiza a leitura binária estrutural dos arquivos, não confiando apenas na extensão do nome. Caso um executável malicioso ou script seja camuflado como imagem ou PDF, por exemplo, o relatório emitirá o aviso **"⚠️ ALERTA FORENSE: POSSÍVEL ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) ⚠️"**, expondo o verdadeiro formato oculto (técnica de *Anti-Forensics*).
 
     <figure>
       <img src="imgs/incluir_metadados.PNG" alt="Seletor para inclusão de metadados." style="border: 1px solid black;" width="100%">
