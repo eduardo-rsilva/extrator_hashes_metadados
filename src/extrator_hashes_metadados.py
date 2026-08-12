@@ -1722,6 +1722,16 @@ def formatar_bytes_dinamico(tamanho_bytes: int) -> str:
     # Retorna formatado com vírgula no padrão brasileiro
     return f"{valor:.2f}".replace(".", ",") + f" {unidades[indice]}"
 
+def obter_cabecalho_hex(caminho_arquivo, num_bytes=8):
+    """Lê os primeiros bytes do arquivo e os formata em Hexadecimal para análise de Magic Bytes."""
+    try:
+        with open(caminho_arquivo, 'rb') as f:
+            bytes_lidos = f.read(num_bytes)
+            hex_formatado = ' '.join([f"{b:02X}" for b in bytes_lidos])
+            return f"{hex_formatado} (Hex)" if hex_formatado else "VAZIO"
+    except Exception:
+        return "INDISPONÍVEL (Erro de Leitura)"
+
 
 def obter_info_volume(caminho):
     """Obtém o rótulo (Label), Serial, Sistema de Arquivos e Capacidade da unidade selecionada."""
@@ -2546,10 +2556,10 @@ class WorkerExtracao(QThread):
                                                                                                    mime_pre_calculado=mime_reaproveitado)
 
                     if formato_real_se_falso:
-                        # Pega a extensão atual para criar a label "TXT (na verdade JPG)"
+                        # Pega a extensão atual para criar a label "TXT (Possível formato real: JPG)"
                         _, ext_atual = os.path.splitext(arquivo)
                         ext_atual = ext_atual.upper()[1:] if ext_atual else "SEM EXTENSÃO"
-                        alerta_falso = f"{ext_atual} (Mascarando formato real: {formato_real_se_falso})"
+                        alerta_falso = f"{ext_atual} (Possível formato real: {formato_real_se_falso})"
                         self.contagem_extensoes_falsas[alerta_falso] = self.contagem_extensoes_falsas.get(
                             alerta_falso, 0) + 1
 
@@ -7299,12 +7309,15 @@ class JanelaHashes(QWidget):
 
                     else:
                         # 2. ALERTA FORENSE PARA ADULTERAÇÕES REAIS (Exe, PDF, Zip, Midias, etc.)
+                        cabecalho_hex = obter_cabecalho_hex(caminho_arquivo)
                         metadados_extras.append("")
-                        metadados_extras.append("🚨 ALERTA FORENSE: ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) 🚨")
-                        metadados_extras.append(f"   ↳ Extensão Falsa (Atual): .{extensao}")
-                        metadados_extras.append(f"   ↳ Formato Real do Arquivo: {mime_verdadeiro.upper()}")
                         metadados_extras.append(
-                            f"   ↳ Nota: A extensão do arquivo está mascarando sua verdadeira estrutura (Assinatura real: {mime_verdadeiro.upper()}).")
+                            "⚠️ ALERTA FORENSE: POSSÍVEL ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) ⚠️")
+                        metadados_extras.append(f"   ↳ Extensão Apresentada: .{extensao}")
+                        metadados_extras.append(f"   ↳ Formato Estrutural Detectado: {mime_verdadeiro.upper()}")
+                        metadados_extras.append(f"   ↳ Magic Bytes Lidos (Header): {cabecalho_hex}")
+                        metadados_extras.append(
+                            f"   ↳ Nota: A extensão do arquivo pode estar mascarando sua verdadeira estrutura ou ser uma variação não mapeada (Assinatura detectada: {mime_verdadeiro.upper()}).")
 
                         # Preenche a nova variável com o primeiro formato da lista de extensões esperadas (o mais provável)
                         extensao_falsa_detectada = extensoes_esperadas[0].upper()
@@ -10023,11 +10036,23 @@ class JanelaHashes(QWidget):
 
         contagem_falsas = payload.get("contagem_extensoes_falsas", {})
         if contagem_falsas:
-            self.texto_saida.append("\n⚠️ ALERTA DE FORMATOS MASCARADOS:")
+            self.texto_saida.append("\n⚠️ ALERTA DE POSSÍVEIS FORMATOS MASCARADOS:")
             falsas_ordenadas = sorted(contagem_falsas.items(), key=lambda item: item[1], reverse=True)
             for f_ext, f_qtd in falsas_ordenadas:
                 f_palavra = "arquivo" if f_qtd == 1 else "arquivos"
-                self.texto_saida.append(f"  ↳ {f_qtd} {f_palavra} com extensão {f_ext}")
+                self.texto_saida.append(f"   ↳ {f_qtd} {f_palavra} com extensão {f_ext}")
+
+            # Novo disclaimer com os links de validação forense
+            self.texto_saida.append(
+                "\n   ℹ️ NOTA DE VALIDAÇÃO: Extensões menos comuns ou proprietárias não encontradas")
+            self.texto_saida.append("   na lista interna deste programa podem gerar falsos positivos. Recomenda-se")
+            self.texto_saida.append("   validar manualmente a relação entre esta extensão e sua assinatura binária:")
+            self.texto_saida.append(
+                "   🔗 Padrões MIME (IANA): https://www.iana.org/assignments/media-types/media-types.xhtml")
+            self.texto_saida.append(
+                "   🔗 Magic Bytes (Gary Kessler): https://www.garykessler.net/library/file_sigs.html")
+            self.texto_saida.append(
+                "   🔗 Magic Bytes (Wikipedia): https://en.wikipedia.org/wiki/List_of_file_signatures")
 
         arquivos_processados_qtd = payload.get("arquivos_processados_qtd", 0)
         palavra_arq_total = "arquivo" if arquivos_processados_qtd == 1 else "arquivos"
