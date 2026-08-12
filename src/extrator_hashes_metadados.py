@@ -1722,16 +1722,6 @@ def formatar_bytes_dinamico(tamanho_bytes: int) -> str:
     # Retorna formatado com vírgula no padrão brasileiro
     return f"{valor:.2f}".replace(".", ",") + f" {unidades[indice]}"
 
-def obter_cabecalho_hex(caminho_arquivo, num_bytes=8):
-    """Lê os primeiros bytes do arquivo e os formata em Hexadecimal para análise de Magic Bytes."""
-    try:
-        with open(caminho_arquivo, 'rb') as f:
-            bytes_lidos = f.read(num_bytes)
-            hex_formatado = ' '.join([f"{b:02X}" for b in bytes_lidos])
-            return f"{hex_formatado} (Hex)" if hex_formatado else "VAZIO"
-    except Exception:
-        return "INDISPONÍVEL (Erro de Leitura)"
-
 
 def obter_info_volume(caminho):
     """Obtém o rótulo (Label), Serial, Sistema de Arquivos e Capacidade da unidade selecionada."""
@@ -2358,6 +2348,9 @@ class WorkerExtracao(QThread):
             bytes_processados = 0
             tamanho_chunk = 65536
 
+            # Variável nativa para carregar o header
+            cabecalho_hex_pre_calculado = "VAZIO"
+
             try:
                 with open(caminho_arquivo, 'rb') as f:
                     if os.name == 'nt' and tamanho_bytes > 0:
@@ -2371,6 +2364,14 @@ class WorkerExtracao(QThread):
                             if not chunk: break
                             if self.cancelar_operacao:
                                 return {'sucesso': False, 'erro': 'OPERAÇÃO CANCELADA PELO USUÁRIO'}
+
+                            # ---> CAPTURA ZERO-COST DOS MAGIC BYTES <---
+                            # Se for o primeiro bloco sendo lido, guarda os 8 primeiros bytes para o cache.
+                            if bytes_processados == 0 and len(chunk) > 0:
+                                bytes_iniciais = chunk[:16]
+                                hex_formatado = ' '.join([f"{b:02X}" for b in bytes_iniciais])
+                                cabecalho_hex_pre_calculado = f"{hex_formatado} (Hex)"
+                            # ---------------------------------------------
 
                             for algo in algos_selecionados:
                                 if algo == "CRC32":
@@ -2460,7 +2461,7 @@ class WorkerExtracao(QThread):
 
             return {'sucesso': True, 'hashes': resultados_hash, 'bytes': tamanho_bytes, 'mb': tamanho_mb,
                     'data': data_modificacao, 'entropia': resultado_entropia, 'arquivo_vazio': arquivo_vazio_detectado,
-                    'mime_real': mime_real}
+                    'mime_real': mime_real, 'cabecalho_hex': cabecalho_hex_pre_calculado}
         except Exception as e:
             return {'sucesso': False, 'erro': repr(e)}
 
@@ -2551,9 +2552,12 @@ class WorkerExtracao(QThread):
 
                     # Chamada 100% segura, a lógica dele roda na Thread e não altera a GUI
                     mime_reaproveitado = resultado.get('mime_real')  # Resgata a leitura prévia
+                    cabecalho_reaproveitado = resultado.get('cabecalho_hex',
+                                                            'VAZIO')  # Resgata os bytes sem ler de novo
                     metadados_midia, formato_real_se_falso = self.janela.obter_metadados_avancados(arquivo,
                                                                                                    extrair_raw=self.extrair_raw,
-                                                                                                   mime_pre_calculado=mime_reaproveitado)
+                                                                                                   mime_pre_calculado=mime_reaproveitado,
+                                                                                                   cabecalho_hex_pre_calculado=cabecalho_reaproveitado)
 
                     if formato_real_se_falso:
                         # Pega a extensão atual para criar a label "TXT (Possível formato real: JPG)"
@@ -7197,7 +7201,7 @@ class JanelaHashes(QWidget):
         self.btn_limpar_custodia.setEnabled(True)
 
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
-    def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False, mime_pre_calculado=None):
+    def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False, mime_pre_calculado=None, cabecalho_hex_pre_calculado=None):
         """Distribui o arquivo para o extrator correto baseado na extensão."""
         metadados_extras = []
         raw_dump = []
@@ -7309,7 +7313,8 @@ class JanelaHashes(QWidget):
 
                     else:
                         # 2. ALERTA FORENSE PARA ADULTERAÇÕES REAIS (Exe, PDF, Zip, Midias, etc.)
-                        cabecalho_hex = obter_cabecalho_hex(caminho_arquivo)
+                        # Usa os dados que a Thread principal já injetou, sem tocar no disco rígido novamente!
+                        cabecalho_hex = cabecalho_hex_pre_calculado if cabecalho_hex_pre_calculado else "VAZIO"
                         metadados_extras.append("")
                         metadados_extras.append(
                             "⚠️ ALERTA FORENSE: POSSÍVEL ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) ⚠️")
