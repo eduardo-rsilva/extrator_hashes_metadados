@@ -7320,7 +7320,7 @@ class JanelaHashes(QWidget):
                             "⚠️ ALERTA FORENSE: POSSÍVEL ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) ⚠️")
                         metadados_extras.append(f"   ↳ Extensão Apresentada: .{extensao}")
                         metadados_extras.append(f"   ↳ Formato Estrutural Detectado: {mime_verdadeiro.upper()}")
-                        metadados_extras.append(f"   ↳ Magic Bytes Lidos (Header): {cabecalho_hex}")
+                        metadados_extras.append(f"   ↳ Primeiros Bytes (Offset 0): {cabecalho_hex}")
                         metadados_extras.append(
                             f"   ↳ Nota: A extensão do arquivo pode estar mascarando sua verdadeira estrutura ou ser uma variação não mapeada (Assinatura detectada: {mime_verdadeiro.upper()}).")
 
