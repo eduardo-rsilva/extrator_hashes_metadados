@@ -2530,7 +2530,7 @@ class WorkerExtracao(QThread):
                 self.arquivos_por_hash[chave_agrupamento].append(arquivo)
 
                 self.sig_texto_append.emit(f"Tamanho: {resultado['bytes']} bytes ({resultado['mb']:.2f} MB)")
-                self.sig_texto_append.emit(f"Modificado em: {resultado['data']}")
+                self.sig_texto_append.emit(f"Data de Modificação (mtime/SO): {resultado['data']}")
 
                 for algo in self.algos_selecionados:
                     hash_val = resultado.get('hashes', {}).get(algo, "Indisponível")
@@ -10118,18 +10118,22 @@ class JanelaHashes(QWidget):
             horas, resto = divmod(tempo_total, 3600)
             minutos, segundos = divmod(resto, 60)
             h, m, s = int(horas), int(minutos), int(segundos)
-
             if h > 0:
                 str_tempo_final = f"{h}h{m}min{s}s"
             elif m > 0:
                 str_tempo_final = f"{m}min{s}s"
             else:
                 str_tempo_final = f"{s}s" if s > 0 else "< 1s"
-
             self.lbl_progresso_arquivo.setText("Progresso do Arquivo Atual: Concluído!")
-            self.lbl_progresso_total.setText(
-                f"Progresso Total (Arquivos) - Concluído! (Tempo Decorrido: {str_tempo_final})")
-            self.texto_saida.append(f"Processamento concluído com sucesso em {str_tempo_final}!\n")
+            self.lbl_progresso_total.setText(f"Processamento Concluído! Tempo total: {str_tempo_final}")
+            self.texto_saida.append(f"\nTempo total de processamento: {str_tempo_final}")
+
+            # --- NOTA TÉCNICA ADICIONADA AO FIM DO RELATÓRIO ---
+            self.texto_saida.append("\n" + "=" * 60)
+            self.texto_saida.append("NOTA TÉCNICA: SOBRE OS METADADOS DE DATA E HORA")
+            self.texto_saida.append("A data exibida no campo 'Data de Modificação (mtime/SO)' refere-se aos metadados do Sistema de Arquivos da mídia analisada. Ela indica a última vez que o conteúdo binário do arquivo sofreu uma alteração registrada pelo Sistema Operacional local (mtime).")
+            self.texto_saida.append("Para fins forenses, ressalta-se que esta data NÃO garante o momento da criação original do arquivo. Operações como cópia entre pendrives, descompactação de ZIP/RAR ou downloads podem preservar datas antigas ou registrar datas novas dependendo do comportamento do sistema.")
+            self.texto_saida.append("=" * 60)
         else:
             self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
 
