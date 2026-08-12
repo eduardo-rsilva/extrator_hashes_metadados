@@ -2530,7 +2530,10 @@ class WorkerExtracao(QThread):
                 self.arquivos_por_hash[chave_agrupamento].append(arquivo)
 
                 self.sig_texto_append.emit(f"Tamanho: {resultado['bytes']} bytes ({resultado['mb']:.2f} MB)")
-                self.sig_texto_append.emit(f"Data de Modificação (mtime/SO): {resultado['data']}")
+
+                # Exibe a data de modificação apenas se alguma opção de metadados estiver selecionada
+                if self.extrair_meta or self.extrair_raw:
+                    self.sig_texto_append.emit(f"Data de Modificação (mtime/SO): {resultado['data']}")
 
                 for algo in self.algos_selecionados:
                     hash_val = resultado.get('hashes', {}).get(algo, "Indisponível")
@@ -9380,12 +9383,12 @@ class JanelaHashes(QWidget):
 
         if not algos_selecionados and not tem_metadados:
             self.texto_saida.append(
-                "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas informações básicas do arquivo serão extraídas.\n")
+                "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas tamanhos dos arquivos serão mostrados.\n")
         elif not algos_selecionados and tem_metadados:
             self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
         elif algos_selecionados and not tem_metadados:
             self.texto_saida.append(
-                "[AVISO] Nenhuma opção de metadados selecionada. Apenas os hashes e informações básicas serão extraídos.\n")
+                "[AVISO] Nenhuma opção de metadados selecionada. Apenas hashes e tamanhos dos arquivos serão mostrados.\n")
 
         if tem_metadados:
             dependencias_ausentes = []
@@ -10128,12 +10131,16 @@ class JanelaHashes(QWidget):
             self.lbl_progresso_total.setText(f"Processamento Concluído! Tempo total: {str_tempo_final}")
             self.texto_saida.append(f"\nTempo total de processamento: {str_tempo_final}")
 
-            # --- NOTA TÉCNICA ADICIONADA AO FIM DO RELATÓRIO ---
-            self.texto_saida.append("\n" + "=" * 60)
-            self.texto_saida.append("NOTA TÉCNICA: SOBRE OS METADADOS DE DATA E HORA")
-            self.texto_saida.append("A data exibida no campo 'Data de Modificação (mtime/SO)' refere-se aos metadados do Sistema de Arquivos da mídia analisada. Ela indica a última vez que o conteúdo binário do arquivo sofreu uma alteração registrada pelo Sistema Operacional local (mtime).")
-            self.texto_saida.append("Para fins forenses, ressalta-se que esta data NÃO garante o momento da criação original do arquivo. Operações como cópia entre pendrives, descompactação de ZIP/RAR ou downloads podem preservar datas antigas ou registrar datas novas dependendo do comportamento do sistema.")
-            self.texto_saida.append("=" * 60)
+            # Verifica se alguma extração de metadados ocorreu para exibir a nota técnica
+            tem_metadados = self.chk_metadados.isChecked() or self.chk_metadados_raw.isChecked()
+
+            if tem_metadados:
+                # --- NOTA TÉCNICA ADICIONADA AO FIM DO RELATÓRIO ---
+                self.texto_saida.append("\n" + "=" * 60)
+                self.texto_saida.append("NOTA TÉCNICA: SOBRE OS METADADOS DE DATA E HORA")
+                self.texto_saida.append("A data exibida no campo 'Data de Modificação (mtime/SO)' refere-se aos metadados do Sistema de Arquivos da mídia analisada. Ela indica a última vez que o conteúdo binário do arquivo sofreu uma alteração registrada pelo Sistema Operacional local (mtime).")
+                self.texto_saida.append("Para fins forenses, ressalta-se que esta data NÃO garante o momento da criação original do arquivo. Operações como cópia entre pendrives, descompactação de ZIP/RAR ou downloads podem preservar datas antigas ou registrar datas novas dependendo do comportamento do sistema.")
+                self.texto_saida.append("=" * 60)
         else:
             self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
 
