@@ -10139,7 +10139,7 @@ class JanelaHashes(QWidget):
                 self.texto_saida.append("\n" + "=" * 60)
                 self.texto_saida.append("NOTA TÉCNICA: SOBRE OS METADADOS DE DATA E HORA")
                 self.texto_saida.append("A data exibida no campo 'Data de Modificação (mtime/SO)' refere-se aos metadados do Sistema de Arquivos da mídia analisada. Ela indica a última vez que o conteúdo binário do arquivo sofreu uma alteração registrada pelo Sistema Operacional local (mtime).")
-                self.texto_saida.append("Para fins forenses, ressalta-se que esta data NÃO garante o momento da criação original do arquivo. Operações como cópia entre pendrives, descompactação de ZIP/RAR ou downloads podem preservar datas antigas ou registrar datas novas dependendo do comportamento do sistema.")
+                self.texto_saida.append("Para fins forenses, ressalta-se que esta data NÃO garante o momento da criação original do arquivo. Operações como cópia entre pendrives, descompactação de ZIP/RAR ou downloads podem preservar datas antigas ou registrar datas novas dependendo do comportamento do sistema. Além disso, carimbos de tempo em sistemas de arquivos são passíveis de adulteração intencional por softwares de terceiros (timestomping).")
                 self.texto_saida.append("=" * 60)
         else:
             self.lbl_progresso_total.setText("Progresso Total (Arquivos) - Cancelado pelo usuário.")
