@@ -2421,7 +2421,10 @@ class WorkerExtracao(QThread):
                 # Identifica a VERDADEIRA natureza do arquivo via Magic Bytes (MIME Type)
                 try:
                     motor_magic = obter_motor_magic()
-                    mime_real = motor_magic.from_file(caminho_arquivo).lower()
+                    # Lê os bytes pelo Python para evitar bug de encoding de caminho do libmagic no Windows
+                    with open(caminho_arquivo, 'rb') as f_magic:
+                        cabecalho_magic = f_magic.read(2048)
+                    mime_real = motor_magic.from_buffer(cabecalho_magic).lower()
                 except Exception as e:
                     mime_real = f"erro_leitura_{e}"
 
@@ -7218,7 +7221,10 @@ class JanelaHashes(QWidget):
                 mime_verdadeiro = mime_pre_calculado
             else:
                 m = obter_motor_magic()
-                mime_verdadeiro = m.from_file(caminho_arquivo).lower()
+                # Lê os bytes pelo Python para evitar bug de encoding de caminho do libmagic no Windows
+                with open(caminho_arquivo, 'rb') as f_magic:
+                    cabecalho_magic = f_magic.read(2048)
+                mime_verdadeiro = m.from_buffer(cabecalho_magic).lower()
 
             if mime_verdadeiro and mime_verdadeiro != "application/octet-stream":
                 # Mapeamento robusto entre MIME types e extensões esperadas
@@ -8846,7 +8852,10 @@ class JanelaHashes(QWidget):
                 # Identifica a VERDADEIRA natureza do arquivo via Magic Bytes (MIME Type)
                 try:
                     motor_magic = obter_motor_magic()
-                    mime_real = motor_magic.from_file(caminho_arquivo).lower()
+                    # Lê os bytes pelo Python para evitar bug de encoding de caminho do libmagic no Windows
+                    with open(caminho_arquivo, 'rb') as f_magic:
+                        cabecalho_magic = f_magic.read(2048)
+                    mime_real = motor_magic.from_buffer(cabecalho_magic).lower()
                 except Exception as e:
                     mime_real = f"erro_leitura_{e}"
 
