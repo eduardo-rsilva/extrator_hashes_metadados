@@ -4246,36 +4246,77 @@ class JanelaHashes(QWidget):
         if checked:
             self.chk_metadados.setChecked(False)
 
-    def checar_notas_desenvolvedor(self):
-        """Busca o arquivo notas_desenvolvimento.md no GitHub de forma assíncrona."""
-        url = f"https://raw.githubusercontent.com/{USUARIO}/{REPOSITORIO}/master/notas_desenvolvimento.md"
+    TESTE_LOCAL_NOTAS_DESENVOLVIMENTO = True
+    if TESTE_LOCAL_NOTAS_DESENVOLVIMENTO:
+        def checar_notas_desenvolvedor(self):
+            """Busca o arquivo notas_desenvolvimento.md LOCALMENTE (MODO DE TESTE)."""
 
-        def _worker():
-            try:
-                import urllib.request
-                import ssl
-                import hashlib
+            def _worker():
+                try:
+                    import os
+                    import hashlib
 
-                contexto_ssl = ssl._create_unverified_context()
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                    # Aponta para o arquivo na mesma pasta do seu script
+                    caminho_local = BASE_DIR.parent / "notas_desenvolvimento.md"
 
-                with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
-                    conteudo = response.read().decode('utf-8').strip()
+                    if caminho_local.exists():
+                        # Abre e lê o arquivo local
+                        with open(caminho_local, 'r', encoding='utf-8') as f:
+                            conteudo = f.read().strip()
 
-                # Se o arquivo existir e não estiver em branco
-                if conteudo:
-                    # Cria um hash MD5 do texto. Se houver mudanças no aviso, o hash muda e a nota volta a aparecer.
-                    hash_conteudo = hashlib.md5(conteudo.encode('utf-8')).hexdigest()
-                    self.sinal_nota_desenvolvedor.emit(conteudo, hash_conteudo)
+                        # Se o arquivo não estiver em branco
+                        if conteudo:
+                            # O hash engana o sistema para achar que é uma nota nova
+                            hash_conteudo = hashlib.md5(conteudo.encode('utf-8')).hexdigest()
 
-            except Exception as e:
-                # Se der erro 404 (arquivo não existe ainda) ou faltar internet, ignora silenciosamente.
-                if DEBUG_MESSAGES:
-                    print(f"[DEBUG] Erro ao checar notas do desenvolvedor: {e}")
+                            # (Opcional) Truque: forçar um hash aleatório garante que a janela SEMPRE
+                            # apareça em cada execução de teste, ignorando o salvamento no config.dat
+                            import uuid
+                            hash_conteudo = uuid.uuid4().hex
 
-        import threading
-        t = threading.Thread(target=_worker, daemon=True)
-        t.start()
+                            self.sinal_nota_desenvolvedor.emit(conteudo, hash_conteudo)
+                    else:
+                        if DEBUG_MESSAGES:
+                            print(f"[DEBUG] Arquivo de teste não encontrado em: {caminho_local}")
+
+                except Exception as e:
+                    if DEBUG_MESSAGES:
+                        print(f"[DEBUG] Erro ao ler nota local: {e}")
+
+            import threading
+            t = threading.Thread(target=_worker, daemon=True)
+            t.start()
+    else:
+        def checar_notas_desenvolvedor(self):
+            """Busca o arquivo notas_desenvolvimento.md no GitHub de forma assíncrona."""
+            url = f"https://raw.githubusercontent.com/{USUARIO}/{REPOSITORIO}/master/notas_desenvolvimento.md"
+
+            def _worker():
+                try:
+                    import urllib.request
+                    import ssl
+                    import hashlib
+
+                    contexto_ssl = ssl._create_unverified_context()
+                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+
+                    with urllib.request.urlopen(req, timeout=10, context=contexto_ssl) as response:
+                        conteudo = response.read().decode('utf-8').strip()
+
+                    # Se o arquivo existir e não estiver em branco
+                    if conteudo:
+                        # Cria um hash MD5 do texto. Se houver mudanças no aviso, o hash muda e a nota volta a aparecer.
+                        hash_conteudo = hashlib.md5(conteudo.encode('utf-8')).hexdigest()
+                        self.sinal_nota_desenvolvedor.emit(conteudo, hash_conteudo)
+
+                except Exception as e:
+                    # Se der erro 404 (arquivo não existe ainda) ou faltar internet, ignora silenciosamente.
+                    if DEBUG_MESSAGES:
+                        print(f"[DEBUG] Erro ao checar notas do desenvolvedor: {e}")
+
+            import threading
+            t = threading.Thread(target=_worker, daemon=True)
+            t.start()
 
     def _exibir_nota_desenvolvedor(self, conteudo, hash_conteudo):
         """Exibe o popup e lida com a escolha do usuário baseada no hash do aviso."""
@@ -4293,9 +4334,21 @@ class JanelaHashes(QWidget):
         fonte.setPointSize(11)
         msg_box.setFont(fonte)
 
-        # Transforma quebras de linha em <br> e escapa caracteres HTML para não quebrar a caixa de texto
+        # Transforma Markdown básico em tags HTML suportadas pelo PySide6
         import html
-        texto_html = html.escape(conteudo).replace('\n', '<br>')
+        import re
+
+        # 1. Escapa caracteres de segurança primeiro (como < e >)
+        texto_html = html.escape(conteudo)
+
+        # 2. Converte as formatações Markdown para HTML
+        texto_html = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', texto_html)  # **Negrito**
+        texto_html = re.sub(r'\*(.*?)\*', r'<i>\1</i>', texto_html)  # *Itálico*
+        texto_html = re.sub(r'^#+ (.*)', r'<b>\1</b>', texto_html, flags=re.MULTILINE)  # Títulos viram negrito
+        texto_html = re.sub(r'^- (.*)', r'• \1', texto_html, flags=re.MULTILINE)  # Listas com traço (-)
+
+        # 3. Transforma quebras de linha em <br> no final
+        texto_html = texto_html.replace('\n', '<br>')
 
         msg_box.setText("<b>Foi publicado um novo aviso para você:</b>")
         msg_box.setInformativeText(f"<div style='font-size: 11pt; line-height: 1.4;'><br>{texto_html}</div>")
