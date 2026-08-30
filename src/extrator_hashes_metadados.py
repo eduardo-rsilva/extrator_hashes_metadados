@@ -2267,6 +2267,9 @@ class WorkerExtracao(QThread):
         self.nuvem_resposta = None
         self.nuvem_event = threading.Event()
 
+        # Armazena os dados das Notas Fiscais
+        self.notas_fiscais_encontradas = []
+
         self.bytes_processados_total = 0
         self.arquivos_processados_qtd = 0
         self.contagem_extensoes = {}
@@ -2468,6 +2471,70 @@ class WorkerExtracao(QThread):
         except Exception as e:
             return {'sucesso': False, 'erro': repr(e)}
 
+    def _extrair_dados_nfe(self, caminho_arquivo):
+        """Busca Número e Chave de Acesso de Notas Fiscais em XML e PDF."""
+        extensao = str(caminho_arquivo).lower().split('.')[-1]
+        chave_acesso = None
+        numero_nota = None
+
+        try:
+            # 1. TRATAMENTO PARA XML (Estruturado)
+            if extensao == 'xml':
+                # Faz o parse básico ignorando namespaces complexos
+                tree = ET.parse(caminho_arquivo)
+                root = tree.getroot()
+                xml_str = ET.tostring(root, encoding='unicode')
+                xml_str_clean = re.sub(r'\sxmlns="[^"]+"', '', xml_str, count=1)
+                root_clean = ET.fromstring(xml_str_clean)
+
+                # Busca a Chave de Acesso
+                ch_nfe = root_clean.find('.//chNFe')
+                if ch_nfe is not None and ch_nfe.text:
+                    chave_acesso = ch_nfe.text.strip()
+                else:
+                    inf_nfe = root_clean.find('.//infNFe')
+                    if inf_nfe is not None:
+                        id_attr = inf_nfe.get('Id', '')
+                        if id_attr.startswith('NFe'):
+                            chave_acesso = id_attr[3:]
+
+                # Busca o Número da Nota
+                n_nf = root_clean.find('.//nNF')
+                if n_nf is not None and n_nf.text:
+                    numero_nota = n_nf.text.strip()
+
+            # 2. TRATAMENTO PARA PDF (Visual / DANFE)
+            elif extensao == 'pdf' and HAS_PYPDF:
+                reader = PdfReader(caminho_arquivo)
+                texto_pdf = ""
+                for page in reader.pages:
+                    txt = page.extract_text()
+                    if txt:
+                        texto_pdf += txt + " "
+
+                # Regex inteligente: Busca 44 dígitos que podem estar separados por espaços ou pontos
+                match_chave = re.search(r'(?:\d[\s\.\-]*){44}', texto_pdf)
+                if match_chave:
+                    # Limpa tudo que não for número
+                    chave_acesso = re.sub(r'[^\d]', '', match_chave.group(0))
+
+                # Se temos a chave da SEFAZ, extraímos o número garantido (Posições 26 a 34 da chave)
+                if chave_acesso and len(chave_acesso) == 44:
+                    numero_nota = str(int(chave_acesso[25:34]))  # int() remove zeros à esquerda
+                else:
+                    # Fallback Regex caso seja uma NFS-e sem chave nacional, buscando o padrão de número
+                    match_nf = re.search(r'N[L°º]?\s*[\.\:]?\s*0*(\d{1,9})\b', texto_pdf, re.IGNORECASE)
+                    if match_nf:
+                        numero_nota = match_nf.group(1)
+
+            if chave_acesso or numero_nota:
+                return {"chave": chave_acesso, "numero": numero_nota}
+
+        except Exception:
+            pass  # Falha de forma silenciosa para não quebrar a extração pericial caso o arquivo esteja corrompido
+
+        return None
+
     def run(self):
         total_arquivos = len(self.lista_arquivos)
         validador = None
@@ -2542,6 +2609,22 @@ class WorkerExtracao(QThread):
                     hash_val = resultado.get('hashes', {}).get(algo, "Indisponível")
                     self.sig_texto_append.emit(f"{algo}: {hash_val}")
 
+                # --- PROCESSAMENTO E AVISO INDIVIDUAL DA NOTA FISCAL ---
+                if arquivo.lower().endswith(('xml', 'pdf')):
+                    dados_nfe = self._extrair_dados_nfe(arquivo)
+                    if dados_nfe:
+                        self.notas_fiscais_encontradas.append({
+                            'arquivo': nome_arquivo,
+                            'chave': dados_nfe.get('chave'),
+                            'numero': dados_nfe.get('numero')
+                        })
+                        self.sig_texto_append.emit("")
+                        self.sig_texto_append.emit(f"📄 NOTA FISCAL DETECTADA:")
+                        if dados_nfe.get('numero'): self.sig_texto_append.emit(f" ↳ Número: {dados_nfe['numero']}")
+                        if dados_nfe.get('chave'): self.sig_texto_append.emit(
+                            f" ↳ Chave de Acesso: {dados_nfe['chave']}")
+                # -------------------------------------------------------------
+
                 self.sig_texto_append.emit("")
 
                 if resultado.get('entropia'):
@@ -2609,6 +2692,19 @@ class WorkerExtracao(QThread):
 
             self.sig_texto_append.emit("-" * 60 + "\n")
             self.sig_progresso_total.emit(indice + 1)
+
+        # --- LISTAGEM FINAL DAS NOTAS FISCAIS ENCONTRADAS ---
+        if self.notas_fiscais_encontradas:
+            self.sig_texto_append.emit("=" * 60)
+            self.sig_texto_append.emit("📊 RELATÓRIO DE NOTAS FISCAIS IDENTIFICADAS")
+            self.sig_texto_append.emit("=" * 60)
+            for nf in self.notas_fiscais_encontradas:
+                linha = f" ↳ Arquivo: {nf['arquivo']}"
+                if nf['numero']: linha += f" | Nº: {nf['numero']}"
+                if nf['chave']: linha += f" | Chave: {nf['chave']}"
+                self.sig_texto_append.emit(linha)
+            self.sig_texto_append.emit("=" * 60 + "\n")
+        # ------------------------------------------------------
 
         payload_final = {
             "cancelar_operacao": self.cancelar_operacao,
