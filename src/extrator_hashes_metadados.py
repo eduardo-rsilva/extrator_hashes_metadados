@@ -2693,17 +2693,68 @@ class WorkerExtracao(QThread):
             self.sig_texto_append.emit("-" * 60 + "\n")
             self.sig_progresso_total.emit(indice + 1)
 
-        # --- LISTAGEM FINAL DAS NOTAS FISCAIS ENCONTRADAS ---
+        # --- LISTAGEM FINAL DAS NOTAS ANTES DO RESUMO ---
         if self.notas_fiscais_encontradas:
+            # Dicionários de tradução forense
+            MAPA_UF = {
+                '11': 'Rondônia (RO)', '12': 'Acre (AC)', '13': 'Amazonas (AM)', '14': 'Roraima (RR)',
+                '15': 'Pará (PA)', '16': 'Amapá (AP)', '17': 'Tocantins (TO)', '21': 'Maranhão (MA)',
+                '22': 'Piauí (PI)', '23': 'Ceará (CE)', '24': 'Rio Grande do Norte (RN)',
+                '25': 'Paraíba (PB)', '26': 'Pernambuco (PE)', '27': 'Alagoas (AL)', '28': 'Sergipe (SE)',
+                '29': 'Bahia (BA)', '31': 'Minas Gerais (MG)', '32': 'Espírito Santo (ES)',
+                '33': 'Rio de Janeiro (RJ)', '35': 'São Paulo (SP)', '41': 'Paraná (PR)',
+                '42': 'Santa Catarina (SC)', '43': 'Rio Grande do Sul (RS)', '50': 'Mato Grosso do Sul (MS)',
+                '51': 'Mato Grosso (MT)', '52': 'Goiás (GO)', '53': 'Distrito Federal (DF)'
+            }
+
+            MAPA_MODELO = {
+                '55': 'NF-e (Nota Fiscal Eletrônica)',
+                '57': 'CT-e (Conhecimento de Transporte Eletrônico)',
+                '58': 'MDF-e (Manifesto Eletrônico de Documentos Fiscais)',
+                '59': 'CF-e-SAT (Cupom Fiscal Eletrônico)',
+                '65': 'NFC-e (Nota Fiscal de Consumidor)',
+                '67': 'CT-e OS (Conhecimento de Transporte para Outros Serviços)'
+            }
+
             self.sig_texto_append.emit("=" * 60)
             self.sig_texto_append.emit("📊 RELATÓRIO DE NOTAS FISCAIS IDENTIFICADAS")
             self.sig_texto_append.emit("=" * 60)
+
             for nf in self.notas_fiscais_encontradas:
-                linha = f" ↳ Arquivo: {nf['arquivo']}"
-                if nf['numero']: linha += f" | Nº: {nf['numero']}"
-                if nf['chave']: linha += f" | Chave: {nf['chave']}"
-                self.sig_texto_append.emit(linha)
-            self.sig_texto_append.emit("=" * 60 + "\n")
+                self.sig_texto_append.emit(f" ↳ Arquivo: {nf['arquivo']}")
+
+                chave = nf.get('chave')
+                numero = nf.get('numero')
+
+                # Se for uma chave nacional (44 dígitos), destrincha os dados
+                if chave and len(chave) == 44:
+                    cnpj = f"{chave[6:8]}.{chave[8:11]}.{chave[11:14]}/{chave[14:18]}-{chave[18:20]}"
+                    mes_ano = f"{chave[4:6]}/20{chave[2:4]}"
+                    serie = str(int(chave[22:25]))
+
+                    cod_uf = chave[0:2]
+                    uf_traduzida = MAPA_UF.get(cod_uf, "UF Desconhecida")
+
+                    cod_modelo = chave[20:22]
+                    modelo_traduzido = MAPA_MODELO.get(cod_modelo, "Modelo Desconhecido")
+
+                    self.sig_texto_append.emit(f"    ▪ Chave de Acesso : {chave}")
+                    self.sig_texto_append.emit(f"    ▪ UF do Emitente  : {cod_uf} - {uf_traduzida}")
+                    self.sig_texto_append.emit(f"    ▪ Mês/Ano Emissão : {mes_ano}")
+                    self.sig_texto_append.emit(f"    ▪ CNPJ Emitente   : {cnpj}")
+                    self.sig_texto_append.emit(f"    ▪ Modelo da Nota  : {cod_modelo} - {modelo_traduzido}")
+                    self.sig_texto_append.emit(f"    ▪ Série           : {serie}")
+                    self.sig_texto_append.emit(f"    ▪ Número da Nota  : {numero}")
+                    self.sig_texto_append.emit(f"    ▪ Código Numérico : {chave[34:43]}")
+                    self.sig_texto_append.emit(f"    ▪ Díg. Verificador: {chave[43:44]}")
+
+                # Fallback: Se for nota municipal/serviço sem chave de 44, imprime o que tiver
+                else:
+                    if numero: self.sig_texto_append.emit(f"    ▪ Número da Nota  : {numero}")
+                    if chave:  self.sig_texto_append.emit(f"    ▪ Chave de Acesso : {chave}")
+
+                self.sig_texto_append.emit("-" * 60)  # Linha separadora entre notas
+            self.sig_texto_append.emit("\n")
         # ------------------------------------------------------
 
         payload_final = {
