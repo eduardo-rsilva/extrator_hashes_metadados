@@ -2474,51 +2474,14 @@ class WorkerExtracao(QThread):
     def _extrair_dados_nfe(self, caminho_arquivo):
         """Busca Número e Chave de Acesso de Notas Fiscais em XML, PDF, DOCX, XLSX, TXT, etc."""
         extensao = str(caminho_arquivo).lower().split('.')[-1]
-        resultados = []  # Armazenaremos TODAS as notas encontradas numa lista
+        resultados = []
         texto_bruto = ""
 
         try:
             # ==========================================
-            # 1. TRATAMENTO PARA XML (Estruturado)
+            # 1. EXTRAÇÃO DE TEXTO BRUTO (Todos os formatos)
             # ==========================================
-            if extensao == 'xml':
-                chave_acesso = None
-                numero_nota = None
-                valida = None
-
-                tree = ET.parse(caminho_arquivo)
-                root = tree.getroot()
-                xml_str = ET.tostring(root, encoding='unicode')
-                xml_str_clean = re.sub(r'\sxmlns="[^"]+"', '', xml_str, count=1)
-                root_clean = ET.fromstring(xml_str_clean)
-
-                ch_nfe = root_clean.find('.//chNFe')
-                if ch_nfe is not None and ch_nfe.text:
-                    chave_acesso = ch_nfe.text.strip()
-                else:
-                    inf_nfe = root_clean.find('.//infNFe')
-                    if inf_nfe is not None:
-                        id_attr = inf_nfe.get('Id', '')
-                        if id_attr.startswith('NFe'):
-                            chave_acesso = id_attr[3:]
-
-                n_nf = root_clean.find('.//nNF')
-                if n_nf is not None and n_nf.text:
-                    numero_nota = n_nf.text.strip()
-
-                if chave_acesso and len(chave_acesso) == 44:
-                    valida = self._validar_chave_nfe(chave_acesso)
-                    if not valida: numero_nota = None
-
-                if chave_acesso or numero_nota:
-                    resultados.append({"chave": chave_acesso, "numero": numero_nota, "valida": valida})
-
-                return resultados if resultados else None
-
-            # ==========================================
-            # 2. LEITURA DE TEXTO (PDF, DOCX, XLSX, TXT)
-            # ==========================================
-            elif extensao == 'pdf' and HAS_PYPDF:
+            if extensao == 'pdf' and HAS_PYPDF:
                 reader = PdfReader(caminho_arquivo)
                 for page in reader.pages:
                     txt = page.extract_text()
@@ -2545,7 +2508,7 @@ class WorkerExtracao(QThread):
                 except Exception:
                     pass
 
-            elif extensao in ['txt', 'csv', 'json', 'log', 'eml']:
+            elif extensao in ['txt', 'csv', 'json', 'log', 'eml', 'xml']:
                 codificacoes = ['utf-8', 'utf-16', 'cp1252', 'latin-1']
                 for cod in codificacoes:
                     try:
@@ -2559,16 +2522,17 @@ class WorkerExtracao(QThread):
                         texto_bruto = f.read()
 
             # ==========================================
-            # 3. EXTRAÇÃO VIA REGEX E VALIDAÇÃO (Módulo 11)
+            # 2. EXTRAÇÃO VIA REGEX E VALIDAÇÃO (Módulo 11)
             # ==========================================
             if texto_bruto:
-                chaves_processadas = set()  # Trava para não repetir a mesma chave no mesmo arquivo
+                chaves_processadas = set()
 
+                # Varre o texto inteiro (seja PDF, TXT ou as tags do XML) atrás de 44 dígitos
                 for match_chave in re.finditer(r'(?:\d[\s\.\-]*){44}', texto_bruto):
                     candidata = re.sub(r'[^\d]', '', match_chave.group(0))
 
                     if candidata in chaves_processadas:
-                        continue  # Pula se já processou essa chave neste arquivo
+                        continue
                     chaves_processadas.add(candidata)
 
                     valida = self._validar_chave_nfe(candidata)
@@ -2579,7 +2543,7 @@ class WorkerExtracao(QThread):
                     else:
                         resultados.append({"chave": candidata, "numero": None, "valida": False})
 
-                # Fallback: Se não achou NENHUMA chave de 44, busca padrões soltos de NFS-e
+                # Fallback: Busca padrões soltos de NFS-e
                 if not resultados:
                     numeros_processados = set()
                     for match_nf in re.finditer(r'N[L°º]?\s*[\.\:]?\s*0*(\d{1,9})\b', texto_bruto, re.IGNORECASE):
