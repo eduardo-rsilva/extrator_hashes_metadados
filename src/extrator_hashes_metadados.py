@@ -2472,22 +2472,26 @@ class WorkerExtracao(QThread):
             return {'sucesso': False, 'erro': repr(e)}
 
     def _extrair_dados_nfe(self, caminho_arquivo):
-        """Busca Número e Chave de Acesso de Notas Fiscais em XML e PDF."""
+        """Busca Número e Chave de Acesso de Notas Fiscais em XML, PDF, DOCX, XLSX, TXT, etc."""
         extensao = str(caminho_arquivo).lower().split('.')[-1]
-        chave_acesso = None
-        numero_nota = None
+        resultados = []  # Armazenaremos TODAS as notas encontradas numa lista
+        texto_bruto = ""
 
         try:
+            # ==========================================
             # 1. TRATAMENTO PARA XML (Estruturado)
+            # ==========================================
             if extensao == 'xml':
-                # Faz o parse básico ignorando namespaces complexos
+                chave_acesso = None
+                numero_nota = None
+                valida = None
+
                 tree = ET.parse(caminho_arquivo)
                 root = tree.getroot()
                 xml_str = ET.tostring(root, encoding='unicode')
                 xml_str_clean = re.sub(r'\sxmlns="[^"]+"', '', xml_str, count=1)
                 root_clean = ET.fromstring(xml_str_clean)
 
-                # Busca a Chave de Acesso
                 ch_nfe = root_clean.find('.//chNFe')
                 if ch_nfe is not None and ch_nfe.text:
                     chave_acesso = ch_nfe.text.strip()
@@ -2498,49 +2502,96 @@ class WorkerExtracao(QThread):
                         if id_attr.startswith('NFe'):
                             chave_acesso = id_attr[3:]
 
-                # Busca o Número da Nota
                 n_nf = root_clean.find('.//nNF')
                 if n_nf is not None and n_nf.text:
                     numero_nota = n_nf.text.strip()
 
-            # 2. TRATAMENTO PARA PDF (Visual / DANFE)
+                if chave_acesso and len(chave_acesso) == 44:
+                    valida = self._validar_chave_nfe(chave_acesso)
+                    if not valida: numero_nota = None
+
+                if chave_acesso or numero_nota:
+                    resultados.append({"chave": chave_acesso, "numero": numero_nota, "valida": valida})
+
+                return resultados if resultados else None
+
+            # ==========================================
+            # 2. LEITURA DE TEXTO (PDF, DOCX, XLSX, TXT)
+            # ==========================================
             elif extensao == 'pdf' and HAS_PYPDF:
                 reader = PdfReader(caminho_arquivo)
-                texto_pdf = ""
                 for page in reader.pages:
                     txt = page.extract_text()
-                    if txt:
-                        texto_pdf += txt + " "
+                    if txt: texto_bruto += txt + " "
 
-                # Regex inteligente: Busca 44 dígitos que podem estar separados por espaços ou pontos
-                match_chave = re.search(r'(?:\d[\s\.\-]*){44}', texto_pdf)
-                if match_chave:
-                    # Limpa tudo que não for número
-                    chave_acesso = re.sub(r'[^\d]', '', match_chave.group(0))
+            elif extensao == 'docx':
+                try:
+                    with zipfile.ZipFile(caminho_arquivo) as z:
+                        xml_content = z.read('word/document.xml')
+                        tree = ET.fromstring(xml_content)
+                        textos = [node.text for node in tree.iter() if node.tag.endswith('}t') and node.text]
+                        texto_bruto = " ".join(textos)
+                except Exception:
+                    pass
 
-                # Se temos a chave da SEFAZ, extraímos o número garantido (Posições 26 a 34 da chave)
-                if chave_acesso and len(chave_acesso) == 44:
-                    numero_nota = str(int(chave_acesso[25:34]))  # int() remove zeros à esquerda
-                else:
-                    # Fallback Regex caso seja uma NFS-e sem chave nacional, buscando o padrão de número
-                    match_nf = re.search(r'N[L°º]?\s*[\.\:]?\s*0*(\d{1,9})\b', texto_pdf, re.IGNORECASE)
-                    if match_nf:
-                        numero_nota = match_nf.group(1)
+            elif extensao == 'xlsx':
+                try:
+                    with zipfile.ZipFile(caminho_arquivo) as z:
+                        if 'xl/sharedStrings.xml' in z.namelist():
+                            xml_content = z.read('xl/sharedStrings.xml')
+                            tree = ET.fromstring(xml_content)
+                            textos = [node.text for node in tree.iter() if node.tag.endswith('}t') and node.text]
+                            texto_bruto = " ".join(textos)
+                except Exception:
+                    pass
 
-            if chave_acesso or numero_nota:
-                valida = None
-                if chave_acesso and len(chave_acesso) == 44:
-                    # Executa o teste de Módulo 11
-                    valida = self._validar_chave_nfe(chave_acesso)
-                    if not valida:
-                        # Se for inválida, anulamos o número fatiado para evitar lixo no relatório
-                        numero_nota = None
+            elif extensao in ['txt', 'csv', 'json', 'log', 'eml']:
+                codificacoes = ['utf-8', 'utf-16', 'cp1252', 'latin-1']
+                for cod in codificacoes:
+                    try:
+                        with open(caminho_arquivo, 'r', encoding=cod) as f:
+                            texto_bruto = f.read()
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                if not texto_bruto:
+                    with open(caminho_arquivo, 'r', encoding='utf-8', errors='replace') as f:
+                        texto_bruto = f.read()
 
-                # Retorna também o status da validação
-                return {"chave": chave_acesso, "numero": numero_nota, "valida": valida}
+            # ==========================================
+            # 3. EXTRAÇÃO VIA REGEX E VALIDAÇÃO (Módulo 11)
+            # ==========================================
+            if texto_bruto:
+                chaves_processadas = set()  # Trava para não repetir a mesma chave no mesmo arquivo
+
+                for match_chave in re.finditer(r'(?:\d[\s\.\-]*){44}', texto_bruto):
+                    candidata = re.sub(r'[^\d]', '', match_chave.group(0))
+
+                    if candidata in chaves_processadas:
+                        continue  # Pula se já processou essa chave neste arquivo
+                    chaves_processadas.add(candidata)
+
+                    valida = self._validar_chave_nfe(candidata)
+
+                    if valida:
+                        numero = str(int(candidata[25:34]))
+                        resultados.append({"chave": candidata, "numero": numero, "valida": True})
+                    else:
+                        resultados.append({"chave": candidata, "numero": None, "valida": False})
+
+                # Fallback: Se não achou NENHUMA chave de 44, busca padrões soltos de NFS-e
+                if not resultados:
+                    numeros_processados = set()
+                    for match_nf in re.finditer(r'N[L°º]?\s*[\.\:]?\s*0*(\d{1,9})\b', texto_bruto, re.IGNORECASE):
+                        numero = match_nf.group(1)
+                        if numero not in numeros_processados:
+                            numeros_processados.add(numero)
+                            resultados.append({"chave": None, "numero": numero, "valida": None})
+
+            return resultados if resultados else None
 
         except Exception:
-            pass  # Falha de forma silenciosa para não quebrar a extração pericial caso o arquivo esteja corrompido
+            pass
 
         return None
 
@@ -2642,34 +2693,37 @@ class WorkerExtracao(QThread):
                     self.sig_texto_append.emit(f"{algo}: {hash_val}")
 
                 # --- PROCESSAMENTO E AVISO INDIVIDUAL DA NOTA FISCAL ---
-                if arquivo.lower().endswith(('xml', 'pdf')):
-                    dados_nfe = self._extrair_dados_nfe(arquivo)
-                    if dados_nfe:
-                        chave = dados_nfe.get('chave')
-                        valida = dados_nfe.get('valida')
-
+                extensoes_fiscais = ('xml', 'pdf', 'docx', 'xlsx', 'txt', 'csv', 'json', 'log', 'eml')
+                if arquivo.lower().endswith(extensoes_fiscais):
+                    lista_dados_nfe = self._extrair_dados_nfe(arquivo)
+                    if lista_dados_nfe:
                         self.sig_texto_append.emit("")
+                        for dados_nfe in lista_dados_nfe:
+                            chave = dados_nfe.get('chave')
+                            valida = dados_nfe.get('valida')
 
-                        # 2) Se for inválida
-                        if chave and valida is False:
-                            self.sig_texto_append.emit("⚠️ AVISO: POSSÍVEL NOTA FISCAL INVÁLIDA")
-                            self.sig_texto_append.emit(f" ↳ Sequência encontrada: {chave}")
-                            self.sig_texto_append.emit(
-                                " ↳ O teste de validação (Dígito Verificador) reprovou. Esta sequência poderia ser de uma nota fiscal, mas trata-se de um falso positivo ou código adulterado.")
+                            # 2) Se for inválida
+                            if chave and valida is False:
+                                self.sig_texto_append.emit("⚠️ AVISO: POSSÍVEL NOTA FISCAL INVÁLIDA")
+                                self.sig_texto_append.emit(f" ↳ Sequência encontrada: {chave}")
+                                self.sig_texto_append.emit(
+                                    " ↳ O teste de validação reprovou (Dígito Verificador incorreto).")
+                                self.sig_texto_append.emit("")
 
-                        # 1) Se for válida (ou se for NFS-e sem chave nacional)
-                        else:
-                            self.notas_fiscais_encontradas.append({
-                                'arquivo': nome_arquivo,
-                                'chave': chave,
-                                'numero': dados_nfe.get('numero')
-                            })
-                            self.sig_texto_append.emit("📄 NOTA FISCAL DETECTADA:")
-                            if chave and valida:
-                                self.sig_texto_append.emit(" ↳ Status: CÓDIGO DA NOTA FISCAL VÁLIDO ✅")
-                            if dados_nfe.get('numero'): self.sig_texto_append.emit(
-                                f" ↳ Número: {dados_nfe['numero']}")
-                            if chave: self.sig_texto_append.emit(f" ↳ Chave de Acesso: {chave}")
+                            # 1) Se for válida (ou se for NFS-e sem chave nacional)
+                            else:
+                                self.notas_fiscais_encontradas.append({
+                                    'arquivo': nome_arquivo,
+                                    'chave': chave,
+                                    'numero': dados_nfe.get('numero')
+                                })
+                                self.sig_texto_append.emit("📄 NOTA FISCAL DETECTADA:")
+                                if chave and valida:
+                                    self.sig_texto_append.emit(" ↳ Status: CÓDIGO DA NOTA FISCAL VÁLIDO ✅")
+                                if dados_nfe.get('numero'): self.sig_texto_append.emit(
+                                    f" ↳ Número: {dados_nfe['numero']}")
+                                if chave: self.sig_texto_append.emit(f" ↳ Chave de Acesso: {chave}")
+                                self.sig_texto_append.emit("")
                 # -------------------------------------------------------------
 
                 self.sig_texto_append.emit("")
