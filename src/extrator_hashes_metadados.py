@@ -7193,6 +7193,16 @@ class JanelaHashes(QWidget):
             "<li><b>Validação de Assinatura e Binários:</b> Checagem de certificados Authenticode em executáveis (EXE/DLL/SYS) e extração do Data/Hora exata de compilação registrada no cabeçalho PE.</li>"
             "</ul>"
             
+            "<h3>🧾 Extração e Validação de Notas Fiscais Brasileiras (NF-e / NFS-e):</h3>"
+            "<ul>"
+            "<li><b>Identificação Universal:</b> Varredura automática e profunda no conteúdo textual dos arquivos em busca de Chaves de Acesso Padrão SEFAZ (44 dígitos).</li>"
+            "<li><b>Validação Matemática (Módulo 11):</b> O extrator não confia apenas no comprimento da string. Ele aplica o algoritmo oficial da SEFAZ para atestar a autenticidade do Dígito Verificador, blindando o relatório contra falsos positivos (como códigos de barras de boletos ou sequências aleatórias).</li>"
+            "<li><b>Decodificação Estruturada:</b> Chaves válidas são fatiadas e traduzidas automaticamente no laudo final, exibindo: UF de Origem (Estado), Mês e Ano da Emissão, CNPJ do Emitente formatado, Modelo do Documento (NF-e, NFC-e, CT-e, etc.), Série e o Número da Nota.</li>"
+            "<li><b>Fallback Heurístico (NFS-e):</b> Para notas municipais de serviço que não possuem chave nacional, o sistema tenta rastrear e capturar padrões numéricos equivalentes ao número da nota.</li>"
+            "<li><b>Formatos Suportados:</b> A varredura de chaves funciona perfeitamente em PDFs (DANFEs), XMLs de notas e lotes, DOCX, XLSX e formatos de texto puro (TXT, CSV, JSON, LOG, EML).</li>"
+            "<li><b>Exceção Técnica (Formatos Legados):</b> Arquivos antigos do Microsoft Office (<b>.doc</b> e <b>.xls</b>) são intencionalmente ignorados nesta busca por possuírem arquitetura binária fechada (OLE Legado). Para extrair notas destes arquivos, converta-os previamente para PDF ou DOCX/XLSX.</li>"
+            "</ul>"
+            
             "<h3>🔗 Validação Automática da Cadeia de Custódia:</h3>"
             "<ul>"
             "<li><b>Conferência de Listagens de Hashes:</b> Permite o <i>Drag & Drop</i> (arrastar e soltar) de laudos e listagens de hashes de origem (nos formatos PDF, DOCX, XLSX, TXT) ou inserção de texto livre, para auditar a extração feita pelo responsável pela coleta original dos dados e preservar intacta a Cadeia de Custódia.</li>"
