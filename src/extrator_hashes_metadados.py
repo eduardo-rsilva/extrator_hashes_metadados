@@ -2528,12 +2528,44 @@ class WorkerExtracao(QThread):
                         numero_nota = match_nf.group(1)
 
             if chave_acesso or numero_nota:
-                return {"chave": chave_acesso, "numero": numero_nota}
+                valida = None
+                if chave_acesso and len(chave_acesso) == 44:
+                    # Executa o teste de Módulo 11
+                    valida = self._validar_chave_nfe(chave_acesso)
+                    if not valida:
+                        # Se for inválida, anulamos o número fatiado para evitar lixo no relatório
+                        numero_nota = None
+
+                # Retorna também o status da validação
+                return {"chave": chave_acesso, "numero": numero_nota, "valida": valida}
 
         except Exception:
             pass  # Falha de forma silenciosa para não quebrar a extração pericial caso o arquivo esteja corrompido
 
         return None
+
+    def _validar_chave_nfe(self, chave_completa: str) -> bool:
+        """Valida o Dígito Verificador (Módulo 11) de uma Chave de Acesso SEFAZ."""
+        # Passo 1: Validação básica estrutural
+        if not chave_completa or len(chave_completa) != 44 or not chave_completa.isdigit():
+            return False
+
+        soma = 0
+        peso = 2
+
+        # Passo 2: Multiplicação e Soma (da direita para a esquerda, ignorando o 44º dígito)
+        for i in range(42, -1, -1):
+            soma += int(chave_completa[i]) * peso
+            peso += 1
+            if peso > 9:
+                peso = 2  # Reinicia o ciclo de pesos
+
+        # Passos 3 e 4: Divisão, Resto e Definição do DV
+        resto = soma % 11
+        dv_calculado = 0 if resto in (0, 1) else 11 - resto
+
+        # Passo 5: Confronto dos valores
+        return dv_calculado == int(chave_completa[43])
 
     def run(self):
         total_arquivos = len(self.lista_arquivos)
@@ -2613,16 +2645,31 @@ class WorkerExtracao(QThread):
                 if arquivo.lower().endswith(('xml', 'pdf')):
                     dados_nfe = self._extrair_dados_nfe(arquivo)
                     if dados_nfe:
-                        self.notas_fiscais_encontradas.append({
-                            'arquivo': nome_arquivo,
-                            'chave': dados_nfe.get('chave'),
-                            'numero': dados_nfe.get('numero')
-                        })
+                        chave = dados_nfe.get('chave')
+                        valida = dados_nfe.get('valida')
+
                         self.sig_texto_append.emit("")
-                        self.sig_texto_append.emit(f"📄 NOTA FISCAL DETECTADA:")
-                        if dados_nfe.get('numero'): self.sig_texto_append.emit(f" ↳ Número: {dados_nfe['numero']}")
-                        if dados_nfe.get('chave'): self.sig_texto_append.emit(
-                            f" ↳ Chave de Acesso: {dados_nfe['chave']}")
+
+                        # 2) Se for inválida
+                        if chave and valida is False:
+                            self.sig_texto_append.emit("⚠️ AVISO: POSSÍVEL NOTA FISCAL INVÁLIDA")
+                            self.sig_texto_append.emit(f" ↳ Sequência encontrada: {chave}")
+                            self.sig_texto_append.emit(
+                                " ↳ O teste de validação (Dígito Verificador) reprovou. Esta sequência poderia ser de uma nota fiscal, mas trata-se de um falso positivo ou código adulterado.")
+
+                        # 1) Se for válida (ou se for NFS-e sem chave nacional)
+                        else:
+                            self.notas_fiscais_encontradas.append({
+                                'arquivo': nome_arquivo,
+                                'chave': chave,
+                                'numero': dados_nfe.get('numero')
+                            })
+                            self.sig_texto_append.emit("📄 NOTA FISCAL DETECTADA:")
+                            if chave and valida:
+                                self.sig_texto_append.emit(" ↳ Status: CÓDIGO DA NOTA FISCAL VÁLIDO ✅")
+                            if dados_nfe.get('numero'): self.sig_texto_append.emit(
+                                f" ↳ Número: {dados_nfe['numero']}")
+                            if chave: self.sig_texto_append.emit(f" ↳ Chave de Acesso: {chave}")
                 # -------------------------------------------------------------
 
                 self.sig_texto_append.emit("")
