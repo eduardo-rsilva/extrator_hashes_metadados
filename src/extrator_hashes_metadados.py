@@ -2525,23 +2525,31 @@ class WorkerExtracao(QThread):
             # 2. EXTRAÇÃO VIA REGEX E VALIDAÇÃO (Módulo 11)
             # ==========================================
             if texto_bruto:
-                chaves_processadas = set()
+                blocos_processados = set()
 
-                # Varre o texto inteiro (seja PDF, TXT ou as tags do XML) atrás de 44 dígitos
-                for match_chave in re.finditer(r'(?:\d[\s\.\-]*){44}', texto_bruto):
-                    candidata = re.sub(r'[^\d]', '', match_chave.group(0))
+                # Varre o texto atrás de blocos contínuos de 44 OU MAIS dígitos
+                for match_bloco in re.finditer(r'(?:\d[\s\.\-]*){44,}', texto_bruto):
+                    bloco_limpo = re.sub(r'[^\d]', '', match_bloco.group(0))
 
-                    if candidata in chaves_processadas:
+                    if bloco_limpo in blocos_processados:
                         continue
-                    chaves_processadas.add(candidata)
+                    blocos_processados.add(bloco_limpo)
 
-                    valida = self._validar_chave_nfe(candidata)
+                    nota_valida_encontrada = False
 
-                    if valida:
-                        numero = str(int(candidata[25:34]))
-                        resultados.append({"chave": candidata, "numero": numero, "valida": True})
-                    else:
-                        resultados.append({"chave": candidata, "numero": None, "valida": False})
+                    # Desliza uma janela de 44 dígitos ao longo do bloco inteiro
+                    for i in range(len(bloco_limpo) - 43):
+                        candidata = bloco_limpo[i:i + 44]
+
+                        if self._validar_chave_nfe(candidata):
+                            numero = str(int(candidata[25:34]))
+                            resultados.append({"chave": candidata, "numero": numero, "valida": True})
+                            nota_valida_encontrada = True
+                            break  # Encontrou a chave válida, interrompe a varredura neste bloco
+
+                    # Se nenhuma sequência dentro do bloco passar na validação, devolve o bloco completo
+                    if not nota_valida_encontrada:
+                        resultados.append({"chave": bloco_limpo, "numero": None, "valida": False})
 
                 # Fallback: Busca padrões soltos de NFS-e
                 if not resultados:
@@ -2668,10 +2676,10 @@ class WorkerExtracao(QThread):
 
                             # 2) Se for inválida
                             if chave and valida is False:
-                                self.sig_texto_append.emit("⚠️ AVISO: POSSÍVEL NOTA FISCAL INVÁLIDA")
-                                self.sig_texto_append.emit(f" ↳ Sequência encontrada: {chave}")
+                                self.sig_texto_append.emit("⚠️ AVISO: NENHUMA NOTA FISCAL VÁLIDA ENCONTRADA")
+                                self.sig_texto_append.emit(f" ↳ Bloco contínuo verificado: {chave}")
                                 self.sig_texto_append.emit(
-                                    " ↳ O teste de validação reprovou (Dígito Verificador incorreto).")
+                                    " ↳ Não foi encontrada nenhuma nota fiscal válida nesse bloco contínuo de caracteres numéricos.")
                                 self.sig_texto_append.emit("")
 
                             # 1) Se for válida (ou se for NFS-e sem chave nacional)
