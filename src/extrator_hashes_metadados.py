@@ -2249,7 +2249,7 @@ class WorkerExtracao(QThread):
     sig_conclusao = Signal(dict)
 
     def __init__(self, lista_arquivos, info_drive, texto_custodia, veio_de_pdf, algos_selecionados, extrair_meta,
-                 extrair_raw, janela):
+                 extrair_raw, extrair_nfe, janela):
         super().__init__()
         self.lista_arquivos = lista_arquivos
         self.info_drive = info_drive
@@ -2258,6 +2258,7 @@ class WorkerExtracao(QThread):
         self.algos_selecionados = algos_selecionados
         self.extrair_meta = extrair_meta
         self.extrair_raw = extrair_raw
+        self.extrair_nfe = extrair_nfe
         self.janela = janela  # Referência segura, pois os métodos chamados não tocam na GUI
 
         self.cancelar_operacao = False
@@ -2666,7 +2667,7 @@ class WorkerExtracao(QThread):
 
                 # --- PROCESSAMENTO E AVISO INDIVIDUAL DA NOTA FISCAL ---
                 extensoes_fiscais = ('xml', 'pdf', 'docx', 'xlsx', 'txt', 'csv', 'json', 'log', 'eml')
-                if arquivo.lower().endswith(extensoes_fiscais):
+                if self.extrair_nfe and arquivo.lower().endswith(extensoes_fiscais):
                     lista_dados_nfe = self._extrair_dados_nfe(arquivo)
                     if lista_dados_nfe:
                         self.sig_texto_append.emit("")
@@ -3185,6 +3186,25 @@ class JanelaHashes(QWidget):
         layout_principal.addWidget(self.grupo_controles)
 
         # ==============================================================
+        # --- BLOCO: Análise de Conteúdo (Notas Fiscais) ---
+        # ==============================================================
+        self.grupo_analise = QGroupBox("Análise de Conteúdo")
+        self.grupo_analise.setStyleSheet("""
+                            QGroupBox { border: 1px solid #cccccc; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
+                            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #111111; }
+                        """)
+        layout_analise = QVBoxLayout(self.grupo_analise)
+
+        self.chk_nfe = QCheckBox("Buscar e Validar Notas Fiscais Brasileiras (NF-e/NFS-e/CT-e)")
+        self.chk_nfe.setChecked(True)
+        self.chk_nfe.setToolTip(
+            "Varre os arquivos buscando blocos numéricos compatíveis com chaves de notas fiscais, aplicando validação matemática (Módulo 11).")
+        self.chk_nfe.installEventFilter(self)
+        layout_analise.addWidget(self.chk_nfe)
+
+        layout_principal.addWidget(self.grupo_analise)
+
+        # ==============================================================
         # CONTAINER MÓVEL DOS RESULTADOS (Será teletransportado)
         # ==============================================================
         self.painel_resultados = QWidget()
@@ -3497,6 +3517,9 @@ class JanelaHashes(QWidget):
             # Restaura o Raw Dump (Padrão: False)
             self.chk_metadados_raw.setChecked(config.get('chk_metadados_raw', False))
 
+            # Restaura estado das Notas Fiscais (Padrão: True)
+            self.chk_nfe.setChecked(config.get('chk_nfe', True))
+
             # Garante que não iniciem ambas marcadas pelo cache antigo
             if self.chk_metadados.isChecked() and self.chk_metadados_raw.isChecked():
                 self.chk_metadados_raw.setChecked(False)
@@ -3522,6 +3545,7 @@ class JanelaHashes(QWidget):
         self.chk_metadados.toggled.connect(self.salvar_estado_atual)
         self.chk_metadados_raw.toggled.connect(self.salvar_estado_atual)
         self.chk_subdiretorios.toggled.connect(self.salvar_estado_atual)
+        self.chk_nfe.toggled.connect(self.salvar_estado_atual)
         for chk in self.chk_hashes.values():
             chk.toggled.connect(self.salvar_estado_atual)
 
@@ -3699,6 +3723,22 @@ class JanelaHashes(QWidget):
         self.chk_meta_raw_moderno.setToolTip(self.chk_metadados_raw.toolTip())  # Clonando tooltip
         acao_meta_raw.setDefaultWidget(self.chk_meta_raw_moderno)
         menu_meta.addAction(acao_meta_raw)
+
+        # --- MENU: ANÁLISE DE CONTEÚDO ---
+        menu_analise = barra_menus.addMenu("🔎 Análise de Conteúdo")
+
+        acao_nfe = QWidgetAction(self)
+        self.chk_nfe_moderno = QCheckBox("  Buscar e Validar Notas Fiscais")
+        self.chk_nfe_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
+        self.chk_nfe_moderno.setChecked(self.chk_nfe.isChecked())
+        self.chk_nfe_moderno.setToolTip(self.chk_nfe.toolTip())
+
+        # Sincroniza com o modo clássico (Backend) de forma bidirecional
+        self.chk_nfe_moderno.toggled.connect(self.chk_nfe.setChecked)
+        self.chk_nfe.toggled.connect(self.chk_nfe_moderno.setChecked)
+
+        acao_nfe.setDefaultWidget(self.chk_nfe_moderno)
+        menu_analise.addAction(acao_nfe)
 
         # Lógica de Exclusividade (Um ou Nenhum) + Sincronização com o Backend
         def alternar_meta_basico(checked):
@@ -4316,6 +4356,8 @@ class JanelaHashes(QWidget):
 
             self.grupo_topo.setStyleSheet(estilo_caixas_escuro)
             self.grupo_controles.setStyleSheet(estilo_caixas_escuro)
+            if hasattr(self, 'grupo_analise'):
+                self.grupo_analise.setStyleSheet(estilo_caixas_escuro)
 
             # Revalida o botão do Write-Blocker para manter o aviso vermelho ou adotar a cor tema correta
             if hasattr(self, 'atualizar_ui_write_blocker'):
@@ -4375,6 +4417,7 @@ class JanelaHashes(QWidget):
                                 QPushButton:pressed { background-color: #332200; }
                             """)
 
+
         else:
             # --- ESTILO MODO CLARO (Padrão) ---
             self.setStyleSheet("")
@@ -4393,6 +4436,8 @@ class JanelaHashes(QWidget):
             self.grupo_topo.setStyleSheet(estilo_caixas_claro)
             self.grupo_controles.setStyleSheet(estilo_caixas_claro)
 
+            if hasattr(self, 'grupo_analise'):
+                self.grupo_analise.setStyleSheet(estilo_caixas_claro)
             if hasattr(self, 'atualizar_ui_write_blocker'):
                 self.atualizar_ui_write_blocker()
             if hasattr(self, 'grupo_validacao'):
@@ -6789,6 +6834,7 @@ class JanelaHashes(QWidget):
             'chk_metadados': self.chk_metadados.isChecked() if hasattr(self, 'chk_metadados') else True,
             'chk_metadados_raw': self.chk_metadados_raw.isChecked() if hasattr(self, 'chk_metadados_raw') else False,
             'chk_subdiretorios': self.chk_subdiretorios.isChecked() if hasattr(self, 'chk_subdiretorios') else True,
+            'chk_nfe': self.chk_nfe.isChecked() if hasattr(self, 'chk_nfe') else True,
             'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()} if hasattr(self,
                                                                                                   'chk_hashes') else {}
         }
@@ -9734,7 +9780,8 @@ class JanelaHashes(QWidget):
         # --- INICIA O WORKER ---
         self.worker = WorkerExtracao(
             lista_arquivos, info_drive, texto_custodia, veio_de_pdf,
-            algos_selecionados, extrair_meta, extrair_raw, janela=self
+            algos_selecionados, extrair_meta, extrair_raw,
+            self.chk_nfe.isChecked(), janela=self
         )
 
         # Conexões Thread-Safe Seguras
