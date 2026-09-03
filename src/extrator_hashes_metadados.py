@@ -2912,7 +2912,8 @@ class WorkerExtracao(QThread):
             "qtd_alertas_parciais": qtd_alertas_parciais,
             "qtd_nao_validados": qtd_nao_validados,
             "lista_referencia": validador.obter_lista_limpa() if validador else None,
-            "coordenadas_gps_encontradas": self.coordenadas_gps_encontradas
+            "coordenadas_gps_encontradas": self.coordenadas_gps_encontradas,
+            "notas_fiscais": self.notas_fiscais_encontradas
         }
         self.sig_conclusao.emit(payload_final)
 
@@ -3509,6 +3510,24 @@ class JanelaHashes(QWidget):
         self.btn_reabrir_gps.clicked.connect(self.reabrir_janela_gps)
         layout_progresso.addWidget(self.btn_reabrir_gps)
 
+        # --- BOTÃO DE EXPORTAÇÃO NFE (Inicia Oculto) ---
+        self.btn_exportar_nfe = QPushButton("🧾 EXPORTAR DADOS DAS NOTAS FISCAIS ENCONTRADAS NESTA EXTRAÇÃO")
+        self.btn_exportar_nfe.setStyleSheet("""
+                                            QPushButton {
+                                                background-color: #ffb300; 
+                                                color: #4d3300; 
+                                                font-weight: bold;
+                                                border: 1px solid #cc8f00; 
+                                                border-radius: 4px; 
+                                                padding: 6px;
+                                            }
+                                            QPushButton:hover { background-color: #ffcc33; }
+                                            QPushButton:pressed { background-color: #e6a100; }
+                                        """)
+        self.btn_exportar_nfe.setVisible(False)
+        self.btn_exportar_nfe.clicked.connect(self.exportar_notas_fiscais_excel)
+        layout_progresso.addWidget(self.btn_exportar_nfe)
+
         # 1. Progresso do Arquivo Atual
         self.lbl_progresso_arquivo = QLabel("Progresso do Arquivo Atual:")
         layout_progresso.addWidget(self.lbl_progresso_arquivo)
@@ -3634,6 +3653,70 @@ class JanelaHashes(QWidget):
 
         # Salva uma referência deste layout para usarmos no teletransporte
         self.layout_classico = layout_principal
+
+    def exportar_notas_fiscais_excel(self):
+        """Gera uma planilha compatível com Excel (CSV UTF-8 BOM) contendo as notas extraídas."""
+        if not hasattr(self, 'notas_fiscais_extraidas') or not self.notas_fiscais_extraidas:
+            QMessageBox.warning(self, "Aviso Forense", "Nenhuma nota fiscal disponível para exportação nesta extração.")
+            return
+
+        opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
+        caminho_arquivo, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exportar Dados das Notas Fiscais",
+            "Relatorio_Notas_Fiscais_ERS_IC.csv",
+            "Planilha do Excel (CSV) (*.csv)",
+            options=opcoes_salvar
+        )
+
+        if caminho_arquivo:
+            try:
+                import csv
+                # Dicionários de tradução forense
+                MAPA_UF = {
+                    '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+                    '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL',
+                    '28': 'SE', '29': 'BA', '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP', '41': 'PR',
+                    '42': 'SC', '43': 'RS', '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
+                }
+
+                MAPA_MODELO = {
+                    '55': 'NF-e', '57': 'CT-e', '58': 'MDF-e', '59': 'CF-e-SAT', '65': 'NFC-e', '67': 'CT-e OS'
+                }
+
+                # utf-8-sig injeta o BOM, forçando o Excel a ler acentos e colunas automaticamente
+                with open(caminho_arquivo, mode='w', newline='', encoding='utf-8-sig') as arquivo_csv:
+                    writer = csv.writer(arquivo_csv, delimiter=';')
+
+                    # Cabeçalho da Planilha
+                    writer.writerow(
+                        ["Arquivo de Origem", "Chave de Acesso", "UF", "Mês/Ano", "CNPJ Emitente", "Modelo", "Série",
+                         "Número da Nota"])
+
+                    for nf in self.notas_fiscais_extraidas:
+                        arquivo = nf.get('arquivo', '')
+                        chave = nf.get('chave', '')
+                        numero = nf.get('numero', '')
+
+                        uf = mes_ano = cnpj = modelo = serie = ""
+
+                        if chave and len(chave) == 44:
+                            cod_uf = chave[0:2]
+                            uf = MAPA_UF.get(cod_uf, cod_uf)
+                            mes_ano = f"{chave[4:6]}/20{chave[2:4]}"
+                            cnpj = f"{chave[6:8]}.{chave[8:11]}.{chave[11:14]}/{chave[14:18]}-{chave[18:20]}"
+                            cod_modelo = chave[20:22]
+                            modelo = MAPA_MODELO.get(cod_modelo, cod_modelo)
+                            serie = str(int(chave[22:25]))
+
+                        # Grava de forma a preservar os zeros usando marcação de string no Excel (opcional) ou texto direto
+                        writer.writerow([arquivo, f'="{chave}"' if chave else "", uf, mes_ano, cnpj, modelo, serie,
+                                         f'="{numero}"' if numero else ""])
+
+                QMessageBox.information(self, "Sucesso",
+                                        "Dados exportados com sucesso para planilha compatível com Excel!")
+            except Exception as e:
+                QMessageBox.critical(self, "Erro de I/O", f"Falha ao exportar os dados das notas fiscais: {e}")
 
     def aplicar_tema_botoes_gps(self):
         """Atualiza dinamicamente as cores dos botões da janela GPS de acordo com o tema."""
@@ -4484,18 +4567,30 @@ class JanelaHashes(QWidget):
 
             if hasattr(self, 'btn_reabrir_gps'):
                 self.btn_reabrir_gps.setStyleSheet("""
-                                QPushButton { 
-                                    background-color: #4d3300; 
-                                    color: #ffcc33; 
-                                    font-weight: bold; 
-                                    border: 1px solid #ffb300;
-                                    border-radius: 4px;
-                                    padding: 6px;
-                                }
-                                QPushButton:hover { background-color: #664400; }
-                                QPushButton:pressed { background-color: #332200; }
-                            """)
-
+                                            QPushButton { 
+                                                background-color: #4d3300; 
+                                                color: #ffcc33; 
+                                                font-weight: bold; 
+                                                border: 1px solid #ffb300;
+                                                border-radius: 4px;
+                                                padding: 6px;
+                                            }
+                                            QPushButton:hover { background-color: #664400; }
+                                            QPushButton:pressed { background-color: #332200; }
+                                        """)
+            if hasattr(self, 'btn_exportar_nfe'):
+                self.btn_exportar_nfe.setStyleSheet("""
+                                            QPushButton { 
+                                                background-color: #4d3300; 
+                                                color: #ffcc33; 
+                                                font-weight: bold; 
+                                                border: 1px solid #ffb300;
+                                                border-radius: 4px;
+                                                padding: 6px;
+                                            }
+                                            QPushButton:hover { background-color: #664400; }
+                                            QPushButton:pressed { background-color: #332200; }
+                                        """)
 
         else:
             # --- ESTILO MODO CLARO (Padrão) ---
@@ -4554,17 +4649,30 @@ class JanelaHashes(QWidget):
 
             if hasattr(self, 'btn_reabrir_gps'):
                 self.btn_reabrir_gps.setStyleSheet("""
-                                QPushButton {
-                                    background-color: #ffb300; 
-                                    color: #4d3300; 
-                                    font-weight: bold;
-                                    border: 1px solid #cc8f00; 
-                                    border-radius: 4px; 
-                                    padding: 6px;
-                                }
-                                QPushButton:hover { background-color: #ffcc33; }
-                                QPushButton:pressed { background-color: #e6a100; }
-                            """)
+                                            QPushButton {
+                                                background-color: #ffb300; 
+                                                color: #4d3300; 
+                                                font-weight: bold;
+                                                border: 1px solid #cc8f00; 
+                                                border-radius: 4px; 
+                                                padding: 6px;
+                                            }
+                                            QPushButton:hover { background-color: #ffcc33; }
+                                            QPushButton:pressed { background-color: #e6a100; }
+                                        """)
+            if hasattr(self, 'btn_exportar_nfe'):
+                self.btn_exportar_nfe.setStyleSheet("""
+                                            QPushButton {
+                                                background-color: #ffb300; 
+                                                color: #4d3300; 
+                                                font-weight: bold;
+                                                border: 1px solid #cc8f00; 
+                                                border-radius: 4px; 
+                                                padding: 6px;
+                                            }
+                                            QPushButton:hover { background-color: #ffcc33; }
+                                            QPushButton:pressed { background-color: #e6a100; }
+                                        """)
 
         # --- Atualiza dinamicamente o aviso em vermelho da Tooltip do CRC32 ---
         if hasattr(self, "chk_hashes") and "CRC32" in self.chk_hashes:
@@ -7565,6 +7673,7 @@ class JanelaHashes(QWidget):
 
         # --- LIMPEZA DE DADOS DO GPS PARA NOVA EXTRAÇÃO ---
         self.coordenadas_gps_encontradas = []
+        self.notas_fiscais_extraidas = []
         if hasattr(self, 'janela_gps') and self.janela_gps is not None:
             self.janela_gps.close()
             self.janela_gps.deleteLater()
@@ -7572,6 +7681,9 @@ class JanelaHashes(QWidget):
 
         if hasattr(self, 'btn_reabrir_gps'):
             self.btn_reabrir_gps.setVisible(False)
+
+        if hasattr(self, 'btn_exportar_nfe'):
+            self.btn_exportar_nfe.setVisible(False)
 
         # --- BLOQUEIO DA INTERFACE CLÁSSICA ---
         self.grupo_wb.setEnabled(False)
@@ -10442,6 +10554,12 @@ class JanelaHashes(QWidget):
         """Slot chamado automaticamente quando o Worker conclui o laço for principal."""
         cancelado = payload.get("cancelar_operacao", False)
         self.coordenadas_gps_encontradas = payload.get("coordenadas_gps_encontradas", [])
+
+        # --- INSERÇÃO DA LÓGICA DE NOTAS FISCAIS ---
+        self.notas_fiscais_extraidas = payload.get("notas_fiscais", [])
+        if self.notas_fiscais_extraidas and hasattr(self, 'btn_exportar_nfe'):
+            self.btn_exportar_nfe.setVisible(True)
+        # ---------------------------------------------
 
         legenda_fps_tela = ""
         if self.video_teve_fps_geral:
