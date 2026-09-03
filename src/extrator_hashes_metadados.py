@@ -3267,7 +3267,7 @@ class JanelaHashes(QWidget):
         layout_analise = QVBoxLayout(self.grupo_analise)
 
         self.chk_nfe = QCheckBox("Buscar e Validar Notas Fiscais Brasileiras (NF-e/CT-e/MDF-e)")
-        self.chk_nfe.setChecked(True)
+        self.chk_nfe.setChecked(False)
         self.chk_nfe.setToolTip(
             "<p><b>Busca e validação de chaves de acesso padrão SEFAZ (44 dígitos) via Módulo 11.</b></p>"
             "<p><b>Modelos suportados:</b></p>"
@@ -3596,8 +3596,8 @@ class JanelaHashes(QWidget):
             # Restaura o Raw Dump (Padrão: False)
             self.chk_metadados_raw.setChecked(config.get('chk_metadados_raw', False))
 
-            # Restaura estado das Notas Fiscais (Padrão: True)
-            self.chk_nfe.setChecked(config.get('chk_nfe', True))
+            # Restaura estado das Notas Fiscais (Padrão: False)
+            self.chk_nfe.setChecked(config.get('chk_nfe', False))
 
             # Garante que não iniciem ambas marcadas pelo cache antigo
             if self.chk_metadados.isChecked() and self.chk_metadados_raw.isChecked():
@@ -6913,7 +6913,7 @@ class JanelaHashes(QWidget):
             'chk_metadados': self.chk_metadados.isChecked() if hasattr(self, 'chk_metadados') else True,
             'chk_metadados_raw': self.chk_metadados_raw.isChecked() if hasattr(self, 'chk_metadados_raw') else False,
             'chk_subdiretorios': self.chk_subdiretorios.isChecked() if hasattr(self, 'chk_subdiretorios') else True,
-            'chk_nfe': self.chk_nfe.isChecked() if hasattr(self, 'chk_nfe') else True,
+            'chk_nfe': self.chk_nfe.isChecked() if hasattr(self, 'chk_nfe') else False,
             'hashes': {algo: chk.isChecked() for algo, chk in self.chk_hashes.items()} if hasattr(self,
                                                                                                   'chk_hashes') else {}
         }
