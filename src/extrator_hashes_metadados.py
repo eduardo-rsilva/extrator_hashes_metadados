@@ -2503,6 +2503,10 @@ class WorkerExtracao(QThread):
                     txt = page.extract_text()
                     if txt: texto_bruto += txt + " "
 
+                # Se após varrer o PDF inteiro não houver nenhum caractere, é um PDF Escaneado/Imagem
+                if not texto_bruto.strip():
+                    return [{"erro_pdf_imagem": True}]
+
             elif extensao_operacional == 'docx':
                 try:
                     with zipfile.ZipFile(caminho_arquivo) as z:
@@ -2729,6 +2733,16 @@ class WorkerExtracao(QThread):
                         if lista_dados_nfe:
                             self.sig_texto_append.emit("")
                             for dados_nfe in lista_dados_nfe:
+
+                                # Tratamento para PDFs Escaneados (sem camada de texto digital)
+                                if dados_nfe.get("erro_pdf_imagem"):
+                                    self.sig_texto_append.emit("⚠️ AVISO FORENSE: PDF ESCANEADO (SEM TEXTO DIGITAL)")
+                                    self.sig_texto_append.emit(" ↳ O documento parece ser composto apenas por imagens.")
+                                    self.sig_texto_append.emit(
+                                        " ↳ A varredura automática de notas fiscais não pôde ser realizada neste arquivo.")
+                                    self.sig_texto_append.emit("")
+                                    continue
+
                                 chave = dados_nfe.get('chave')
                                 valida = dados_nfe.get('valida')
 
