@@ -2558,7 +2558,7 @@ class WorkerExtracao(QThread):
                         candidata = bloco_limpo[i:i + 44]
 
                         if self._validar_chave_nfe(candidata):
-                            numero = str(int(candidata[25:34]))
+                            numero = candidata[25:34]
                             resultados.append({"chave": candidata, "numero": numero, "valida": True})
                             nota_valida_encontrada = True
                             break  # Encontrou a chave válida, interrompe a varredura neste bloco
