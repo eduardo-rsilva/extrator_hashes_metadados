@@ -3266,7 +3266,7 @@ class JanelaHashes(QWidget):
                         """)
         layout_analise = QVBoxLayout(self.grupo_analise)
 
-        self.chk_nfe = QCheckBox("Buscar e Validar Notas Fiscais Brasileiras (NF-e/NFS-e/CT-e)")
+        self.chk_nfe = QCheckBox("Buscar e Validar Notas Fiscais Brasileiras (NF-e/CT-e/MDF-e)")
         self.chk_nfe.setChecked(True)
         self.chk_nfe.setToolTip(
             "Varre os arquivos buscando blocos numéricos compatíveis com chaves de notas fiscais, aplicando validação matemática (Módulo 11).")
@@ -3799,7 +3799,7 @@ class JanelaHashes(QWidget):
         menu_analise = barra_menus.addMenu("🔎 Análise de Conteúdo")
 
         acao_nfe = QWidgetAction(self)
-        self.chk_nfe_moderno = QCheckBox("  Buscar e Validar Notas Fiscais")
+        self.chk_nfe_moderno = QCheckBox("  Buscar e Validar Notas Fiscais Brasileiras (NF-e/CT-e/MDF-e)")
         self.chk_nfe_moderno.setStyleSheet("padding: 5px; margin-left: 10px;")
         self.chk_nfe_moderno.setChecked(self.chk_nfe.isChecked())
         self.chk_nfe_moderno.setToolTip(self.chk_nfe.toolTip())
