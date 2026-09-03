@@ -2567,15 +2567,6 @@ class WorkerExtracao(QThread):
                     if not nota_valida_encontrada:
                         resultados.append({"chave": bloco_limpo, "numero": None, "valida": False})
 
-                # Fallback: Busca padrões soltos de NFS-e
-                if not resultados:
-                    numeros_processados = set()
-                    for match_nf in re.finditer(r'N[L°º]?\s*[\.\:]?\s*0*(\d{1,9})\b', texto_bruto, re.IGNORECASE):
-                        numero = match_nf.group(1)
-                        if numero not in numeros_processados:
-                            numeros_processados.add(numero)
-                            resultados.append({"chave": None, "numero": numero, "valida": None})
-
             return resultados if resultados else None
 
         except Exception:
