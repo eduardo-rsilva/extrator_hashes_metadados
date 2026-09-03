@@ -3269,7 +3269,15 @@ class JanelaHashes(QWidget):
         self.chk_nfe = QCheckBox("Buscar e Validar Notas Fiscais Brasileiras (NF-e/CT-e/MDF-e)")
         self.chk_nfe.setChecked(True)
         self.chk_nfe.setToolTip(
-            "Varre os arquivos buscando blocos numéricos compatíveis com chaves de notas fiscais, aplicando validação matemática (Módulo 11).")
+            "<p><b>Busca e validação de chaves de acesso padrão SEFAZ (44 dígitos) via Módulo 11.</b></p>"
+            "<p><b>Modelos suportados:</b></p>"
+            "<ul>"
+            "<li><b>NF-e:</b> Nota Fiscal Eletrônica</li>"
+            "<li><b>CT-e:</b> Conhecimento de Transporte Eletrônico</li>"
+            "<li><b>MDF-e:</b> Manifesto Eletrônico de Documentos Fiscais</li>"
+            "</ul>"
+            "<p><b>Formatos analisados:</b> XML, PDF, DOCX, XLSX, TXT, CSV, JSON, LOG e EML.</p>"
+        )
         self.chk_nfe.installEventFilter(self)
         layout_analise.addWidget(self.chk_nfe)
 
