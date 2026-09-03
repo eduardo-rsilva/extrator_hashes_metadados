@@ -3660,11 +3660,15 @@ class JanelaHashes(QWidget):
             QMessageBox.warning(self, "Aviso Forense", "Nenhuma nota fiscal disponível para exportação nesta extração.")
             return
 
+        # Padrão de nomeação idêntico ao usado na função salvar_relatorio
+        agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        nome_padrao = f"Relatorio_Notas_Fiscais_{agora}.csv"
+
         opcoes_salvar = QFileDialog.Option.DontUseNativeDialog
         caminho_arquivo, _ = QFileDialog.getSaveFileName(
             self,
             "Exportar Dados das Notas Fiscais",
-            "Relatorio_Notas_Fiscais_ERS_IC.csv",
+            nome_padrao,
             "Planilha do Excel (CSV) (*.csv)",
             options=opcoes_salvar
         )
