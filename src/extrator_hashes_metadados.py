@@ -2280,7 +2280,7 @@ class WorkerExtracao(QThread):
         self._hashes_com_gps = set()
 
     # noinspection PyTypeChecker
-    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False) -> dict[str, Any]:
+    def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False, extrair_nfe=False) -> dict[str, Any]:
         try:
             stat_info = os.lstat(caminho_arquivo)
             if os.name == 'nt':
@@ -2415,13 +2415,9 @@ class WorkerExtracao(QThread):
 
             resultado_entropia = None
             mime_real = None
-            if extrair_metadados:
-                entropia = 0.0
-                if tamanho_bytes > 0:
-                    for contagem in contagem_bytes.values():
-                        probabilidade = contagem / tamanho_bytes
-                        entropia -= probabilidade * math.log2(probabilidade)
 
+            # Descola a verificação de Magic Bytes para ocorrer também se a NFe estiver ativa
+            if extrair_metadados or extrair_nfe:
                 # Identifica a VERDADEIRA natureza do arquivo via Magic Bytes (MIME Type)
                 try:
                     motor_magic = obter_motor_magic()
@@ -2432,6 +2428,13 @@ class WorkerExtracao(QThread):
                 except Exception as e:
                     mime_real = f"erro_leitura_{e}"
 
+            if extrair_metadados:
+                entropia = 0.0
+                if tamanho_bytes > 0:
+                    for contagem in contagem_bytes.values():
+                        probabilidade = contagem / tamanho_bytes
+                        entropia -= probabilidade * math.log2(probabilidade)
+
                 # Prefixos e tipos MIME genéricos que são naturalmente comprimidos (alta entropia)
                 mimes_comprimidos = [
                     'image/', 'video/', 'audio/',
@@ -2440,7 +2443,7 @@ class WorkerExtracao(QThread):
                     'application/vnd.openxmlformats'
                 ]
 
-                is_comprimido_real = any(mime_real.startswith(p) for p in mimes_comprimidos)
+                is_comprimido_real = any(mime_real.startswith(p) for p in mimes_comprimidos) if mime_real else False
 
                 status_entropia = ""
                 if entropia > 7.9:
@@ -2472,23 +2475,35 @@ class WorkerExtracao(QThread):
         except Exception as e:
             return {'sucesso': False, 'erro': repr(e)}
 
-    def _extrair_dados_nfe(self, caminho_arquivo):
-        """Busca Número e Chave de Acesso de Notas Fiscais em XML, PDF, DOCX, XLSX, TXT, etc."""
-        extensao = str(caminho_arquivo).lower().split('.')[-1]
+    def _extrair_dados_nfe(self, caminho_arquivo, mime_real=None):
+        """Busca Número e Chave de Acesso de Notas Fiscais mapeando o formato real (Magic Bytes)."""
+        extensao_original = str(caminho_arquivo).lower().split('.')[-1]
+        extensao_operacional = extensao_original
         resultados = []
         texto_bruto = ""
+
+        # Sobrescreve a extensão operacional com base no MIME Type real detectado (Fura o disfarce)
+        if mime_real:
+            if 'application/pdf' in mime_real:
+                extensao_operacional = 'pdf'
+            elif 'wordprocessingml' in mime_real:
+                extensao_operacional = 'docx'
+            elif 'spreadsheetml' in mime_real:
+                extensao_operacional = 'xlsx'
+            elif any(m in mime_real for m in ['text/', 'message/rfc822', 'application/xml', 'application/json']):
+                extensao_operacional = 'txt'
 
         try:
             # ==========================================
             # 1. EXTRAÇÃO DE TEXTO BRUTO (Todos os formatos)
             # ==========================================
-            if extensao == 'pdf' and HAS_PYPDF:
+            if extensao_operacional == 'pdf' and HAS_PYPDF:
                 reader = PdfReader(caminho_arquivo)
                 for page in reader.pages:
                     txt = page.extract_text()
                     if txt: texto_bruto += txt + " "
 
-            elif extensao == 'docx':
+            elif extensao_operacional == 'docx':
                 try:
                     with zipfile.ZipFile(caminho_arquivo) as z:
                         xml_content = z.read('word/document.xml')
@@ -2498,7 +2513,7 @@ class WorkerExtracao(QThread):
                 except Exception:
                     pass
 
-            elif extensao == 'xlsx':
+            elif extensao_operacional == 'xlsx':
                 try:
                     with zipfile.ZipFile(caminho_arquivo) as z:
                         if 'xl/sharedStrings.xml' in z.namelist():
@@ -2509,7 +2524,7 @@ class WorkerExtracao(QThread):
                 except Exception:
                     pass
 
-            elif extensao in ['txt', 'csv', 'json', 'log', 'eml', 'xml']:
+            elif extensao_operacional in ['txt', 'csv', 'json', 'log', 'eml', 'xml']:
                 codificacoes = ['utf-8', 'utf-16', 'cp1252', 'latin-1']
                 for cod in codificacoes:
                     try:
@@ -2637,8 +2652,12 @@ class WorkerExtracao(QThread):
             self.sig_texto_append.emit(f"===== ARQUIVO #{indice + 1}/{total_arquivos} =====")
             self.sig_texto_append.emit(f"Arquivo: {arquivo}")
 
-            resultado = self._obter_metadados_e_hashes_worker(arquivo, self.algos_selecionados,
-                                                              extrair_metadados=(self.extrair_meta or self.extrair_raw))
+            resultado = self._obter_metadados_e_hashes_worker(
+                arquivo,
+                self.algos_selecionados,
+                extrair_metadados=(self.extrair_meta or self.extrair_raw),
+                extrair_nfe=self.extrair_nfe
+            )
 
             if resultado['sucesso']:
                 self.arquivos_processados_qtd += 1
@@ -2666,37 +2685,84 @@ class WorkerExtracao(QThread):
                     self.sig_texto_append.emit(f"{algo}: {hash_val}")
 
                 # --- PROCESSAMENTO E AVISO INDIVIDUAL DA NOTA FISCAL ---
-                extensoes_fiscais = ('xml', 'pdf', 'docx', 'xlsx', 'txt', 'csv', 'json', 'log', 'eml')
-                if self.extrair_nfe and arquivo.lower().endswith(extensoes_fiscais):
-                    lista_dados_nfe = self._extrair_dados_nfe(arquivo)
-                    if lista_dados_nfe:
-                        self.sig_texto_append.emit("")
-                        for dados_nfe in lista_dados_nfe:
-                            chave = dados_nfe.get('chave')
-                            valida = dados_nfe.get('valida')
+                if self.extrair_nfe:
+                    mime_real = resultado.get('mime_real', '')
+                    mimes_fiscais = ['application/pdf', 'wordprocessingml', 'spreadsheetml', 'text/',
+                                     'message/rfc822', 'application/xml', 'application/json']
+                    extensoes_fiscais = ('xml', 'pdf', 'docx', 'xlsx', 'txt', 'csv', 'json', 'log', 'eml')
 
-                            # 2) Se for inválida
-                            if chave and valida is False:
-                                self.sig_texto_append.emit("⚠️ AVISO: NENHUMA NOTA FISCAL VÁLIDA ENCONTRADA")
-                                self.sig_texto_append.emit(f" ↳ Bloco contínuo verificado: {chave}")
+                    # Verifica se o Magic Byte aponta para um formato extraível OU se a extensão bate (fallback)
+                    is_fiscal = (any(
+                        m in mime_real for m in mimes_fiscais) if mime_real else False) or arquivo.lower().endswith(
+                        extensoes_fiscais)
+
+                    if is_fiscal:
+                        # --- DETECÇÃO DE EXTENSÃO DISFARÇADA EXCLUSIVA PARA NFE ---
+                        # Só exibe se os metadados estiverem desligados (para não gerar aviso duplicado na tela)
+                        if not (self.extrair_meta or self.extrair_raw) and mime_real:
+                            ext_orig = arquivo.lower().split('.')[-1] if '.' in arquivo else "sem_extensao"
+                            ext_real = ext_orig
+
+                            # Traduz o MIME para a extensão correta
+                            if 'application/pdf' in mime_real:
+                                ext_real = 'pdf'
+                            elif 'wordprocessingml' in mime_real:
+                                ext_real = 'docx'
+                            elif 'spreadsheetml' in mime_real:
+                                ext_real = 'xlsx'
+                            elif 'message/rfc822' in mime_real:
+                                ext_real = 'eml'
+
+                            if ext_orig != ext_real and ext_real in extensoes_fiscais:
+                                cabecalho_hex = resultado.get('cabecalho_hex', 'VAZIO')
+                                mime_upper = mime_real.upper()
+
+                                self.sig_texto_append.emit("")
                                 self.sig_texto_append.emit(
-                                    " ↳ Não foi encontrada nenhuma nota fiscal válida nesse bloco contínuo de caracteres numéricos.")
-                                self.sig_texto_append.emit("")
+                                    "⚠️ ALERTA FORENSE: POSSÍVEL ADULTERAÇÃO DE EXTENSÃO DETECTADA (Magic Bytes) ⚠️")
+                                self.sig_texto_append.emit(f" ↳ Extensão Apresentada: .{ext_orig.lower()}")
+                                self.sig_texto_append.emit(f" ↳ Formato Estrutural Detectado: {mime_upper}")
+                                self.sig_texto_append.emit(f" ↳ Primeiros Bytes (Offset 0): {cabecalho_hex}")
+                                self.sig_texto_append.emit(
+                                    f" ↳ Nota: A extensão do arquivo pode estar mascarando sua verdadeira estrutura ou ser uma variação não mapeada (Assinatura detectada: {mime_upper}).")
+                                self.sig_texto_append.emit(
+                                    f" ↳ Informação: A varredura de Notas Fiscais abaixo refere-se à estrutura real do arquivo (formato {mime_upper}).")
 
-                            # 1) Se for válida (ou se for NFS-e sem chave nacional)
-                            else:
-                                self.notas_fiscais_encontradas.append({
-                                    'arquivo': nome_arquivo,
-                                    'chave': chave,
-                                    'numero': dados_nfe.get('numero')
-                                })
-                                self.sig_texto_append.emit("📄 NOTA FISCAL DETECTADA:")
-                                if chave and valida:
-                                    self.sig_texto_append.emit(" ↳ Status: CÓDIGO DA NOTA FISCAL VÁLIDO ✅")
-                                if dados_nfe.get('numero'): self.sig_texto_append.emit(
-                                    f" ↳ Número: {dados_nfe['numero']}")
-                                if chave: self.sig_texto_append.emit(f" ↳ Chave de Acesso: {chave}")
-                                self.sig_texto_append.emit("")
+                                # Alimenta a estatística de formatos falsos no resumo final do laudo no mesmo padrão do extrator avançado
+                                alerta_falso = f"{ext_orig.upper()} (Possível formato real: {mime_upper})"
+                                self.contagem_extensoes_falsas[alerta_falso] = self.contagem_extensoes_falsas.get(
+                                    alerta_falso, 0) + 1
+                        # --- FIM DA DETECÇÃO ---
+
+                        lista_dados_nfe = self._extrair_dados_nfe(arquivo, mime_real)
+                        if lista_dados_nfe:
+                            self.sig_texto_append.emit("")
+                            for dados_nfe in lista_dados_nfe:
+                                chave = dados_nfe.get('chave')
+                                valida = dados_nfe.get('valida')
+
+                                # 2) Se for inválida
+                                if chave and valida is False:
+                                    self.sig_texto_append.emit("⚠️ AVISO: NENHUMA NOTA FISCAL VÁLIDA ENCONTRADA")
+                                    self.sig_texto_append.emit(f" ↳ Bloco contínuo verificado: {chave}")
+                                    self.sig_texto_append.emit(
+                                        " ↳ Não foi encontrada nenhuma nota fiscal válida nesse bloco contínuo de caracteres numéricos.")
+                                    self.sig_texto_append.emit("")
+
+                                # 1) Se for válida (ou se for NFS-e sem chave nacional)
+                                else:
+                                    self.notas_fiscais_encontradas.append({
+                                        'arquivo': nome_arquivo,
+                                        'chave': chave,
+                                        'numero': dados_nfe.get('numero')
+                                    })
+                                    self.sig_texto_append.emit("📄 NOTA FISCAL DETECTADA:")
+                                    if chave and valida:
+                                        self.sig_texto_append.emit(" ↳ Status: CÓDIGO DA NOTA FISCAL VÁLIDO ✅")
+                                    if dados_nfe.get('numero'): self.sig_texto_append.emit(
+                                        f" ↳ Número: {dados_nfe['numero']}")
+                                    if chave: self.sig_texto_append.emit(f" ↳ Chave de Acesso: {chave}")
+                                    self.sig_texto_append.emit("")
                 # -------------------------------------------------------------
 
                 self.sig_texto_append.emit("")
