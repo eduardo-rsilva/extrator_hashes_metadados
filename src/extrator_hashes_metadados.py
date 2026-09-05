@@ -7744,6 +7744,7 @@ class JanelaHashes(QWidget):
         self.grupo_wb.setEnabled(False)
         self.grupo_topo.setEnabled(False)
         self.grupo_controles.setEnabled(False)
+        self.grupo_analise.setEnabled(False)
 
         # --- BLOQUEIO DA INTERFACE MODERNA ---
         if hasattr(self, 'barra_menus'):
@@ -7767,6 +7768,7 @@ class JanelaHashes(QWidget):
         self.grupo_wb.setEnabled(True)
         self.grupo_topo.setEnabled(True)
         self.grupo_controles.setEnabled(True)
+        self.grupo_analise.setEnabled(True)
 
         # --- DESBLOQUEIO DA INTERFACE MODERNA ---
         if hasattr(self, 'barra_menus'):
