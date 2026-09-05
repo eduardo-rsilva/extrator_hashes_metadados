@@ -10647,9 +10647,9 @@ class JanelaHashes(QWidget):
 
             # Novo disclaimer com os links de validação forense
             self.texto_saida.append(
-                "\n   ℹ️ NOTA DE VALIDAÇÃO: Extensões menos comuns ou proprietárias não encontradas")
-            self.texto_saida.append("   na lista interna deste programa podem gerar falsos positivos. Recomenda-se")
-            self.texto_saida.append("   validar manualmente a relação entre esta extensão e sua assinatura binária:")
+                "\n   ℹ️ NOTA DE VALIDAÇÃO: Extensões menos comuns ou proprietárias não encontradas "
+                "na lista interna deste programa podem gerar falsos positivos. Recomenda-se validar "
+                "manualmente a relação entre esta extensão e sua assinatura binária:")
             self.texto_saida.append(
                 "   🔗 Padrões MIME (IANA): https://www.iana.org/assignments/media-types/media-types.xhtml")
             self.texto_saida.append(
