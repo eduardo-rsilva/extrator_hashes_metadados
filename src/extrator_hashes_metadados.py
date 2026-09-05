@@ -2548,7 +2548,7 @@ class WorkerExtracao(QThread):
                 blocos_processados = set()
 
                 # Varre o texto atrás de blocos contínuos de 44 OU MAIS dígitos
-                for match_bloco in re.finditer(r'(?:\d[\s\.\-]*){44,}', texto_bruto):
+                for match_bloco in re.finditer(r'(?:\d[\s.-]*){44,}', texto_bruto):
                     bloco_limpo = re.sub(r'[^\d]', '', match_bloco.group(0))
 
                     if bloco_limpo in blocos_processados:
