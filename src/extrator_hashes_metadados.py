@@ -2584,6 +2584,19 @@ class WorkerExtracao(QThread):
         if not chave_completa or len(chave_completa) != 44 or not chave_completa.isdigit():
             return False
 
+        # Validação estrutural de campos fixos da SEFAZ
+        uf = int(chave_completa[0:2])
+        if uf < 11 or uf > 53:
+            return False
+
+        mes = int(chave_completa[4:6])
+        if mes < 1 or mes > 12:
+            return False
+
+        modelos_validos = {"55", "57", "58", "59", "65", "67"}
+        if chave_completa[20:22] not in modelos_validos:
+            return False
+
         soma = 0
         peso = 2
 
@@ -2598,8 +2611,42 @@ class WorkerExtracao(QThread):
         resto = soma % 11
         dv_calculado = 0 if resto in (0, 1) else 11 - resto
 
-        # Passo 5: Confronto dos valores
-        return dv_calculado == int(chave_completa[43])
+        # Passo 5: Confronto dos valores do DV Geral da Chave
+        if dv_calculado != int(chave_completa[43]):
+            return False
+
+        # Passo 6: Extração e Validação do CNPJ Embutido
+        # O CNPJ na chave padrão SEFAZ está entre as posições 7 e 20 (índices 6 a 19)
+        cnpj_embutido = chave_completa[6:20]
+
+        return self._validar_cnpj(cnpj_embutido)
+
+    def _validar_cnpj(self, cnpj: str) -> bool:
+        """Valida a estrutura e os dígitos verificadores de um CNPJ."""
+        if not cnpj or len(cnpj) != 14 or not cnpj.isdigit():
+            return False
+
+        # Rejeita falsos positivos clássicos onde todos os números são iguais (ex: 00000000000000)
+        # Esses números passam matematicamente no Módulo 11, mas são CNPJs inválidos.
+        if cnpj == cnpj[0] * 14:
+            return False
+
+        # Validação do 1º Dígito Verificador
+        pesos_1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        soma_1 = sum(int(cnpj[i]) * pesos_1[i] for i in range(12))
+        dv_1 = 11 - (soma_1 % 11)
+        dv_1 = 0 if dv_1 >= 10 else dv_1
+
+        if int(cnpj[12]) != dv_1:
+            return False
+
+        # Validação do 2º Dígito Verificador
+        pesos_2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        soma_2 = sum(int(cnpj[i]) * pesos_2[i] for i in range(13))
+        dv_2 = 11 - (soma_2 % 11)
+        dv_2 = 0 if dv_2 >= 10 else dv_2
+
+        return int(cnpj[13]) == dv_2
 
     def run(self):
         total_arquivos = len(self.lista_arquivos)
