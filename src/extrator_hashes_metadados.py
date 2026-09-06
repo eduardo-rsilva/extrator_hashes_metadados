@@ -2971,40 +2971,12 @@ class JanelaNovidades(QDialog):
         self.setWindowTitle("Novidades da Versão")
         self.resize(550, 450)
 
-        # Garante que a janela flutue, mas NÃO bloqueie o programa principal
         self.setWindowModality(Qt.WindowModality.NonModal)
 
         layout = QVBoxLayout(self)
 
-        # --- DETECTA O TEMA ATUAL DA JANELA PRINCIPAL ---
-        is_dark = False
-        if parent and hasattr(parent, "chk_modo_escuro"):
-            is_dark = parent.chk_modo_escuro.isChecked()
-
         self.texto_novidades = QTextEdit()
         self.texto_novidades.setReadOnly(True)
-
-        # --- APLICA AS CORES IDÊNTICAS AO RESTO DO PROGRAMA ---
-        if is_dark:
-            # Padrão escuro usado no texto_saida e texto_referencia
-            self.texto_novidades.setStyleSheet(
-                "background-color: #1e1e1e; color: #d4d4d4; font-size: 11pt; border: 1px solid #555555;")
-            cor_titulo = "#66b2ff"  # Azul mais claro para dar contraste no fundo escuro
-        else:
-            # Padrão claro original
-            self.texto_novidades.setStyleSheet(
-                "background-color: #ffffff; color: #111111; font-size: 11pt; border: 1px solid #cccccc;")
-            cor_titulo = "#0078D7"  # Azul padrão
-
-        # Injeta a cor dinâmica diretamente no HTML
-        self.texto_novidades.setHtml(f"""
-            <h2 style='color: {cor_titulo};'>O que há de novo!</h2>
-            <ul>
-                <li><b>Funcionalidade 1:</b> Descrição da melhoria.</li>
-                <li><b>Funcionalidade 2:</b> Nova opção adicionada.</li>
-                <li><b>Correções:</b> Melhorias de estabilidade geral.</li>
-            </ul>
-        """)
         layout.addWidget(self.texto_novidades)
 
         self.chk_nao_mostrar = QCheckBox("Não mostrar esta janela novamente")
@@ -3013,48 +2985,63 @@ class JanelaNovidades(QDialog):
 
         self.btn_fechar = QPushButton("Fechar")
         self.btn_fechar.setMinimumHeight(35)
+        self.btn_fechar.clicked.connect(self.close)
+        layout.addWidget(self.btn_fechar)
 
-        # --- APLICA O ESTILO DOS BOTÕES CONFORME O TEMA ---
+        # Detecta o tema inicial e aplica a pintura
+        is_dark = False
+        if parent and hasattr(parent, "chk_modo_escuro"):
+            is_dark = parent.chk_modo_escuro.isChecked()
+        self.aplicar_tema(is_dark)
+
+    def aplicar_tema(self, is_dark):
+        """Redesenha os componentes internos e o HTML de acordo com o tema."""
         if is_dark:
+            self.texto_novidades.setStyleSheet(
+                "background-color: #1e1e1e; color: #d4d4d4; font-size: 11pt; border: 1px solid #555555;")
+            cor_titulo = "#66b2ff"
             self.btn_fechar.setStyleSheet("""
                 QPushButton { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; border-radius: 4px; font-weight: bold; padding: 6px; }
                 QPushButton:hover { background-color: #4b4d4f; }
                 QPushButton:pressed { background-color: #2b2b2b; }
             """)
         else:
+            self.texto_novidades.setStyleSheet(
+                "background-color: #ffffff; color: #111111; font-size: 11pt; border: 1px solid #cccccc;")
+            cor_titulo = "#0078D7"
             self.btn_fechar.setStyleSheet("""
                 QPushButton { background-color: #e0e0e0; color: #111111; border: 1px solid #cccccc; border-radius: 4px; font-weight: bold; padding: 6px; }
                 QPushButton:hover { background-color: #d4d4d4; }
                 QPushButton:pressed { background-color: #c5c5c5; }
             """)
 
-        self.btn_fechar.clicked.connect(self.close)
-        layout.addWidget(self.btn_fechar)
+        # Re-injeta o HTML com a nova cor do título
+        self.texto_novidades.setHtml(f"""
+            <h2 style='color: {cor_titulo};'>O que há de novo!</h2>
+            <ul>
+                <li><b>Funcionalidade 1:</b> Descrição da melhoria.</li>
+                <li><b>Funcionalidade 2:</b> Nova opção adicionada.</li>
+                <li><b>Correções:</b> Melhorias de estabilidade geral.</li>
+            </ul>
+        """)
+
+    def showEvent(self, event):
+        """Calcula o centro exato da janela pai e se posiciona sobre ele."""
+        super().showEvent(event)
+        if self.parentWidget():
+            geometria_pai = self.parentWidget().geometry()
+            centro_x = geometria_pai.x() + (geometria_pai.width() // 2)
+            centro_y = geometria_pai.y() + (geometria_pai.height() // 2)
+            nova_pos_x = centro_x - (self.width() // 2)
+            nova_pos_y = centro_y - (self.height() // 2)
+            self.move(nova_pos_x, nova_pos_y)
 
     def closeEvent(self, event):
-        """Intercepta o fechamento da janela (tanto pelo botão quanto pelo 'X')."""
         if self.chk_nao_mostrar.isChecked():
             config = carregar_config()
             config['versao_novidades_oculta'] = VERSAO_APP
             salvar_config(config)
         event.accept()
-
-    def showEvent(self, event):
-        """Calcula o centro exato da janela pai e se posiciona sobre ele."""
-        super().showEvent(event)
-
-        if self.parentWidget():
-            geometria_pai = self.parentWidget().geometry()
-
-            # Descobre o ponto central (X, Y) da janela principal
-            centro_x = geometria_pai.x() + (geometria_pai.width() // 2)
-            centro_y = geometria_pai.y() + (geometria_pai.height() // 2)
-
-            # Move o popup subtraindo metade do seu próprio tamanho para alinhar os centros
-            nova_pos_x = centro_x - (self.width() // 2)
-            nova_pos_y = centro_y - (self.height() // 2)
-
-            self.move(nova_pos_x, nova_pos_y)
 
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str, str)
@@ -4666,6 +4653,10 @@ class JanelaHashes(QWidget):
                 self.janela_gps.setStyleSheet(estilo_global)
                 self.aplicar_tema_botoes_gps()
 
+            if hasattr(self, 'janela_novidades') and self.janela_novidades is not None:
+                self.janela_novidades.setStyleSheet(estilo_global)  # Passa o fundo cinza para o dialog e checkbox
+                self.janela_novidades.aplicar_tema(True)
+
             # Atualiza o estilo individual de cada QGroupBox para a cor cinza-clara do Modo Escuro
             estilo_caixas_escuro = """
                 QGroupBox { border: 1px solid #555555; margin-top: 10px; border-radius: 3px; padding-top: 5px; }
@@ -4757,6 +4748,10 @@ class JanelaHashes(QWidget):
             if hasattr(self, 'janela_gps') and self.janela_gps is not None:
                 self.janela_gps.setStyleSheet("")
                 self.aplicar_tema_botoes_gps()
+
+            if hasattr(self, 'janela_novidades') and self.janela_novidades is not None:
+                self.janela_novidades.setStyleSheet("")  # Restaura o fundo padrão
+                self.janela_novidades.aplicar_tema(False)
 
             # Restaura o estilo individual de cada QGroupBox para a cor preta do Modo Claro
             estilo_caixas_claro = """
