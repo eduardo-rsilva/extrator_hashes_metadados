@@ -3039,6 +3039,23 @@ class JanelaNovidades(QDialog):
             salvar_config(config)
         event.accept()
 
+    def showEvent(self, event):
+        """Calcula o centro exato da janela pai e se posiciona sobre ele."""
+        super().showEvent(event)
+
+        if self.parentWidget():
+            geometria_pai = self.parentWidget().geometry()
+
+            # Descobre o ponto central (X, Y) da janela principal
+            centro_x = geometria_pai.x() + (geometria_pai.width() // 2)
+            centro_y = geometria_pai.y() + (geometria_pai.height() // 2)
+
+            # Move o popup subtraindo metade do seu próprio tamanho para alinhar os centros
+            nova_pos_x = centro_x - (self.width() // 2)
+            nova_pos_y = centro_y - (self.height() // 2)
+
+            self.move(nova_pos_x, nova_pos_y)
+
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str, str)
     sinal_atualizacao_manual = Signal(bool, str)
@@ -3081,7 +3098,7 @@ class JanelaHashes(QWidget):
         # --- CHAMA A ROTINA DE NOTAS DO DESENVOLVEDOR ---
         self.checar_notas_desenvolvedor()
 
-        self.verificar_exibicao_novidades()
+        QTimer.singleShot(3000, self.verificar_exibicao_novidades)
 
     def verificar_exibicao_novidades(self):
         """Verifica as configurações e exibe o popup não-modal se for uma versão nova."""
