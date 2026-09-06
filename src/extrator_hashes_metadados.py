@@ -2965,6 +2965,80 @@ class WorkerExtracao(QThread):
         self.sig_conclusao.emit(payload_final)
 
 
+class JanelaNovidades(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Novidades da Versão")
+        self.resize(550, 450)
+
+        # Garante que a janela flutue, mas NÃO bloqueie o programa principal
+        self.setWindowModality(Qt.WindowModality.NonModal)
+
+        layout = QVBoxLayout(self)
+
+        # --- DETECTA O TEMA ATUAL DA JANELA PRINCIPAL ---
+        is_dark = False
+        if parent and hasattr(parent, "chk_modo_escuro"):
+            is_dark = parent.chk_modo_escuro.isChecked()
+
+        self.texto_novidades = QTextEdit()
+        self.texto_novidades.setReadOnly(True)
+
+        # --- APLICA AS CORES IDÊNTICAS AO RESTO DO PROGRAMA ---
+        if is_dark:
+            # Padrão escuro usado no texto_saida e texto_referencia
+            self.texto_novidades.setStyleSheet(
+                "background-color: #1e1e1e; color: #d4d4d4; font-size: 11pt; border: 1px solid #555555;")
+            cor_titulo = "#66b2ff"  # Azul mais claro para dar contraste no fundo escuro
+        else:
+            # Padrão claro original
+            self.texto_novidades.setStyleSheet(
+                "background-color: #ffffff; color: #111111; font-size: 11pt; border: 1px solid #cccccc;")
+            cor_titulo = "#0078D7"  # Azul padrão
+
+        # Injeta a cor dinâmica diretamente no HTML
+        self.texto_novidades.setHtml(f"""
+            <h2 style='color: {cor_titulo};'>O que há de novo!</h2>
+            <ul>
+                <li><b>Funcionalidade 1:</b> Descrição da melhoria.</li>
+                <li><b>Funcionalidade 2:</b> Nova opção adicionada.</li>
+                <li><b>Correções:</b> Melhorias de estabilidade geral.</li>
+            </ul>
+        """)
+        layout.addWidget(self.texto_novidades)
+
+        self.chk_nao_mostrar = QCheckBox("Não mostrar esta janela novamente")
+        self.chk_nao_mostrar.setStyleSheet("font-weight: bold; padding-top: 10px;")
+        layout.addWidget(self.chk_nao_mostrar)
+
+        self.btn_fechar = QPushButton("Fechar")
+        self.btn_fechar.setMinimumHeight(35)
+
+        # --- APLICA O ESTILO DOS BOTÕES CONFORME O TEMA ---
+        if is_dark:
+            self.btn_fechar.setStyleSheet("""
+                QPushButton { background-color: #3c3f41; color: #f0f0f0; border: 1px solid #555555; border-radius: 4px; font-weight: bold; padding: 6px; }
+                QPushButton:hover { background-color: #4b4d4f; }
+                QPushButton:pressed { background-color: #2b2b2b; }
+            """)
+        else:
+            self.btn_fechar.setStyleSheet("""
+                QPushButton { background-color: #e0e0e0; color: #111111; border: 1px solid #cccccc; border-radius: 4px; font-weight: bold; padding: 6px; }
+                QPushButton:hover { background-color: #d4d4d4; }
+                QPushButton:pressed { background-color: #c5c5c5; }
+            """)
+
+        self.btn_fechar.clicked.connect(self.close)
+        layout.addWidget(self.btn_fechar)
+
+    def closeEvent(self, event):
+        """Intercepta o fechamento da janela (tanto pelo botão quanto pelo 'X')."""
+        if self.chk_nao_mostrar.isChecked():
+            config = carregar_config()
+            config['versao_novidades_oculta'] = VERSAO_APP
+            salvar_config(config)
+        event.accept()
+
 class JanelaHashes(QWidget):
     sinal_atualizacao = Signal(str, str, str, str)
     sinal_atualizacao_manual = Signal(bool, str)
@@ -3006,6 +3080,18 @@ class JanelaHashes(QWidget):
 
         # --- CHAMA A ROTINA DE NOTAS DO DESENVOLVEDOR ---
         self.checar_notas_desenvolvedor()
+
+        self.verificar_exibicao_novidades()
+
+    def verificar_exibicao_novidades(self):
+        """Verifica as configurações e exibe o popup não-modal se for uma versão nova."""
+        config = carregar_config()
+        versao_silenciada = config.get('versao_novidades_oculta', '')
+
+        # Só exibe se a versão atual for diferente da versão que o usuário mandou ocultar
+        if versao_silenciada != VERSAO_APP:
+            self.janela_novidades = JanelaNovidades(self)
+            self.janela_novidades.show()
 
     def setup_ui(self):
         # Layout raiz da janela inteira
@@ -7084,6 +7170,9 @@ class JanelaHashes(QWidget):
         # 3. Preserva a chave de ocultação da nota do desenvolvedor, se ela existir
         if "nota_oculta_hash" in config_atual:
             config["nota_oculta_hash"] = config_atual["nota_oculta_hash"]
+
+        if "versao_novidades_oculta" in config_atual:
+            config["versao_novidades_oculta"] = config_atual["versao_novidades_oculta"]
 
         salvar_config(config)
 
