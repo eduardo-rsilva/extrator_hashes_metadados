@@ -10067,17 +10067,28 @@ class JanelaHashes(QWidget):
         self.texto_saida.append(f"{NOME_APP} - versão {VERSAO_APP}")
         self.texto_saida.append(f"Processando {total_arquivos} {palavra_arq_inicio}...\n")
 
+        # Captura a flag de NFe (pode colocar essa linha lá em cima junto com 'extrair_meta')
+        extrair_nfe = self.chk_nfe.isChecked()
+
         # Verifica as seleções para exibir os avisos adequados
         tem_metadados = extrair_meta or extrair_raw
 
         if not algos_selecionados and not tem_metadados:
-            self.texto_saida.append(
-                "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas tamanhos dos arquivos serão mostrados.\n")
+            if not extrair_nfe:
+                self.texto_saida.append(
+                    "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas tamanhos dos arquivos serão mostrados.\n")
+            else:
+                self.texto_saida.append(
+                    "[AVISO] Nenhum algoritmo de hash e nenhuma opção de metadados selecionados. Apenas tamanhos dos arquivos e o resultado da análise de conteúdo serão mostrados.\n")
         elif not algos_selecionados and tem_metadados:
             self.texto_saida.append("[AVISO] Nenhum algoritmo de hash selecionado. Apenas metadados serão extraídos.\n")
         elif algos_selecionados and not tem_metadados:
             self.texto_saida.append(
                 "[AVISO] Nenhuma opção de metadados selecionada. Apenas hashes e tamanhos dos arquivos serão mostrados.\n")
+
+        # Exibe a mensagem solicitada independentemente das outras opções se a NFe estiver marcada
+        if extrair_nfe:
+            self.texto_saida.append("[AVISO] Análise de conteúdo ativada: busca de notas fiscais brasileiras válidas.\n")
 
         if tem_metadados:
             dependencias_ausentes = []
@@ -10130,7 +10141,7 @@ class JanelaHashes(QWidget):
         self.worker = WorkerExtracao(
             lista_arquivos, info_drive, texto_custodia, veio_de_pdf,
             algos_selecionados, extrair_meta, extrair_raw,
-            self.chk_nfe.isChecked(), janela=self
+            extrair_nfe, janela=self
         )
 
         # Conexões Thread-Safe Seguras
