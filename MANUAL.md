@@ -199,7 +199,31 @@ Ao marcar a opção "Incluir Metadados Básicos", o programa realiza uma extraç
 
 ---
 
-## 6. Finalização e Relatórios
+## 6. Análise de Conteúdo: Busca e Validação de Notas Fiscais (Padrão SEFAZ)
+O extrator possui um módulo de análise profunda de dados voltado para a detecção automática de Notas Fiscais Eletrônicas brasileiras, ideal para acelerar investigações de fraudes, crimes financeiros ou triagem de vastos volumes de documentos.
+> **IMPORTANTE:** A "Análise de Conteúdo" não é acionada por padrão e requer a seleção manual dessa funcionalidade pelo usuário.
+
+* **Ativação:** Na área "Análise de Conteúdo" da interface principal, marque a opção **"Buscar e Validar Notas Fiscais Brasileiras (NF-e/CT-e/MDF-e)"**.
+    
+    <figure>
+      <img src="imgs/analise_nfe.PNG" alt="Seletor para ativação da busca de notas fiscais." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Seletor para ativação da busca de notas fiscais.</i></figcaption>
+    </figure>
+
+<br>
+
+* **Formatos Suportados:** O motor de busca varre o conteúdo interno de arquivos como PDFs (DANFE), planilhas do Excel (XLSX), documentos do Word (DOCX), XMLs da SEFAZ, EML, MSG e arquivos de texto (TXT, CSV, JSON).
+* **Desmembramento e Exportação:** Ao final do processamento, as chaves válidas encontradas são destrinchadas (revelando UF, Mês/Ano, CNPJ do Emitente, Modelo e Número da Nota) diretamente no log da interface. 
+* **Planilha Excel:** Se notas fiscais forem detectadas no lote, um novo botão amarelo (**"🧾 EXPORTAR DADOS DAS NOTAS FISCAIS..."**) aparecerá na seção de barras de progresso, permitindo salvar todos os dados fiscais de forma tabular em uma planilha `.csv` pronta para cruzamento de dados forenses.
+
+    <figure>
+      <img src="imgs/exportar_nfe.PNG" alt="Botão para exportação tabular das notas fiscais válidas encontradas na extração." style="border: 1px solid black;" width="100%">
+      <figcaption align="center"><i>Botão para exportação tabular das notas fiscais válidas encontradas na extração.</i></figcaption>
+    </figure>
+
+___
+
+## 7. Finalização e Relatórios
 Ao término do processamento, revise o resumo final para consolidar a perícia:
 
 * **Dados de Geolocalização:** Caso sejam encontrados dados de geolocalização (GPS) em um ou mais arquivos, eles serão agrupados na janela **"Coordenadas GPS Encontradas!"**. Os hiperlinks "Abrir Localização no Google Maps" levam diretamente àquela localização no site Google Maps no browser padrão do usuário. Também é possível ver os primeiros 10 pontos encontrados em link direto no Google Maps (modo Rota), copiar a lista de links gerados em texto puro ou exportar o resultado em formato `.kml` para visualização no "Google Earth" ou no "Google My Maps".
