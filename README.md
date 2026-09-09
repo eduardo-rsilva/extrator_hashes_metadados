@@ -5,6 +5,8 @@
 ![Downloads Totais](https://img.shields.io/github/downloads/eduardo-rsilva/extrator_hashes_metadados/total?style=for-the-badge&color=blue&label=TOTAL%20DE%20DOWNLOADS)
 
 > 💡 **Dúvidas de operação?** Acesse o [**Manual do Usuário (MANUAL.md)**](./MANUAL.md) para instruções com capturas de tela.
+> 
+> 📜 **Histórico de atualizações:** Quer saber o que mudou a cada versão ou precisa baixar uma versão anterior? Consulte a [**Página de Releases**](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases).
 
 ## 📝 Descrição
 **Ferramenta pericial** desenvolvida para agilizar a triagem inicial e análise de evidências digitais, além de permitir a **Aquisição Forense (Bit-a-bit)** de unidades lógicas e físicas. A ideia é ter um **"canivete suíço" offline e portátil** que faça o trabalho pesado de extração de dados de forma rápida, segura e em lote, bastando arrastar e soltar pastas ou arquivos na interface.

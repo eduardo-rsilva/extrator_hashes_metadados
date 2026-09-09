@@ -2,6 +2,8 @@
 
 Este manual orienta o usuário sobre como utilizar as funcionalidades da ferramenta para garantir a integridade e a profundidade da análise pericial.
 
+> 📜 **Histórico de atualizações:** Quer saber o que mudou a cada versão ou precisa baixar uma versão anterior? Consulte a [**Página de Releases**](https://github.com/eduardo-rsilva/extrator_hashes_metadados/releases).
+
 > ### ⚙️ Compatibilidade e Requisitos de Sistema
 > * **Sistema Operacional:** Exclusivo para Windows 64-bits (x64).
 > * **Funcionalidades Básicas:** A extração padrão de hashes e metadados opera normalmente em versões mais antigas do Windows (como o Windows 7 e 8.1), desde que suportadas pelo ambiente gráfico.
