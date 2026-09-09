@@ -2969,7 +2969,7 @@ class JanelaNovidades(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Novidades da Versão")
-        self.resize(550, 450)
+        self.resize(750, 550)
 
         self.setWindowModality(Qt.WindowModality.NonModal)
 
@@ -3017,11 +3017,18 @@ class JanelaNovidades(QDialog):
 
         # Re-injeta o HTML com a nova cor do título
         self.texto_novidades.setHtml(f"""
-            <h2 style='color: {cor_titulo};'>O que há de novo!</h2>
-            <ul>
-                <li><b>Funcionalidade 1:</b> Descrição da melhoria.</li>
-                <li><b>Funcionalidade 2:</b> Nova opção adicionada.</li>
-                <li><b>Correções:</b> Melhorias de estabilidade geral.</li>
+            <h2 style='color: {cor_titulo};'>O que há de novo na v.7.3.0!</h2>
+
+            <p style='font-size: 11pt;'>Novo módulo de <b>Análise de Conteúdo</b> com suporte a detecção fiscal.</p>
+
+            <ul style='line-height: 1.4;'>
+                <li><b>Busca de Notas Fiscais Brasileiras:</b> Novo recurso que rastreia, valida (Módulo 11, CNPJ, UF e Modelo) e extrai chaves de acesso padrão SEFAZ (NF-e, CT-e, MDF-e, NFC-e, etc.).</li>
+                <br>
+                <li><b style='color: #d9534f;'>⚠️ Ativação Manual Necessária:</b> Para não impactar a velocidade das extrações de rotina, esta função <u>não vem ativada por padrão</u>. Você deve marcá-la/desmarcá-la manualmente na seção "Análise de Conteúdo" da interface principal.</li>
+                <br>
+                <li><b>Arquivos Analisados:</b> O motor realiza a varredura interna (mesmo que a extensão esteja disfarçada) em arquivos PDF (DANFE), planilhas (XLSX), documentos (DOCX), XML, EML, MSG e arquivos de texto em geral (TXT, CSV, JSON, LOG).</li>
+                <br>
+                <li><b>Exportação Consolidada:</b> Ao detectar chaves válidas, o programa traduz e desmembra os dados, permitindo exportar uma planilha estruturada (<b>.csv compatível com Excel</b>) contendo as seguintes colunas separadas: <i>Arquivo de Origem, Chave de Acesso, UF, Mês/Ano, CNPJ do Emitente, Modelo da Nota, Série e Número da Nota</i>.</li>
             </ul>
         """)
 
