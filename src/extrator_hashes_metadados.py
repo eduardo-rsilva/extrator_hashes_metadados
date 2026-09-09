@@ -7781,7 +7781,7 @@ class JanelaHashes(QWidget):
 
     def abrir_manual_online(self):
         import webbrowser
-        webbrowser.open("https://github.com/eduardo-rsilva/extrator_hashes_metadados/blob/master/MANUAL.md")
+        webbrowser.open("https://eduardo-rsilva.github.io/extrator_hashes_metadados/MANUAL.html")
 
     def mostrar_formatos(self):
         dialog = QDialog(self)
