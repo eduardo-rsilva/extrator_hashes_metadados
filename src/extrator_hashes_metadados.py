@@ -39,7 +39,7 @@
 
 """
 Extrator de Hashes e Metadados (ERS-IC/SP-NIC)
-Versão: 7.3.0
+Versão: 7.3.1
 Desenvolvedor: Eduardo Rodrigues da Silva
 Contato: rodrigues.ers@policiacientifica.sp.gov.br
 
@@ -60,7 +60,7 @@ import ctypes
 
 # --- INFORMAÇÕES DO PROGRAMA ---
 NOME_APP = "Extrator de Hashes e Metadados (ERS-IC/SP-NIC)"
-VERSAO_APP = "7.3.0"
+VERSAO_APP = "7.3.1"
 DESENVOLVEDOR = "Eduardo Rodrigues da Silva"
 EMAIL_CONTATO = "rodrigues.ers@policiacientifica.sp.gov.br"
 USUARIO = "eduardo-rsilva"
@@ -3063,7 +3063,7 @@ class JanelaNovidades(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Novidades da Versão")
-        self.resize(750, 550)
+        self.resize(750, 600)
 
         self.setWindowModality(Qt.WindowModality.NonModal)
 
@@ -3111,18 +3111,18 @@ class JanelaNovidades(QDialog):
 
         # Re-injeta o HTML com a nova cor do título
         self.texto_novidades.setHtml(f"""
-            <h2 style='color: {cor_titulo};'>O que há de novo na v.7.3.0!</h2>
+            <h2 style='color: {cor_titulo};'>O que há de novo na v.7.3.1!</h2>
 
-            <p style='font-size: 11pt;'>Novo módulo de <b>Análise de Conteúdo</b> com suporte a detecção fiscal.</p>
+            <p style='font-size: 11pt;'>Correção crítica no motor de leitura para diretórios profundos e caracteres especiais.</p>
 
             <ul style='line-height: 1.4;'>
-                <li><b>Busca de Notas Fiscais Brasileiras:</b> Novo recurso que rastreia, valida (Módulo 11, CNPJ, UF e Modelo) e extrai chaves de acesso padrão SEFAZ (NF-e, CT-e, MDF-e, NFC-e, etc.).</li>
+                <li><b>Fim do Erro de Caminhos Longos:</b> Corrigi um bug que afetava especificamente usuários que executavam o programa ou analisavam evidências em pastas com caminhos muito longos (que ultrapassavam o limite nativo de 260 caracteres do Windows) ou que possuíam nomes com acentuação e caracteres especiais.</li>
                 <br>
-                <li><b style='color: #d9534f;'>⚠️ Ativação Manual Necessária:</b> Para não impactar a velocidade das extrações de rotina, esta função <u>não vem ativada por padrão</u>. Você deve marcá-la/desmarcá-la manualmente na seção "Análise de Conteúdo" da interface principal.</li>
+                <li><b style='color: #d9534f;'>⚠️ O Problema Resolvido:</b> Nessas condições extremas, o sistema falhava ao carregar o banco de assinaturas e exibia a mensagem <i>"⚠️ Erro ao verificar Magic Bytes com libmagic: b'could not find any valid magic files!'"</i>.</li>
                 <br>
-                <li><b>Arquivos Analisados:</b> O motor realiza a varredura interna (mesmo que a extensão esteja disfarçada) em arquivos PDF (DANFE), planilhas (XLSX), documentos (DOCX), XML, EML, MSG e arquivos de texto em geral (TXT, CSV, JSON, LOG).</li>
+                <li><b>Garantia na Identificação Estrutural:</b> O erro acima impedia a ferramenta de inspecionar os bytes iniciais da evidência. Com isso, o programa perdia temporariamente a capacidade de descobrir o verdadeiro tipo de um arquivo caso ele estivesse com a extensão disfarçada ou adulterada.</li>
                 <br>
-                <li><b>Exportação Consolidada:</b> Ao detectar chaves válidas, o programa traduz e desmembra os dados, permitindo exportar uma planilha estruturada (<b>.csv compatível com Excel</b>) contendo as seguintes colunas separadas: <i>Arquivo de Origem, Chave de Acesso, UF, Mês/Ano, CNPJ do Emitente, Modelo da Nota, Série e Número da Nota</i>.</li>
+                <li><b>Blindagem Total:</b> O sistema de Input/Output foi totalmente reescrito para contornar as limitações do Windows. Agora, a varredura profunda (Magic Bytes) e a exportação de relatórios funcionam com 100% de estabilidade, não importando a profundidade da pasta ou a complexidade do nome do arquivo.</li>
             </ul>
         """)
 
