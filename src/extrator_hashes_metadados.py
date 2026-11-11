@@ -4952,7 +4952,7 @@ class JanelaHashes(QWidget):
         if checked:
             self.chk_metadados.setChecked(False)
 
-    TESTE_LOCAL_NOTAS_DESENVOLVIMENTO = True
+    TESTE_LOCAL_NOTAS_DESENVOLVIMENTO = False
     if TESTE_LOCAL_NOTAS_DESENVOLVIMENTO:
         def checar_notas_desenvolvedor(self):
             """Busca o arquivo notas_desenvolvimento.md LOCALMENTE (MODO DE TESTE)."""
