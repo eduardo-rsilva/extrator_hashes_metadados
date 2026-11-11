@@ -293,11 +293,9 @@ def obter_motor_magic():
     """Inicializa o libmagic apenas na primeira chamada e retorna a instância."""
     global _MOTOR_MAGIC_CACHE
 
-    # Se já foi carregado antes, devolve imediatamente
     if _MOTOR_MAGIC_CACHE is not None:
         return _MOTOR_MAGIC_CACHE
 
-    # Se não, faz a inicialização pesada (Ocorre apenas 1 vez por execução do programa)
     caminho_magic_dir = BASE_DIR / "magic"
     caminho_db = str(caminho_magic_dir / "magic.mgc")
 
@@ -309,12 +307,96 @@ def obter_motor_magic():
     magic = __import__('magic')
 
     if os.path.exists(caminho_db):
-        _MOTOR_MAGIC_CACHE = magic.Magic(magic_file=caminho_db, mime=True)
+        # Utiliza a função global para blindar o caminho contra acentos no C runtime
+        caminho_db_seguro = obter_caminho_curto_dos(caminho_db)
+        _MOTOR_MAGIC_CACHE = magic.Magic(magic_file=caminho_db_seguro, mime=True)
     else:
         _MOTOR_MAGIC_CACHE = magic.Magic(mime=True)
 
     return _MOTOR_MAGIC_CACHE
 
+
+def obter_caminho_curto_dos(caminho_absoluto: str) -> str:
+    """Converte um caminho com acentos para o formato curto (8.3) seguro para bibliotecas C/C++.
+       Suporta limite MAX_PATH e contorna quebra de pastas acentuadas que ainda não existem."""
+    if os.name != 'nt' or not caminho_absoluto:
+        return caminho_absoluto
+
+    import ctypes
+    from ctypes import wintypes
+
+    _GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+    _GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    _GetShortPathNameW.restype = wintypes.DWORD
+
+    # Normaliza e injeta o prefixo UNC nativo para blindar contra o limite MAX_PATH
+    caminho_norm = os.path.abspath(os.path.normpath(caminho_absoluto))
+
+    # Usa escape duplo tradicional (\\) em vez de raw string para evitar SyntaxError
+    if not caminho_norm.startswith('\\\\?\\') and not caminho_norm.startswith('\\\\.\\'):
+        caminho_ext = '\\\\?\\' + caminho_norm
+    else:
+        caminho_ext = caminho_norm
+
+    def extrair_curto(path_in):
+        tamanho = _GetShortPathNameW(path_in, None, 0)
+        if tamanho > 0:
+            buffer = ctypes.create_unicode_buffer(tamanho)
+            _GetShortPathNameW(path_in, buffer, tamanho)
+            res = buffer.value
+            # Remove o \\?\ pois ferramentas antigas em C++ engasgam com esse prefixo visível
+            if res.startswith('\\\\?\\'):
+                return res[4:]
+            return res
+        return None
+
+    # Caso 1: O arquivo/diretório já existe
+    if os.path.exists(caminho_norm):
+        return extrair_curto(caminho_ext) or caminho_norm
+
+    # Caso 2: O arquivo ainda será gerado (ex: destino da imagem .E01)
+    pasta_pai = os.path.dirname(caminho_ext)
+    nome_arquivo = os.path.basename(caminho_ext)
+
+    if os.path.exists(pasta_pai):
+        pasta_curta = extrair_curto(pasta_pai)
+        if pasta_curta:
+            return os.path.join(pasta_curta, nome_arquivo)
+
+    return caminho_norm
+
+
+def obter_caminho_longo(caminho_curto: str) -> str:
+    """Restaura o caminho longo e legível a partir do formato 8.3 (DOS), superando o MAX_PATH."""
+    if os.name != 'nt' or not caminho_curto:
+        return caminho_curto
+
+    import ctypes
+    from ctypes import wintypes
+
+    _GetLongPathNameW = ctypes.windll.kernel32.GetLongPathNameW
+    _GetLongPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    _GetLongPathNameW.restype = wintypes.DWORD
+
+    caminho_norm = os.path.abspath(os.path.normpath(caminho_curto))
+
+    # Injeta o prefixo UNC para burlar o limite de 260 caracteres do Windows
+    if not caminho_norm.startswith('\\\\?\\') and not caminho_norm.startswith('\\\\.\\'):
+        caminho_ext = '\\\\?\\' + caminho_norm
+    else:
+        caminho_ext = caminho_norm
+
+    tamanho = _GetLongPathNameW(caminho_ext, None, 0)
+    if tamanho > 0:
+        buffer = ctypes.create_unicode_buffer(tamanho)
+        _GetLongPathNameW(caminho_ext, buffer, tamanho)
+        res = buffer.value
+        # Remove o prefixo \\?\ antes de devolver para a interface ficar limpa
+        if res.startswith('\\\\?\\'):
+            return res[4:]
+        return res
+
+    return caminho_norm
 
 
 ICON_PATH = str(BASE_DIR / "app.ico")
@@ -1230,8 +1312,8 @@ def verificar_integridade_automatica(caminho_imagem_e01, hash_sha256_log):
     if not caminho_ewfverify:
         return False, "   ⚠️ Erro: O executável 'ewfverify.exe' não foi localizado. Validação automática pulada."
 
-    # LIMPEZA DO CAMINHO: Força o uso estrito de barras invertidas (\) e resolve o caminho absoluto
-    caminho_limpo = os.path.normpath(os.path.abspath(caminho_imagem_e01))
+    caminho_ewfverify = obter_caminho_curto_dos(caminho_ewfverify)
+    caminho_limpo = obter_caminho_curto_dos(caminho_imagem_e01)
     comando_str = f'"{caminho_ewfverify}" -d md5,sha256 "{caminho_limpo}"'
 
     # Arquivo temporário para guardar a saída do terminal
@@ -1290,6 +1372,9 @@ def executar_aquisicao_e01_ewf(device_path, caminho_destino, metadados):
     caminho_ewf = obter_caminho_ewfacquire()
     if not caminho_ewf:
         raise FileNotFoundError("O executável 'ewfacquire.exe' não foi localizado.")
+
+    caminho_ewf = obter_caminho_curto_dos(caminho_ewf)
+    caminho_destino = obter_caminho_curto_dos(caminho_destino)
 
     # ---> VALIDAÇÃO PREVENTIVA DE ESPAÇO (Formato E01) <---
     # Captura o tamanho bruto da origem usando a API de baixo nível do programa
@@ -1542,6 +1627,8 @@ def detectar_ads_windows(caminho_arquivo):
     if os.name != 'nt':
         return []
 
+    caminho_seguro = obter_caminho_curto_dos(caminho_arquivo)
+
     streams_ocultos = []
 
     # Estrutura WIN32_FIND_STREAM_DATA da API do Windows
@@ -1578,7 +1665,7 @@ def detectar_ads_windows(caminho_arquivo):
 
     # Inicia a busca por streams no arquivo
     handle = kernel32.FindFirstStreamW(
-        wintypes.LPCWSTR(caminho_arquivo),
+        wintypes.LPCWSTR(caminho_seguro),
         FindExInfoStandard,
         ctypes.byref(find_data),
         0
@@ -2281,8 +2368,10 @@ class WorkerExtracao(QThread):
 
     # noinspection PyTypeChecker
     def _obter_metadados_e_hashes_worker(self, caminho_arquivo, algos_selecionados, extrair_metadados=False, extrair_nfe=False) -> dict[str, Any]:
+        caminho_seguro = obter_caminho_curto_dos(caminho_arquivo)
+
         try:
-            stat_info = os.lstat(caminho_arquivo)
+            stat_info = os.lstat(caminho_seguro)
             if os.name == 'nt':
                 # 1. BLOQUEIO NUVEM MICROSOFT
                 if hasattr(stat_info, 'st_file_attributes'):
@@ -2356,7 +2445,7 @@ class WorkerExtracao(QThread):
             cabecalho_hex_pre_calculado = "VAZIO"
 
             try:
-                with open(caminho_arquivo, 'rb') as f:
+                with open(caminho_seguro, 'rb') as f:
                     if os.name == 'nt' and tamanho_bytes > 0:
                         try:
                             msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
@@ -2422,7 +2511,7 @@ class WorkerExtracao(QThread):
                 try:
                     motor_magic = obter_motor_magic()
                     # Lê os bytes pelo Python para evitar bug de encoding de caminho do libmagic no Windows
-                    with open(caminho_arquivo, 'rb') as f_magic:
+                    with open(caminho_seguro, 'rb') as f_magic:
                         cabecalho_magic = f_magic.read(2048)
                     mime_real = motor_magic.from_buffer(cabecalho_magic).lower()
                 except Exception as e:
@@ -2476,6 +2565,8 @@ class WorkerExtracao(QThread):
             return {'sucesso': False, 'erro': repr(e)}
 
     def _extrair_dados_nfe(self, caminho_arquivo, mime_real=None):
+        caminho_seguro = obter_caminho_curto_dos(caminho_arquivo)
+
         """Busca Número e Chave de Acesso de Notas Fiscais mapeando o formato real (Magic Bytes)."""
         extensao_original = str(caminho_arquivo).lower().split('.')[-1]
         extensao_operacional = extensao_original
@@ -2498,7 +2589,7 @@ class WorkerExtracao(QThread):
             # 1. EXTRAÇÃO DE TEXTO BRUTO (Todos os formatos)
             # ==========================================
             if extensao_operacional == 'pdf' and HAS_PYPDF:
-                reader = PdfReader(caminho_arquivo)
+                reader = PdfReader(caminho_seguro)
                 for page in reader.pages:
                     txt = page.extract_text()
                     if txt: texto_bruto += txt + " "
@@ -2509,7 +2600,7 @@ class WorkerExtracao(QThread):
 
             elif extensao_operacional == 'docx':
                 try:
-                    with zipfile.ZipFile(caminho_arquivo) as z:
+                    with zipfile.ZipFile(caminho_seguro) as z:
                         xml_content = z.read('word/document.xml')
                         tree = ET.fromstring(xml_content)
                         textos = [node.text for node in tree.iter() if node.tag.endswith('}t') and node.text]
@@ -2532,7 +2623,7 @@ class WorkerExtracao(QThread):
                 codificacoes = ['utf-8', 'utf-16', 'cp1252', 'latin-1']
                 for cod in codificacoes:
                     try:
-                        with open(caminho_arquivo, 'r', encoding=cod) as f:
+                        with open(caminho_seguro, 'r', encoding=cod) as f:
                             texto_bruto = f.read()
                         break
                     except UnicodeDecodeError:
@@ -2649,6 +2740,9 @@ class WorkerExtracao(QThread):
         return int(cnpj[13]) == dv_2
 
     def run(self):
+        # Isso garante que a interface, o log, as coordenadas e os duplicados fiquem com o nome bonito
+        self.lista_arquivos = [obter_caminho_longo(arq) for arq in self.lista_arquivos]
+        
         total_arquivos = len(self.lista_arquivos)
         validador = None
         qtd_validados = qtd_nao_validados = qtd_alertas_parciais = 0
@@ -5227,6 +5321,9 @@ class JanelaHashes(QWidget):
 
             pasta_temp = tempfile.gettempdir()
             caminho_zip = os.path.join(pasta_temp, f"extrator_update_{nova_versao_numeros}.zip")
+
+            pasta_extracao = obter_caminho_curto_dos(pasta_extracao)
+            caminho_zip = obter_caminho_curto_dos(caminho_zip)
 
             # 1. Baixar
             self.texto_saida.append("📥 1/3 - Baixando a nova versão do GitHub...")
@@ -7895,6 +7992,12 @@ class JanelaHashes(QWidget):
 
     # --- EXTRAÇÃO AVANÇADA DE METADADOS ---
     def obter_metadados_avancados(self, caminho_arquivo, extrair_raw=False, mime_pre_calculado=None, cabecalho_hex_pre_calculado=None):
+        # 1. Salva o nome original intacto para usar nas heurísticas de texto e exibição
+        nome_arquivo_original = os.path.basename(caminho_arquivo)
+
+        # 2. Sobrescreve a variável principal para que TODAS as bibliotecas abaixo leiam com segurança
+        caminho_arquivo = obter_caminho_curto_dos(caminho_arquivo)
+
         """Distribui o arquivo para o extrator correto baseado na extensão."""
         metadados_extras = []
         raw_dump = []
@@ -8095,7 +8198,7 @@ class JanelaHashes(QWidget):
         # -----------------------------------------------------
 
         # --- ANÁLISE HEURÍSTICA DE NOME DE ARQUIVO (LAVAGEM DE METADADOS) ---
-        nome_base = os.path.basename(caminho_arquivo).lower()
+        nome_base = nome_arquivo_original.lower()
         plataforma_detectada = None
         padrao_encontrado = None
 
@@ -8233,7 +8336,7 @@ class JanelaHashes(QWidget):
 
 
                 except subprocess.TimeoutExpired:
-                    nome_arq = os.path.basename(caminho_arquivo)
+                    nome_arq = nome_arquivo_original
                     metadados_extras.append(f"⚠️ EXIFTOOL ABORTADO: Tempo limite de {max_wait_time}s excedido (Prevenção de travamento).")
                     metadados_extras.append("   ↳ O arquivo é muito grande ou complexo para processamento em lote.")
                     metadados_extras.append("   ↳ ORIENTAÇÃO PERICIAL: Realize a extração manualmente. Abra o CMD/PowerShell na pasta do arquivo e execute:")
@@ -8441,7 +8544,7 @@ class JanelaHashes(QWidget):
             if not HAS_PYMEDIAINFO or extrair_raw:
                 if HAS_CV2:
                     try:
-                        cap = cv2.VideoCapture(caminho_arquivo)
+                        cap = cv2.VideoCapture(obter_caminho_curto_dos(caminho_arquivo))
                         if cap.isOpened():
                             largura = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                             altura = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -9328,10 +9431,12 @@ class JanelaHashes(QWidget):
         return metadados_extras, extensao_falsa_detectada
 
     def obter_metadados_e_hashes(self, caminho_arquivo, algos_selecionados, extrair_metadados=False):
+        caminho_seguro = obter_caminho_curto_dos(caminho_arquivo)
+
         try:
             # --- PROTEÇÃO FORENSE: BLOQUEIO DE ARQUIVOS EM NUVEM E ACESSO ---
             # Usa o lstat seguro no lugar do stat antigo
-            stat_info = os.lstat(caminho_arquivo)
+            stat_info = os.lstat(caminho_seguro)
 
             if os.name == 'nt':
                 try:
@@ -9465,7 +9570,7 @@ class JanelaHashes(QWidget):
             tamanho_chunk = 65536
 
             try:
-                with open(caminho_arquivo, 'rb') as f:
+                with open(caminho_seguro, 'rb') as f:
                     # --- INÍCIO DO FILE LOCK ---
                     if os.name == 'nt' and tamanho_bytes > 0:  # Só tranca se tiver conteúdo
                         try:
@@ -9540,7 +9645,7 @@ class JanelaHashes(QWidget):
                 try:
                     motor_magic = obter_motor_magic()
                     # Lê os bytes pelo Python para evitar bug de encoding de caminho do libmagic no Windows
-                    with open(caminho_arquivo, 'rb') as f_magic:
+                    with open(caminho_seguro, 'rb') as f_magic:
                         cabecalho_magic = f_magic.read(2048)
                     mime_real = motor_magic.from_buffer(cabecalho_magic).lower()
                 except Exception as e:
@@ -9806,8 +9911,9 @@ class JanelaHashes(QWidget):
         )
 
         if caminho_salvar:
+            caminho_salvar_seguro = obter_caminho_curto_dos(caminho_salvar)
             try:
-                with open(caminho_salvar, 'w', encoding='utf-8') as f:
+                with open(caminho_salvar_seguro, 'w', encoding='utf-8') as f:
                     f.write(conteudo)
 
                 # Feedback visual rápido de sucesso no botão
@@ -9826,7 +9932,10 @@ class JanelaHashes(QWidget):
             try:
                 # Puxa o conteúdo exato que está na memória
                 conteudo = "\n".join(self._relatorio_memoria)
-                with open(self._raw_caminho_relatorio_auto, 'w', encoding='utf-8') as f:
+
+                caminho_seguro = obter_caminho_curto_dos(self._raw_caminho_relatorio_auto)
+
+                with open(caminho_seguro, 'w', encoding='utf-8') as f:
                     f.write(conteudo)
 
                 msg = f"\n💾 Relatório completo salvo automaticamente em:\n ↳ {self._raw_caminho_relatorio_auto}"
@@ -9937,7 +10046,7 @@ class JanelaHashes(QWidget):
 
             try:
                 # 1. Usa o lstat seguro em vez do falho os.path.isdir()
-                st_origem = os.lstat(caminho_origem)
+                st_origem = os.lstat(obter_caminho_curto_dos(caminho_origem))
                 if stat.S_ISDIR(st_origem.st_mode) and os.path.dirname(caminho_origem) == caminho_origem:
                     info_drive = obter_info_volume(caminho_origem)
             except OSError:
@@ -9950,7 +10059,7 @@ class JanelaHashes(QWidget):
 
             try:
                 # 2. Lê a "casca" do item SEM engatilhar o download em nuvem
-                st_caminho = os.lstat(caminho)
+                st_caminho = os.lstat(obter_caminho_curto_dos(caminho))
             except OSError:
                 continue  # Pula silenciosamente se não tiver permissão para ler
 
@@ -9959,17 +10068,19 @@ class JanelaHashes(QWidget):
                 arquivos_encontrados.append(caminho)
             elif stat.S_ISDIR(st_caminho.st_mode):
                 if incluir_sub:
-                    for raiz, _, arquivos in os.walk(caminho):
+                    # O os.walk no Python 3 moderno lida bem com caminhos longos sozinho
+                    # se o Windows 10 tiver a key de LongPaths ativada, mas para prevenir falhas:
+                    for raiz, _, arquivos in os.walk(obter_caminho_curto_dos(caminho)):
                         for arquivo in arquivos:
                             # os.walk já é seguro nativamente ao separar as listas
                             caminho_completo = os.path.normpath(os.path.join(raiz, arquivo))
                             arquivos_encontrados.append(caminho_completo)
                 else:
-                    for item in os.listdir(caminho):
+                    for item in os.listdir(obter_caminho_curto_dos(caminho)):
                         caminho_completo = os.path.normpath(os.path.join(caminho, item))
                         try:
                             # 4. Proteção contra download de arquivo em nuvem ao olhar o que tem dentro da pasta raiz
-                            st_item = os.lstat(caminho_completo)
+                            st_item = os.lstat(obter_caminho_curto_dos(caminho_completo))
                             if stat.S_ISREG(st_item.st_mode):
                                 arquivos_encontrados.append(caminho_completo)
                         except OSError:
@@ -10569,6 +10680,8 @@ class JanelaHashes(QWidget):
         if not caminho_salvar:
             return
 
+        caminho_salvar_seguro = obter_caminho_curto_dos(caminho_salvar)
+
         # Formatação segura para o My Maps (Bullet points em linha única para não grudar)
         nome_doc = f"Pontos - {dados_kml['caso']} ({dados_kml['laudo']})"
         desc_doc = f"Laudo: {dados_kml['laudo']} • Operação: {dados_kml['caso']} • Usuário: {dados_kml['perito']} • Descrição: {dados_kml['descricao']}"
@@ -10597,7 +10710,7 @@ class JanelaHashes(QWidget):
         kml_content.append('</Document></kml>')
 
         try:
-            with open(caminho_salvar, 'w', encoding='utf-8') as f:
+            with open(caminho_salvar_seguro, 'w', encoding='utf-8') as f:
                 # Junta tudo sem quebras de linha
                 f.write("".join(kml_content))
             QMessageBox.information(self, "Sucesso", "Arquivo KML de pontos gerado com sucesso!")
@@ -10631,6 +10744,8 @@ class JanelaHashes(QWidget):
 
         if not caminho_salvar:
             return
+
+        caminho_salvar_seguro = obter_caminho_curto_dos(caminho_salvar)
 
         # =========================================================
         # INTELIGÊNCIA ESPACIAL: ORDENAÇÃO ANGULAR PARA PERÍMETRO
@@ -10683,7 +10798,7 @@ class JanelaHashes(QWidget):
         kml_content.append('</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>')
 
         try:
-            with open(caminho_salvar, 'w', encoding='utf-8') as f:
+            with open(caminho_salvar_seguro, 'w', encoding='utf-8') as f:
                 # Junta tudo sem quebras de linha
                 f.write("".join(kml_content))
             QMessageBox.information(self, "Sucesso", "Arquivo KML de polígono gerado com perímetro organizado!")
@@ -11010,6 +11125,8 @@ if __name__ == "__main__":
         nome_arquivo = f"crash_log_{str_arquivo_data}.txt"
         caminho_log = BASE_DIR / nome_arquivo
 
+        caminho_log_seguro = obter_caminho_curto_dos(str(caminho_log))
+
         # 3. Extrai a trilha completa do erro
         log_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
 
@@ -11032,7 +11149,7 @@ if __name__ == "__main__":
 
         # 5. Salva o arquivo fisicamente (usamos 'w' para criar um arquivo novo e limpo por crash)
         try:
-            with open(caminho_log, "w", encoding="utf-8") as f:
+            with open(caminho_log_seguro, "w", encoding="utf-8") as f:
                 f.write(texto_log)
         except Exception:
             pass  # Se o próprio sistema de log falhar por falta de permissão, ignoramos para não criar um loop de erros
